@@ -35,6 +35,18 @@ describe("dependency direction ESLint rule", () => {
     expect(violations[0]?.severity).toBe(2);
   });
 
+  it("allows core layer to import @quire/config/eslint", async () => {
+    const eslint = createLayerEslint("core");
+
+    const results = await eslint.lintText(
+      "import { createQuireEslintConfig } from '@quire/config/eslint';\n",
+      { filePath: "eslint.config.js" },
+    );
+
+    const violations = restrictedImportMessages(results[0]?.messages ?? []);
+    expect(violations).toHaveLength(0);
+  });
+
   it("allows domain layer to import @quire/core", async () => {
     const eslint = createLayerEslint("domain");
 

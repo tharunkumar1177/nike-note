@@ -49,9 +49,9 @@ function createDependencyDirectionConfig(layer) {
           paths: APP_IMPORT_PATHS,
           patterns: [
             {
-              group: ["@quire/*"],
+              group: ["@quire/*", "!@quire/config"],
               message:
-                "packages/core must not import any @quire/* package.",
+                "packages/core must not import @quire/* packages; only @quire/config tooling is allowed.",
             },
           ],
         },
@@ -150,6 +150,12 @@ export function createQuireEslintConfig(options) {
     },
     eslint.configs.recommended,
     ...tseslint.configs.recommended,
+    {
+      rules: {
+        // TypeScript (and checkJs) already report undefined identifiers.
+        "no-undef": "off",
+      },
+    },
     createDependencyDirectionConfig(validatedLayer),
     ...extensions,
   );

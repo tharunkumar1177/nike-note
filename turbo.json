@@ -6,14 +6,16 @@
       "dependsOn": ["^build"]
     },
     "test": {
-      "dependsOn": ["^build"]
+      "dependsOn": ["^build"],
+      "env": ["DATABASE_URL", "REDIS_URL"]
     },
     "build": {
       "dependsOn": ["^build"],
       "outputs": [".next/**", "!.next/cache/**", "dist/**"]
     },
     "e2e": {
-      "dependsOn": ["build"]
+      "dependsOn": ["build"],
+      "passThroughEnv": ["CI"]
     }
   }
 }
