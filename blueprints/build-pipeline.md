@@ -21,6 +21,9 @@ No workflow or scaffold exists yet. Owned by ROADMAP slice 1.
 ## Local rules and implications
 
 - Jobs: `guard` (forbidden word) → `install` → `lint`, `typecheck`, `test` (parallel) → `build` → `e2e`.
+- TypeScript is pinned to the newest release that satisfies the `typescript-eslint` peer range (6.0.x as of 2026-09-30; the native 7.x compiler is outside that range). Check the peer range before bumping.
+- Workspace convention: every `packages/*` library (except `packages/config`, which ships plain JS and JSON) builds with `tsc` to `dist/` and exposes `exports` with `types` and `default` pointing into `dist/`. Node apps build with `tsc` to `dist/` and run `node dist/index.js`. Turborepo `build`, `typecheck`, and `test` depend on upstream `^build`.
+- Every workspace has an `eslint.config.js` calling `createQuireEslintConfig({ layer })` from `@quire/config/eslint` with its layer: `core` for `packages/core`; `domain` for `packages/db`, `packages/editor`, `packages/ui`; `tooling` for `packages/config`; `app` for `apps/*`. Scripts: `lint` = `eslint .`, `typecheck` = `tsc --noEmit`, `test` = `vitest run`.
 - Turborepo caches task outputs; CI uses `turbo run <task>` so only affected workspaces rebuild.
 - Every app must build with no environment secrets other than those provided to CI; missing required env fails fast at startup, not at build.
 - The skeleton ships a real, minimal Quire landing route in `apps/web` and health endpoints in `apps/realtime` and `apps/worker`, each covered by a test.

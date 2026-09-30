@@ -1,0 +1,19 @@
+{
+  "name": "@quire/root",
+  "private": true,
+  "packageManager": "pnpm@12.8.1",
+  "engines": {
+    "node": "24.21.0"
+  },
+  "scripts": {
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "build": "turbo run build",
+    "e2e": "turbo run e2e"
+  },
+  "devDependencies": {
+    "turbo": "2.11.5",
+    "typescript": "6.0.3"
+  }
+}
