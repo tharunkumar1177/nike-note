@@ -7,16 +7,24 @@ import { defineConfig, mergeConfig } from "vitest/config";
  * @returns {import('vitest/config').UserConfig}
  */
 export function createVitestConfig(overrides = {}) {
+  const { test: testOverrides = {}, ...restOverrides } = overrides;
+  const {
+    include = ["**/*.{test,spec}.{ts,tsx,js,mjs}"],
+    ...remainingTestOverrides
+  } = testOverrides;
+
   const base = defineConfig({
     test: {
       environment: "node",
-      include: ["**/*.{test,spec}.{ts,tsx,js,mjs}"],
+      include,
+      exclude: ["**/node_modules/**", "**/dist/**", "**/e2e/**"],
       passWithNoTests: true,
       restoreMocks: true,
+      ...remainingTestOverrides,
     },
   });
 
-  return mergeConfig(base, overrides);
+  return mergeConfig(base, restOverrides);
 }
 
 export default createVitestConfig();

@@ -65,8 +65,7 @@ function createDependencyDirectionConfig(layer) {
           paths: APP_IMPORT_PATHS,
           patterns: [
             {
-              group: ["@quire/*"],
-              allow: ["@quire/core", "@quire/config"],
+              group: ["@quire/*", "!@quire/core", "!@quire/config"],
               message:
                 "This package may import only @quire/core and @quire/config.",
             },
@@ -82,8 +81,7 @@ function createDependencyDirectionConfig(layer) {
           paths: APP_IMPORT_PATHS,
           patterns: [
             {
-              group: ["@quire/*"],
-              allow: ["@quire/config"],
+              group: ["@quire/*", "!@quire/config"],
               message:
                 "Packages may import only @quire/config for shared tooling.",
             },

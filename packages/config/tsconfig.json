@@ -2,7 +2,15 @@
   "extends": "./tsconfig/node.json",
   "compilerOptions": {
     "rootDir": ".",
-    "types": ["node"]
+    "types": ["node"],
+    "allowJs": true,
+    "checkJs": true
   },
-  "include": ["eslint.config.js", "eslint/**/*.js", "vitest/**/*.js", "tests/**/*.ts"]
+  "include": [
+    "eslint.config.js",
+    "eslint/**/*.js",
+    "vitest/**/*.js",
+    "guard/**/*.js",
+    "tests/**/*.ts"
+  ]
 }

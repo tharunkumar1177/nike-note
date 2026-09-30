@@ -7,9 +7,18 @@
     "./tsconfig/base.json": "./tsconfig/base.json",
     "./tsconfig/nextjs.json": "./tsconfig/nextjs.json",
     "./tsconfig/node.json": "./tsconfig/node.json",
-    "./eslint": "./eslint/index.js",
-    "./vitest": "./vitest/index.js",
-    "./guard": "./guard/forbidden-word.js"
+    "./eslint": {
+      "types": "./eslint/index.d.ts",
+      "default": "./eslint/index.js"
+    },
+    "./vitest": {
+      "types": "./vitest/index.d.ts",
+      "default": "./vitest/index.js"
+    },
+    "./guard": {
+      "types": "./guard/forbidden-word.d.ts",
+      "default": "./guard/forbidden-word.js"
+    }
   },
   "scripts": {
     "lint": "eslint .",
