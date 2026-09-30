@@ -108,22 +108,7 @@ jobs:
     env:
       DATABASE_URL: postgres://quire:quire@localhost:5432/quire
       REDIS_URL: redis://localhost:6379
-      S3_ENDPOINT: http://localhost:9000
-      AWS_ACCESS_KEY_ID: quire-ci
-      AWS_SECRET_ACCESS_KEY: quire-ci-secret
     steps:
-      - name: Start MinIO
-        run: |
-          docker run -d --name minio -p 9000:9000 \
-            -e MINIO_ROOT_USER="$AWS_ACCESS_KEY_ID" \
-            -e MINIO_ROOT_PASSWORD="$AWS_SECRET_ACCESS_KEY" \
-            minio/minio:latest server /data
-          for i in $(seq 1 30); do
-            if curl -sf http://localhost:9000/minio/health/live; then exit 0; fi
-            sleep 2
-          done
-          docker logs minio
-          exit 1
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
       - uses: actions/download-artifact@v8

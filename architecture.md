@@ -23,7 +23,7 @@ External actors and services:
 | Browser user | Signed-in member or guest, or anonymous viewer of a published page |
 | Google OAuth | Optional sign-in provider |
 | Resend | Transactional email (sign-in codes, invites, notifications) |
-| S3-compatible object store | Uploaded files, covers, export archives (MinIO in CI, S3 in production) |
+| S3-compatible object store | Uploaded files, covers, export archives (S3 in production; CI emulator chosen with the files slice) |
 | Vercel | Hosts `apps/web` |
 | Fly.io | Hosts `apps/realtime` and `apps/worker` |
 | GitHub Actions | Sole build, test, and verification authority |
@@ -140,7 +140,7 @@ Committed transactions enqueue an index job; the worker updates a Postgres `tsve
 
 - Node.js active LTS (pinned in `.nvmrc`), pnpm (pinned via `packageManager`), TypeScript strict mode.
 - Lockfiles are produced by CI, never hand-written.
-- GitHub Actions runs: install, forbidden-word check, lint, type-check, unit and integration tests (Vitest, with Postgres, Redis, and MinIO service containers), build, and Playwright end-to-end tests.
+- GitHub Actions runs: install, forbidden-word check, lint, type-check, unit and integration tests (Vitest, with Postgres and Redis service containers, plus an S3-compatible container once file storage ships), build, and Playwright end-to-end tests.
 - No local runtime: code is working only when its CI run is green.
 
 ## Verification boundaries

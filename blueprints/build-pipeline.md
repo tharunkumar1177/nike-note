@@ -16,11 +16,13 @@ No workflow or scaffold exists yet. Owned by ROADMAP slice 1.
 - [Component model](../architecture.md#component-model): the scaffold creates the listed `apps/*` and `packages/*` workspaces so later slices only add code.
 - [Dependency direction](../architecture.md#dependency-direction): lint configuration rejects imports that violate the direction rules.
 - [Toolchain and CI](../architecture.md#toolchain-and-ci): pinned Node and pnpm; lockfile generated in CI and committed through a follow-up commit or artifact, never hand-written.
-- [Verification boundaries](../architecture.md#verification-boundaries): the workflow provides Postgres, Redis, and MinIO service containers and a Playwright job, even when early suites are small.
+- [Verification boundaries](../architecture.md#verification-boundaries): the workflow provides Postgres and Redis service containers (object storage is added with the files slice) and a Playwright job, even when early suites are small.
 
 ## Local rules and implications
 
 - Jobs: `guard` (forbidden word) → `install` → `lint`, `typecheck`, `test` (parallel) → `build` → `e2e`.
+- pnpm enforces a one-day `minimumReleaseAge`. Pin only versions published at least 24 hours before the CI run; the policy stays on.
+- Dependencies with install scripts must be listed under `allowBuilds` in `pnpm-workspace.yaml`.
 - TypeScript is pinned to the newest release that satisfies the `typescript-eslint` peer range (6.0.x as of 2026-09-30; the native 7.x compiler is outside that range). Check the peer range before bumping.
 - Workspace convention: every `packages/*` library (except `packages/config`, which ships plain JS and JSON) builds with `tsc` to `dist/` and exposes `exports` with `types` and `default` pointing into `dist/`. Node apps build with `tsc` to `dist/` and run `node dist/index.js`. Turborepo `build`, `typecheck`, and `test` depend on upstream `^build`.
 - Every workspace has an `eslint.config.js` calling `createQuireEslintConfig({ layer })` from `@quire/config/eslint` with its layer: `core` for `packages/core`; `domain` for `packages/db`, `packages/editor`, `packages/ui`; `tooling` for `packages/config`; `app` for `apps/*`. Scripts: `lint` = `eslint .`, `typecheck` = `tsc --noEmit`, `test` = `vitest run`.
@@ -57,4 +59,5 @@ Planned paths (not yet present):
 ## Remaining gaps and unknowns
 
 - How the CI-generated lockfile gets committed (bot commit vs. manual follow-up) is decided in the slice 1 plan.
+- The S3-compatible CI container is not yet provisioned: the `minio/minio` Docker Hub image is no longer pullable. The files and media slice picks the emulator image and adds it to the test job.
 - Deploy workflows (Vercel, Fly.io) are out of scope until a deploy slice is scheduled.
