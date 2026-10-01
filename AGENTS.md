@@ -17,28 +17,39 @@ This file has two parts. **Guardrails** bind every agent, including subagents. *
 
 ## Orchestrator (main agent only)
 
-You are the orchestrator. You plan, delegate, integrate, and verify. You don't do the specialists' work: implementation goes to subagents, and you keep your own context for coordination.
+You implement. Subagents research, plan, design, and diagnose so your context stays on the code.
 
 ### Team
 
 | Subagent | Use for | Access |
 | --- | --- | --- |
-| `researcher` | How the reference product or current code works | read-only |
+| `researcher` | How the reference product or unfamiliar code works | read-only |
 | `architect` | Stack, data model, contracts, slice plans | read-only |
-| `designer` | UI, workflows, design system, front-end code | write |
-| `coder` | Logic, APIs, data layer, integrations, tests, CI fixes | write |
+| `designer` | UI, UX workflows, and design plans | read-only |
+| `reviewer` | Poll CI runs and diagnose root causes of failures | read-only |
 
 Don't call `productmind` directly. `researcher` and `designer` call it when they need user-sentiment input.
+
+### Delegation rules (mandatory)
+
+| When | Delegate to | Don't do it yourself |
+| --- | --- | --- |
+| You need facts about the reference product, web sources, or code you haven't touched | `researcher` | Web searches, broad codebase searches |
+| A slice has no approved plan, or a change crosses module boundaries | `architect` | Choosing stack, schema, or contracts |
+| Anything a user sees or interacts with changes | `designer` | Inventing layouts, styles, states, or flows |
+| You pushed a commit | `reviewer` | Reading or polling CI logs |
+
+Before each action, ask: is this research, planning, UI design, or CI diagnosis? If yes, delegate it. Never start code for a slice until its architect plan exists and, for UI, its design plan exists.
 
 ### Context budget
 
 Your context window is about 300k tokens. Treat it as the scarcest resource.
 
 - **The repository is the memory, not the chat.** Durable knowledge goes into `architecture.md`, `blueprints/`, and `ROADMAP.md`. Re-read those files instead of relying on earlier conversation.
-- **Delegate small, bounded tasks.** Never hand a subagent "build feature X" or several responsibilities at once. One delegation covers one slice step, one responsibility, and roughly 10 files or fewer changed.
+- **Delegate small, bounded tasks.** One delegation covers one question, one slice step, or one screen.
 - **Send pointers, not payloads.** In delegation prompts, reference file paths and blueprint headings. Don't paste their contents.
-- **Ask for compact returns.** Request each agent's defined output format, capped at about 400 words. Don't pull full diffs, full logs, or full research dumps into your context. Read specific files only when you need to integrate or verify them.
-- **CI logs:** read only the failing job's log (`gh run view <id> --log-failed`), and forward just the relevant excerpt.
+- **Ask for compact returns.** Request each agent's defined output format, capped at about 400 words (designer plans up to about 800). Don't pull full logs or research dumps into your context.
+- **Read only what the plan lists.** Open the files named in the architect and design plans, not their neighbors.
 - **Checkpoint:** when your context feels heavy, or at the end of each slice, update `ROADMAP.md` so a fresh session can resume from the files alone.
 
 ### Session start
@@ -60,13 +71,13 @@ Your context window is about 300k tokens. Treat it as the scarcest resource.
 Repeat for each unchecked slice in `ROADMAP.md`:
 
 1. **Scope:** pick the next slice. Load its manifest route: one primary blueprint and only its linked architecture anchors.
-2. **Plan:** delegate to `architect` for this slice only. It returns ordered steps, files affected, and acceptance criteria. If the plan changes a shared contract in `architecture.md`, get user approval first.
-3. **Research (only if needed):** delegate to `researcher` for unknowns specific to this slice.
-4. **Build:** delegate each step on its own, to `coder` for logic and data or `designer` for UI and workflows. Run independent steps in parallel only when they touch separate files. Keep dependent steps in sequence and pass the previous step's summary forward.
-5. **Integrate:** review the returned summaries and spot-check the key files for contract drift, forbidden-word leaks, and mocked data.
-6. **Verify in CI:** commit on the slice branch with a clear message, push, and watch the run (`gh run watch`).
-   - Green: continue.
-   - Red: send `coder` only the failing excerpt and the files involved. Retry at most 3 times, then stop and report the blocker to the user.
+2. **Research (only if needed):** `researcher` answers unknowns specific to this slice.
+3. **Plan:** `architect` returns ordered steps, files affected, and acceptance criteria for this slice only. If the plan changes a shared contract in `architecture.md`, get user approval first.
+4. **Design (if the slice has UI):** `designer` returns a design plan per screen or flow, one call each.
+5. **Build:** implement the plan steps in order, following the design plan exactly. If a plan is wrong or incomplete, send it back to its agent instead of improvising.
+6. **Verify in CI:** commit on the slice branch with a clear message, push, and hand the branch and run ID to `reviewer`.
+ - Green: continue.
+ - Red: fix the root causes the reviewer returned. Retry at most 3 times, then stop and report the blocker to the user.
 7. **Record:** update the slice's blueprint status and acceptance checkboxes, update the manifest if routes changed, check off the slice in `ROADMAP.md`, then open a PR and merge it once CI is green.
 8. **Report:** give the user a short slice summary: what shipped, the CI run link, and what's next.
 
@@ -79,7 +90,7 @@ Goal: <one sentence, one responsibility>
 Context: read <blueprint path> and <architecture.md#anchor>; relevant code: <paths>
 Constraints: follow AGENTS.md Guardrails (CI-only, no mocks, forbidden word, never read prompts.md)
 Acceptance: <observable criteria from the slice plan>
-Return: your standard output format, max ~400 words, no full diffs
+Return: your standard output format, compact
 ```
 
 ### Escalate to the user when

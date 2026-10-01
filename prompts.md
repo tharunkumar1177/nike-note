@@ -1,5 +1,6 @@
 Build a Notion clone, every features should exactly be like Notion but keep the project name as something else. Tech stack - for frontend I think they use Next js and figure out other stacks (come up optimal one)
 
+optimize the guardrails for AI Agent. Do not elaborate it or exaggerate it. keep it short and simple
 
 Now write Main Agent/Orchestrator.
 
@@ -8,46 +9,27 @@ keep in mind that Orchestrator should not just give the other agents a big chunk
 Github Actions CI is the only compile and Build authority, there is no local runtime. By default use Blueprints skill for  managing context. first come up with a plan and write Agent file for cursor. Build our application with aesthetics and intuitive UI. 
 
 
+architect doesn't going to run build commands, it's job is to calculate the feasibility, trade-offs and future scope for better scalability and maintainbility
+I have described the Agent requirements vaguely, coming up with best config is your job
 
 considering the following, create agent file, 
 
+
+
 # Guardrails
 
-- Don't mock up UI / data, build production grade application
-- Do not use the word 'NIKE' anywhere in the codebase or during file creation
-- use `gh-cli` to read CI logs. If you can't able to access the Github CLI, end the session and I will give you the logs of the CI (Actions)
-- Never read `prompts.md`
+- Build production-grade code only. No mocked UI or placeholder data.
+- Never write the brand word (N-I-K-E, any case) in code, files, names, or commits.
+- GitHub Actions CI is the only build authority. Nothing runs locally.
+- Read CI logs with `gh`. If `gh` is unavailable, stop and ask me for the logs.
+- Never read `prompts.md`.
+- Use the Blueprints skill to manage context.
 
-
-assemblyDebug
-
-Debug Apk vs 
 
 
 ```
 cd C:/nike-tracker; git tag -a v0.1.1 -m "v0.1.1 - debug-signed, sideloadable release APK"; git push origin v0.1.1
 ```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -77,10 +59,10 @@ git push -u origin main
 
 
 
-Is there any optimal way of installing this application that put all the core components into one installed exe.
+
 
 If there is any architectural flaws/quirks - come up with a plan. Only proceeed further if it is approved. 
-you can always propose optimal implementation than the blueprint , only proceed further if user say approved it
+you can always propose optimal implementation than in the blueprint , only proceed further if user say approved it
 
 This project right now has many flaws, a lot features / functionalities isn't working as expected. instead of directly editing it, ask questions of "how it could have been implemented better?" or "Stick with the existing system."
 
@@ -91,37 +73,37 @@ For [clean up for browser, system, temp files and so on] clearing system-level f
 
 
 
-and installs a network-routing driver (sometimes needing a restart) plus the app running with admin rights.
-
-
 --------------
+we already have agents [Research, Designer, Architect, Coder]. find the opitimal model for these from the available list.
 
-
-Design specialized subagent for Cursor [Research, Designer, Architect, Coder]. Describe its role and how it should respond. Give description for each agent (cursor) and if additional property required - add them as well.
+Design specialized subagent for Cursor [ Reviewer]. Describe its role and how it should respond. Give description for each agent (cursor) and if additional property required - add them as well.
 
 ## Things to consider while create Agent config:
 
 - The Agent instruction should not be - too descriptive/ specific or too vague, It should be inbetween somewhere.
 
-- Also come up with the list of best model that are best fit that specific role. [Do web research, get data from only legit sites]
+- Also come up with the list of best model that are best fit that specific role. [Do web research, get data from only legit sites. Do not spawn subAgents for this task]
 
 - Do not exaggerate instruction for the AGENTS
+
+
+
 
 
 ## Agents 
 
 Research Agent - Research for the existing product's system, features.
 
-Designer - responsible for designing Aesthetics and intuitive UI,  UI workflows {write access}
+Designer - responsible for designing Aesthetics and intuitive UI,  UI workflows. Returns Design plan with granular details. currently it writes code
 
 Coder - writes code consider every possible edge cases
 
 Productmind - Researches [external media like relevant subreddit page, ] what existing product failed address or could have done better that speaks for the product itself. can only be called by {Designer, Research Agent}
 
 
-Reviewer - reviews code by build error check via gh-cli CI
+Reviewer - reviews code by build error check via gh-cli CI logs, polls and returns what actually causing build fails/ errors
 
-Planner - {Architect, Researcher, productmind} - comes up with a plan, proceeds further if it is approved. writes plan in md file and wait for approval
+Planner - comes up with a plan, proceeds further if it is approved. writes plan in md file and wait for approval. Planner can invoke these Agents {Architect, Researcher, productmind}
 
 
 ---
@@ -152,3 +134,29 @@ The trade-off is cost. Background agents run in parallel, and each has its own c
 
 
 subAgent - Research, review through CI logs
+
+
+--------------
+
+
+
+
+
+
+
+### SubAgent tool currently allows these models:
+
+- **Claude:** Opus 4.5 (high thinking), Sonnet 4.5 (thinking), Sonnet 4, Haiku 4.5 (thinking)
+- **GPT:** 5.1, 5.2, 5.3 Codex, 5.4 Mini, 5.4 Nano, 5 Mini
+- **Gemini:** 3.1 Pro, 3.5 Flash, 3 Flash, 2.5 Flash
+- **Others:** Kimi K3, Kimi K2.7 Code, GLM 5.2, Composer 2.5
+
+ROADMAP.md
+
+-Phases of implementation plan. It should have iterative improvement and refinement of features and workflows... with granular details 
+
+
+In the Agent Orchestration workflow, the main agent has to write code here after (No coder Agent). Do not write instructions like you will have to write code, blah blah blah. keep it short and simple and remove Coder Agent from AGENTS.md. 
+
+
+
