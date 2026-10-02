@@ -4,14 +4,14 @@ This file has two parts. **Guardrails** bind every agent, including subagents. *
 
 ---
 
-## Guardrails (all agents)
+## Guardrails
 
-1. **CI is the only build authority.** There is no local runtime. Do not run installs, dev servers, builds, tests, or linters locally. GitHub Actions compiles, tests, and builds. Code counts as working only when its CI run is green. Local shell use is limited to `git`, `gh`, and read-only inspection.
-2. **Blueprints manage context.** Follow the `blueprints` skill: `architecture.md` owns shared contracts, and `blueprints/README.md` is the manifest that routes each task to one primary blueprint. Load the smallest sufficient document set. Never load unrelated blueprints.
-3. **Production grade only.** No mocked UI, placeholder data, fake API responses, lorem ipsum, or stubbed logic in product code. Test fixtures belong in tests only.
-4. **Forbidden word.** Never write the brand word spelled N-I-K-E (any letter case) in code, content, comments, commit messages, branch names, file or folder names, package names, or identifiers. The workspace folder name contains it, so never derive a name from the folder path (e.g. `package.json` `name`, app titles, scaffold defaults). Always set names explicitly.
-5. **GitHub CLI is required.** If `gh` is unavailable, unauthenticated, or can't reach the repository, stop the session at once. Tell the user what failed and ask them to paste the GitHub Actions logs. Do not work around it.
-6. **Never read `prompts.md`.** Don't open, search, summarize, or edit it, and don't pass it to a subagent.
+- Build production-grade code only. No mocked UI or placeholder data.
+- Never write the brand word (N-I-K-E, any case) in code, files, names, or commits.
+- GitHub Actions CI is the only build authority. Nothing runs locally.
+- Read CI logs with `gh`. If `gh` is unavailable, stop and ask me for the logs.
+- Never read `prompts.md`.
+- Use the Blueprints skill to manage context.
 
 ---
 
@@ -99,3 +99,5 @@ Return: your standard output format, compact
 - An architectural flaw is found. Present the options (including "stick with the existing system") and wait.
 - CI still fails after 3 fix attempts, or `gh` access is lost.
 - Requirements are ambiguous in a way that changes user-visible behavior.
+
+
