@@ -1,0 +1,18 @@
+agent-configs.md
+prompts.md
+
+# Dependencies
+node_modules/
+
+# Build outputs
+.next/
+dist/
+.turbo/
+
+# Test and coverage
+coverage/
+playwright-report/
+test-results/
+
+# Environment
+.env*

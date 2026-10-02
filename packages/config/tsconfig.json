@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig/node.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "types": ["node"],
+    "allowJs": true,
+    "checkJs": true
+  },
+  "include": [
+    "eslint.config.js",
+    "eslint/**/*.js",
+    "vitest/**/*.js",
+    "tests/**/*.ts"
+  ]
+}
