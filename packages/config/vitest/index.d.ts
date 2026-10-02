@@ -1,6 +1,8 @@
-import type { UserConfig } from "vitest/config";
+import type { ViteUserConfig } from "vitest/config";
 
-export declare function createVitestConfig(overrides?: UserConfig): UserConfig;
+export declare function createVitestConfig(
+  overrides?: ViteUserConfig,
+): ViteUserConfig;
 
-declare const config: UserConfig;
+declare const config: ViteUserConfig;
 export default config;

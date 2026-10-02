@@ -1,7 +1,6 @@
 import eslint from "@eslint/js";
+import { defineConfig } from "eslint/config";
 import tseslint from "typescript-eslint";
-
-/** @typedef {import('typescript-eslint').InfiniteArray<import('@typescript-eslint/utils').TSESLint.FlatConfig.Config>} QuireEslintExtension */
 
 /** @typedef {'core' | 'domain' | 'tooling' | 'app'} QuireEslintLayer */
 
@@ -35,7 +34,7 @@ const APP_IMPORT_PATHS = [
  * Resolve dependency-direction rules for a workspace layer.
  *
  * @param {QuireEslintLayer} layer
- * @returns {import('@typescript-eslint/utils').TSESLint.FlatConfig.Config}
+ * @returns {import('eslint').Linter.Config}
  */
 function createDependencyDirectionConfig(layer) {
   /** @type {import('eslint').Linter.RuleEntry} */
@@ -137,14 +136,14 @@ function assertLayer(layer) {
  *
  * @param {object} options
  * @param {QuireEslintLayer} options.layer Workspace dependency layer.
- * @param {QuireEslintExtension} [options.extends] Additional flat config entries appended last.
- * @returns {ReturnType<typeof tseslint.config>}
+ * @param {import('eslint').Linter.Config[]} [options.extends] Additional flat config entries appended last.
+ * @returns {import('eslint').Linter.Config[]}
  */
 export function createQuireEslintConfig(options) {
   const validatedLayer = assertLayer(options?.layer);
   const { extends: extensions = [] } = options ?? {};
 
-  return tseslint.config(
+  return defineConfig(
     {
       ignores: ["**/dist/**", "**/.next/**", "**/node_modules/**"],
     },
