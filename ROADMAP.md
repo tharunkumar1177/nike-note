@@ -68,3 +68,4 @@ Pick the first unchecked slice. Route it through [the blueprint manifest](bluepr
 ## Checkpoint log
 
 - 2026-09-30: Phase 0 complete. Stack, name (Quire), and slice plan approved. Next: slice 1.
+- 2026-10-02: Production-readiness audit recorded in [blueprints/production-readiness.md](blueprints/production-readiness.md). Quire is not production ready; most go-live gaps have no slice yet and need a scheduling decision. Slice 1 is blocked: the guard job fails on a tracked agent prompt file.

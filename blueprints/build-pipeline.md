@@ -6,9 +6,9 @@ The monorepo scaffold and the GitHub Actions workflow that installs, checks, tes
 
 ## Current verified status
 
-**Status:** Planned
+**Status:** Partial
 
-No workflow or scaffold exists yet. Owned by ROADMAP slice 1.
+The scaffold and workflow exist on branch `slice/01-walking-skeleton` (audited 2026-10-02), but no run is green yet. GitHub Actions run `36916470966` failed in `guard` on a tracked agent prompt file, and every later job was skipped. Owned by ROADMAP slice 1.
 
 ## Architecture dependencies
 
@@ -38,15 +38,18 @@ None
 
 ### Impact checks
 
-None
+- [production-readiness](production-readiness.md) — check when a change adds or removes a CI job, a supply-chain control, or lockfile handling, because those close or open rows in its gap register.
 
 ## Relevant implementation and tests
 
-Planned paths (not yet present):
+- `.github/workflows/ci.yml` — job graph and service containers
+- `package.json`, `pnpm-workspace.yaml`, `turbo.json`, `.nvmrc` — toolchain pins and task graph
+- `packages/config/guard/forbidden-word.js` — forbidden-word scan of tracked files
+- `packages/config/tests/forbidden-word.test.ts` — pattern behavior, without committing the word
+- `packages/config/tests/dependency-direction.test.ts` — import direction rules
+- `packages/config/eslint/index.js`, `packages/config/vitest/index.js`, `packages/config/tsconfig/` — shared lint, test, and compiler config
 
-- `.github/workflows/ci.yml`
-- `package.json`, `pnpm-workspace.yaml`, `turbo.json`, `.nvmrc`
-- `packages/config`
+None of these tests has passed in CI yet.
 
 ## Acceptance or verification criteria
 
@@ -58,6 +61,9 @@ Planned paths (not yet present):
 
 ## Remaining gaps and unknowns
 
-- How the CI-generated lockfile gets committed (bot commit vs. manual follow-up) is decided in the slice 1 plan.
+- The CI-generated lockfile is uploaded as an artifact but never committed, so runs are not reproducible. How it gets committed (bot commit vs. manual follow-up) is still undecided and blocks slice 1.
+- The workflow declares no `permissions:` block and pins actions by tag rather than commit SHA.
+- No dependency audit, CodeQL, or Dependabot configuration exists.
+- `minimumReleaseAge` relies on the pnpm default and is not declared in `pnpm-workspace.yaml`.
 - The S3-compatible CI container is not yet provisioned: the `minio/minio` Docker Hub image is no longer pullable. The files and media slice picks the emulator image and adds it to the test job.
 - Deploy workflows (Vercel, Fly.io) are out of scope until a deploy slice is scheduled.
