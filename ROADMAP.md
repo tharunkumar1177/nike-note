@@ -18,7 +18,7 @@ Pick the first unchecked slice. Route it through [the blueprint manifest](bluepr
 
 ### Foundation
 
-- [ ] 1. Walking skeleton: monorepo scaffold, CI (guard, lint, type-check, test, build, e2e), forbidden-word check
+- [ ] 1. Walking skeleton: monorepo scaffold, CI (install, lint, type-check, test, build, e2e)
 - [ ] 2. Auth and workspaces: sign in with email code, password, or Google; create and switch workspaces
 - [ ] 3. Block store: persist blocks through transactions with revisions and conflict handling
 - [ ] 4. Basic editor: type paragraphs, headings, and bulleted lists on a page

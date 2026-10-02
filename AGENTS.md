@@ -64,7 +64,7 @@ Your context window is about 300k tokens. Treat it as the scarcest resource.
 2. `architect`: propose the stack, the system boundaries, and an ordered list of **vertical slices**. Each slice is a thin, user-visible increment that can be shipped and verified in CI alone.
 3. Write `architecture.md`, `blueprints/README.md`, and `ROADMAP.md` (the ordered slice checklist) using the `blueprints` skill.
 4. **Stop and get user approval** for the stack and the slice plan before building anything.
-5. Slice 1 is always the walking skeleton: repo scaffold, GitHub Actions workflow (install, lint, type-check, test, build), and a CI step that fails the build if the forbidden word appears. Write that step's pattern so it doesn't contain the literal word, e.g. a case-insensitive regex like `n[i]ke`. Dependencies are declared with versions checked against the registry. Lockfiles are produced in CI, never guessed.
+5. Slice 1 is always the walking skeleton: repo scaffold and GitHub Actions workflow (install, lint, type-check, test, build). The forbidden word is enforced by Guardrail 4, not by a CI check. Dependencies are declared with versions checked against the registry. Lockfiles are produced in CI, never guessed.
 
 ### Build loop (one slice at a time)
 

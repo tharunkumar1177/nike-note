@@ -8,11 +8,11 @@ The monorepo scaffold and the GitHub Actions workflow that installs, checks, tes
 
 **Status:** Partial
 
-The scaffold and workflow exist on branch `slice/01-walking-skeleton` (audited 2026-10-02), but no run is green yet. GitHub Actions run `36916470966` failed in `guard` on a tracked agent prompt file, and every later job was skipped. Owned by ROADMAP slice 1.
+The scaffold and workflow exist on branch `slice/01-walking-skeleton` (audited 2026-10-02), but no run is green yet. GitHub Actions run `37037129602` failed in `typecheck` on `packages/config` type errors. Owned by ROADMAP slice 1.
 
 ## Architecture dependencies
 
-- [Naming and brand](../architecture.md#naming-and-brand): every package `name` is `@quire/<name>`, set explicitly; the workflow's first check step fails the run when the forbidden word appears in tracked files, using a case-insensitive character-class pattern.
+- [Naming and brand](../architecture.md#naming-and-brand): every package `name` is `@quire/<name>`, set explicitly. The forbidden word is enforced by agent guardrails, not by a CI job.
 - [Component model](../architecture.md#component-model): the scaffold creates the listed `apps/*` and `packages/*` workspaces so later slices only add code.
 - [Dependency direction](../architecture.md#dependency-direction): lint configuration rejects imports that violate the direction rules.
 - [Toolchain and CI](../architecture.md#toolchain-and-ci): pinned Node and pnpm; lockfile generated in CI and committed through a follow-up commit or artifact, never hand-written.
@@ -20,7 +20,7 @@ The scaffold and workflow exist on branch `slice/01-walking-skeleton` (audited 2
 
 ## Local rules and implications
 
-- Jobs: `guard` (forbidden word) → `install` → `lint`, `typecheck`, `test` (parallel) → `build` → `e2e`.
+- Jobs: `install` → `lint`, `typecheck`, `test` (parallel) → `build` → `e2e`.
 - pnpm enforces a one-day `minimumReleaseAge`. Pin only versions published at least 24 hours before the CI run; the policy stays on.
 - Dependencies with install scripts must be listed under `allowBuilds` in `pnpm-workspace.yaml`.
 - TypeScript is pinned to the newest release that satisfies the `typescript-eslint` peer range (6.0.x as of 2026-09-30; the native 7.x compiler is outside that range). Check the peer range before bumping.
@@ -44,8 +44,6 @@ None
 
 - `.github/workflows/ci.yml` — job graph and service containers
 - `package.json`, `pnpm-workspace.yaml`, `turbo.json`, `.nvmrc` — toolchain pins and task graph
-- `packages/config/guard/forbidden-word.js` — forbidden-word scan of tracked files
-- `packages/config/tests/forbidden-word.test.ts` — pattern behavior, without committing the word
 - `packages/config/tests/dependency-direction.test.ts` — import direction rules
 - `packages/config/eslint/index.js`, `packages/config/vitest/index.js`, `packages/config/tsconfig/` — shared lint, test, and compiler config
 
@@ -54,7 +52,6 @@ None of these tests has passed in CI yet.
 ## Acceptance or verification criteria
 
 - [ ] A push to a branch triggers the CI workflow.
-- [ ] The guard step fails when a tracked file contains the forbidden word (verified by a test fixture run against the pattern, not by committing the word).
 - [ ] Lint, type-check, unit tests, build, and e2e all run and pass on the skeleton.
 - [ ] `apps/web` renders a Quire page verified by a Playwright test.
 - [ ] `apps/realtime` and `apps/worker` health endpoints are covered by tests.

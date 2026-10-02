@@ -10,7 +10,6 @@
     "eslint.config.js",
     "eslint/**/*.js",
     "vitest/**/*.js",
-    "guard/**/*.js",
     "tests/**/*.ts"
   ]
 }

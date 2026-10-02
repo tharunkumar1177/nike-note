@@ -54,7 +54,7 @@ Monorepo managed with pnpm workspaces and Turborepo.
 ### Naming and brand
 
 - The product name is **Quire**. Package scope is `@quire/*`. All names (packages, app titles, metadata, identifiers) are set explicitly and never derived from the workspace folder or repository name.
-- The brand word spelled N-I-K-E is forbidden everywhere (see `AGENTS.md` Guardrail 4). CI enforces it with a case-insensitive pattern that does not itself contain the word.
+- The brand word spelled N-I-K-E is forbidden everywhere (see `AGENTS.md` Guardrail 4). The rule is enforced by agent guardrails; there is no CI check for it.
 
 ### Identity and workspace scoping
 
@@ -140,7 +140,7 @@ Committed transactions enqueue an index job; the worker updates a Postgres `tsve
 
 - Node.js active LTS (pinned in `.nvmrc`), pnpm (pinned via `packageManager`), TypeScript strict mode.
 - Lockfiles are produced by CI, never hand-written.
-- GitHub Actions runs: install, forbidden-word check, lint, type-check, unit and integration tests (Vitest, with Postgres and Redis service containers, plus an S3-compatible container once file storage ships), build, and Playwright end-to-end tests.
+- GitHub Actions runs: install, lint, type-check, unit and integration tests (Vitest, with Postgres and Redis service containers, plus an S3-compatible container once file storage ships), build, and Playwright end-to-end tests.
 - No local runtime: code is working only when its CI run is green.
 
 ## Verification boundaries

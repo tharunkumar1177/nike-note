@@ -14,10 +14,6 @@
     "./vitest": {
       "types": "./vitest/index.d.ts",
       "default": "./vitest/index.js"
-    },
-    "./guard": {
-      "types": "./guard/forbidden-word.d.ts",
-      "default": "./guard/forbidden-word.js"
     }
   },
   "scripts": {

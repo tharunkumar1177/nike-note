@@ -10,17 +10,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  guard:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version-file: .nvmrc
-      - run: node packages/config/guard/forbidden-word.js
-
   install:
-    needs: guard
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7

@@ -8,7 +8,7 @@ The go-live gate: the conditions Quire must meet before it serves real users in 
 
 **Status:** Planned
 
-Audited 2026-10-02 against branch `slice/01-walking-skeleton` (commit `1856683`). Only ROADMAP slice 1 has code, and its GitHub Actions run `36916470966` is red (guard job failure; all later jobs skipped). Quire is not production ready. Already in place: the forbidden-word guard (`packages/config/guard/forbidden-word.js`), liveness `/health` routes in all three apps, SIGTERM handling in `apps/realtime/src/index.ts` and `apps/worker/src/index.ts`, `DATABASE_URL` validation in `packages/db/src/env.ts`, and `poweredByHeader: false` in `apps/web/next.config.ts`.
+Audited 2026-10-02 against branch `slice/01-walking-skeleton` (commit `1856683`). Only ROADMAP slice 1 has code, and its GitHub Actions run `36916470966` is red (guard job failure; all later jobs skipped). Quire is not production ready. Already in place: liveness `/health` routes in all three apps, SIGTERM handling in `apps/realtime/src/index.ts` and `apps/worker/src/index.ts`, `DATABASE_URL` validation in `packages/db/src/env.ts`, and `poweredByHeader: false` in `apps/web/next.config.ts`.
 
 ## Architecture dependencies
 
