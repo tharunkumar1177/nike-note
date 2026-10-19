@@ -56,7 +56,7 @@ rmdir /s /q .git
 git init
 git log --oneline
 
-echo "# Nike-op" >> README.md
+echo "# n-op" >> README.md
 git init
 git add README.md
 git commit -m "first commit"
@@ -276,10 +276,10 @@ Context7 ....`researcher` and `architect` --- checking library APIs and versions
 
 A worktree is a second working folder attached to the same git repository. Each folder has a different branch checked out, and you can edit both at the same time.
 
-Normally a repository has one folder (here `c:\nike-tracker`), and it can only show one branch at a time. Switching branches swaps the files in that folder. `git worktree add <folder> <branch>` creates another folder with a different branch checked out, and both folders share the same history, commits and remote. A commit made in either folder is immediately visible from the other, because there's only one repository underneath.
+Normally a repository has one folder (here `c:\n-tracker`), and it can only show one branch at a time. Switching branches swaps the files in that folder. `git worktree add <folder> <branch>` creates another folder with a different branch checked out, and both folders share the same history, commits and remote. A commit made in either folder is immediately visible from the other, because there's only one repository underneath.
 
 That's why I used one:
-- Another session had `c:\nike-tracker` on the `promo-video` branch.
+- Another session had `c:\n-tracker` on the `promo-video` branch.
 - I needed to work on `slice-2-project-shell` without switching branches under that session.
 - So I ran `git worktree add C:\tron-slice2 slice-2-project-shell`, which gave me a second folder showing the Slice 2 branch.
 - I committed and pushed from there, then removed it with `git worktree remove`.
@@ -316,7 +316,7 @@ The other entries are generated or vendored content where formatting doesn't mat
 
 
 
-I used a worktree because a hard reset in `c:\nike-tracker` would have caused damage there and still wouldn't have fixed the problem.
+I used a worktree because a hard reset in `c:\n-tracker` would have caused damage there and still wouldn't have fixed the problem.
 
 **What a hard reset would have done:**
 - **Deleted your staged files:** `git reset --hard` throws away everything staged. Because `README.md` and `prompts.md` were newly added and not yet committed, they would have been deleted from disk.
@@ -336,7 +336,7 @@ I used a worktree because a hard reset in `c:\nike-tracker` would have caused da
 
 No push needed reverting, because the misplaced commit (`7e56d21`) was never pushed to `promo-video`. It only existed in your local copy of the branch. My push command named `slice-2-project-shell` explicitly, and the copy of `promo-video` on GitHub stayed at `b28393c`, the other session's last promo commit. I confirmed that with `git fetch` and `git rev-parse origin/promo-video`.
 
-To remove the commit locally, I ran this in `c:\nike-tracker`:
+To remove the commit locally, I ran this in `c:\n-tracker`:
 
 ```powershell
 git reset --keep HEAD~1
