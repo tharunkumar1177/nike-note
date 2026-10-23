@@ -1,0 +1,25 @@
+{
+    "version": 1,
+    "hooks": {
+      "beforeReadFile": [
+        {
+          "command": "powershell -NoProfile -ExecutionPolicy Bypass -File .cursor/hooks/protect-prompts.ps1",
+          "timeout": 10
+        }
+      ],
+      "beforeShellExecution": [
+        {
+          "command": "powershell -NoProfile -ExecutionPolicy Bypass -File .cursor/hooks/protect-prompts.ps1",
+          "matcher": "prompts",
+          "timeout": 10
+        }
+      ],
+      "preToolUse": [
+        {
+          "command": "powershell -NoProfile -ExecutionPolicy Bypass -File .cursor/hooks/protect-prompts.ps1",
+          "matcher": "Grep|Read",
+          "timeout": 10
+        }
+      ]
+    }
+  }
