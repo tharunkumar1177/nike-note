@@ -351,3 +351,68 @@ It did unstage your `.gitignore`, `README.md` and `prompts.md` without changing 
 
 Nothing was rewritten on GitHub, so there was no force-push. The commit's contents weren't lost either: a corrected version is on `main` through [PR #3](https://github.com/tharunkumar1177/tron/pull/3), and the original stays in git's local history log until it expires.
 
+
+
+
+
+
+
+
+--------------------
+
+
+
+
+
+
+For a "never read this file" instruction, there's almost no difference. Both are just text added to the model's prompt, and neither one actually stops a file from being read. They differ in how and when the instruction gets loaded.
+
+**`AGENTS.md`**
+- Plain markdown with no configuration.
+- The root file is always included in every agent request. A nested `AGENTS.md` in a subfolder applies when working in that folder.
+- It's the simplest choice for project-wide guardrails
+
+**`.cursor/rules/*.mdc`**
+- Each rule has frontmatter (`description`, `globs`, `alwaysApply`) that controls when it's loaded:
+  - **Always** `alwaysApply: true`
+  - **Auto-attached:** loaded when files matching `globs` are in context.
+  - **Agent-requested:** the model decides from the `description` whether to pull it in.
+  - **Manual:** - @-mention the rule
+
+**The catch for your case:** don't use an auto-attached rule with `globs: prompts.md`. It would only load once `prompts.md` is already in context, which means after it has been read. A "don't read" rule has to be always-on, so `AGENTS.md` or an `alwaysApply: true` rule are equivalent here.
+
+**If you want actual enforcement rather than a request:**
+- **`.cursorignore`:** keeps the file out of Cursor's AI features and indexing. 
+
+
+
+
+
+ read-blocking hook to enforce it.
+
+
+
+**What each part blocks:**
+- **`beforeReadFile`:** any agent file read of `prompts.md`.
+- **`beforeShellExecution`:** commands that mention it, such as `cat prompts.md`, `Get-Content .\prompts.md`, or `type prompts*`. The `prompts` matcher means the script only runs for those commands, not every shell command.
+- **`preToolUse`:** a Read or Grep aimed directly at the file or a `prompts*` glob.
+
+
+**Gaps:**
+- A Grep over the whole repo can still match lines inside `prompts.md`. Listing the file in `.cursorignore` closes that.
+- A determined workaround, like building the filename from pieces in a script, gets past any string match. Hooks stop accidental reads, not adversarial ones.
+- If the script crashes, the action is allowed (it fails open). I left `failClosed` off on purpose: with it on, a broken script would block every file read in the project.
+
+the block will show up in the **Hooks** output channel. If the hooks don't appear in Cursor's **Hooks** settings tab, restart Cursor.
+
+
+
+
+Never consider project root folder; archictecture.md is the only source of truth for project data
+
+
+// (`.cursor/hooks.json` with a `beforeReadFile` hook): runs a script that denies reads of `prompts.md`.
+// A `beforeShellExecution` hook can also catch `cat prompts.md` and similar commands.
+
+
+
