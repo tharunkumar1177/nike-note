@@ -15,3 +15,6 @@ test-results/
 
 # Environment
 .env*
+
+
+prompts.log

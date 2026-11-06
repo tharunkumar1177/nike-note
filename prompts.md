@@ -1,3 +1,177 @@
+I want the Quire (which is a Notion clone that runs on the local machine, an browser extension based web application, opens the web page after click browser extension icon's popup window). I don't want it as a cloud deployable project at all. so restructure the blueprints and what so ever.
+
+### Popup window
+
+```
+-----------------------------------
+|                                  |
+|                                  |
+|                                  |
+|                                  |
+|                                  |
+|                                  |
+|                                  |
+|     -----------------------      |
+|     |      Open Quire      |     |
+|     -----------------------      |
+|                                  |
+-----------------------------------
+```
+
+
+It reads the md files from the local machine (Folder that has been mapped by the user) and display it as a relevant notion elements. For example
+
+
+
+## Example 1
+
+Quote section
+
+### In notion
+```
+/quote
+```
+
+### In Markdown file
+```
+>  
+```
+
+
+## Example 
+
+Headers
+
+### Notion
+
+/h1, ..../h6
+
+
+### Markdown
+
+```
+# h1
+## h2
+### h3
+#### h4
+##### h5
+###### h6
+```
+
+---
+
+- Every newline in md file is a separate block in notion
+
+
+- For the code blocks use this format (``` your code ```) 
+- inline code block `your code`
+
+- Gather data of how markdown file can be structured from this site - Https://www.freecodecamp.org/news/github-flavored-markdown-syntax-examples/
+
+- If you don't clarity on Notion blocks, use Reverse Engineering anything (REA) skill
+
+- we gonna use the same stack in order to get the same result, so what would that be? Research and finalize and write it in plan.md
+
+- Don't use any subagents for designing, architectural plan or for CI review. Do the designing and architectural planning yourself and test it in the cursor browser
+
+
+If we were going to implement sub pages, the files has to be stored in some structures, right? suggest me the optimal and best one.
+
+## Structure 1
+
+Root Folder
+|
+|— README.md
+|
+|— (Sub Folder) 
+|     |
+|     |—— README.md
+|     |—— (Nested folders) 
+|— 
+
+
+## Structure 2
+
+Root Folder
+|— README.md
+|
+|— file1.md
+|— file2.md 
+|— file3.md
+
+- Main file (README.md) is the only routing point for the everyother file in the space
+- If user has to go through the any other files in the folder, the file has to be listed in the README.md
+
+
+## Structure 3
+(suggest if any other possible ways)
+
+
+
+- All the AI features runs locally
+- users can put it there API for gemini and then start using all the AI features
+- first users has to select  which AI model  they gonna use, then lazy loads that LLM sdk
+
+
+
+- Git track check (*mandatory) and current branch indicator (bar)
+
+
+
+## Concerns
+
+### Hyperlinks and subpage
+
+- so if represent hyperlinks as `[link](./product.md)` then how do we describe the
+
+
+
+
+
+The AI is for page summarization or vacation planning or what so ever. If it requires separate server to achieve it, proceed
+
+
+How should Quire run Git?
+
+isomorphic-git inside the extension: nothing extra to install; HTTPS remotes only, with a personal access token; no
+SSH keys
+
+Native helper app that runs the user's real git: uses existing SSH keys and credentials; needs a one-time installer for
+each OS
+
+A
+
+B
+How should Quire protect against data loss through Git?
+
+Auto-commit after saves (batched after a short idle time) and auto-push; the status bar shows branch, unpushed
+commits, and remote status
+
+Status bar shows branch and remote status, and warns about uncommitted or unpushed work; the user commits
+and pushes with a button
+
+Auto-commit locally; the user pushes with a button; warn when unpushed
+
+-----------
+
+A
+
+B
+
+The native helper is needed for Git anyway. Should it also read and write the .md files?
+
+Yes: the helper does file reading and writing and Git; the user picks the folder once (Recommended)
+
+No: the browser reads and writes files, and the helper only runs Git (the user also gives the helper the folder path)
+
+
+--------------
+
+
+- How do we keep track of orphaned sub pages?
+
+
+
 Build a Notion clone, every features should exactly be like Notion but keep the project name as something else. Tech stack - for frontend I think they use Next js and figure out other stacks (come up optimal one)
 
 optimize the guardrails for AI Agent. Do not elaborate it or exaggerate it. keep it short and simple
@@ -64,14 +238,17 @@ git branch -M main
 git remote add origin https://github.com/<>.git
 git push -u origin main
 
+git remote set-url origin git@github.com:tharun-extinct/<project-name>.git
+ssh -T git@github.com
+
 ```
 
 
 
 ## Migration Checklist
 
-- [ ] Blueprints Skill
-- [ ] AGENTS.md, AGENTs folder
+- [ ] .cursor/..
+- [ ] AGENTS.md
 - [ ] prompts.md
 - [ ] Design files / Wireframes (Excalidraw)
 
