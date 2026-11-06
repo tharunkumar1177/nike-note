@@ -215,7 +215,10 @@ mod tests {
             id: 2,
             result: json!({ "ok": true }),
         };
-        assert_eq!(response.to_value(), json!({ "id": 2, "result": { "ok": true } }));
+        assert_eq!(
+            response.to_value(),
+            json!({ "id": 2, "result": { "ok": true } })
+        );
 
         let error = Outgoing::Error {
             id: None,

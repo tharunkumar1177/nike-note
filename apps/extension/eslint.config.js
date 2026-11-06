@@ -1,10 +1,15 @@
 /**
- * ESLint config for the extension app, adding the React hooks rules.
+ * ESLint config for the extension app, adding the React hooks rules to page code.
  */
 import { createQuireEslintConfig } from "@quire/config/eslint";
 import reactHooks from "eslint-plugin-react-hooks";
 
 export default createQuireEslintConfig({
   layer: "app",
-  extends: [reactHooks.configs.flat.recommended],
+  extends: [
+    {
+      ...reactHooks.configs.flat.recommended,
+      files: ["src/**/*.{ts,tsx}"],
+    },
+  ],
 });

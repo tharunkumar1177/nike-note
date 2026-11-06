@@ -174,7 +174,8 @@ mod tests {
 
     #[test]
     fn hello_returns_helper_description() {
-        let replies = exchange(&[json!({ "id": 1, "method": "hello", "params": { "protocol": 1 } })]);
+        let replies =
+            exchange(&[json!({ "id": 1, "method": "hello", "params": { "protocol": 1 } })]);
         assert_eq!(replies.len(), 1);
         let result = &replies[0]["result"];
         assert_eq!(replies[0]["id"], json!(1));
@@ -186,7 +187,8 @@ mod tests {
 
     #[test]
     fn hello_with_another_protocol_is_a_mismatch() {
-        let replies = exchange(&[json!({ "id": 3, "method": "hello", "params": { "protocol": 2 } })]);
+        let replies =
+            exchange(&[json!({ "id": 3, "method": "hello", "params": { "protocol": 2 } })]);
         assert_eq!(replies[0]["id"], json!(3));
         assert_eq!(replies[0]["error"]["code"], json!("PROTOCOL_MISMATCH"));
     }

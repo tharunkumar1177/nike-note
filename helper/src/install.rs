@@ -69,7 +69,9 @@ pub struct InstallPlan {
 
 /// Read a non-empty environment variable as a path.
 fn path_var(var: &impl Fn(&str) -> Option<OsString>, name: &str) -> Option<PathBuf> {
-    var(name).filter(|value| !value.is_empty()).map(PathBuf::from)
+    var(name)
+        .filter(|value| !value.is_empty())
+        .map(PathBuf::from)
 }
 
 /// Read an XDG base-directory variable; the specification ignores relative values.
@@ -98,15 +100,20 @@ pub fn plan_for(
             })
         }
         TargetOs::MacOs => {
-            let home =
-                path_var(&var, "HOME").ok_or("HOME is not set, so the install folder is unknown.")?;
+            let home = path_var(&var, "HOME")
+                .ok_or("HOME is not set, so the install folder is unknown.")?;
             let support = home.join("Library").join("Application Support");
             let install_dir = support.join("Quire").join("Helper");
             Ok(InstallPlan {
                 binary: install_dir.join("quire-helper"),
                 manifests: MACOS_BROWSER_DIRS
                     .iter()
-                    .map(|dir| support.join(dir).join("NativeMessagingHosts").join(MANIFEST_FILE))
+                    .map(|dir| {
+                        support
+                            .join(dir)
+                            .join("NativeMessagingHosts")
+                            .join(MANIFEST_FILE)
+                    })
                     .collect(),
                 registry_keys: Vec::new(),
                 install_dir,
@@ -116,16 +123,25 @@ pub fn plan_for(
             let home = path_var(&var, "HOME");
             let data = xdg_var(&var, "XDG_DATA_HOME")
                 .or_else(|| home.as_ref().map(|home| home.join(".local").join("share")))
-                .ok_or("Neither XDG_DATA_HOME nor HOME is set, so the install folder is unknown.")?;
+                .ok_or(
+                    "Neither XDG_DATA_HOME nor HOME is set, so the install folder is unknown.",
+                )?;
             let config = xdg_var(&var, "XDG_CONFIG_HOME")
                 .or_else(|| home.as_ref().map(|home| home.join(".config")))
-                .ok_or("Neither XDG_CONFIG_HOME nor HOME is set, so the browser folders are unknown.")?;
+                .ok_or(
+                    "Neither XDG_CONFIG_HOME nor HOME is set, so the browser folders are unknown.",
+                )?;
             let install_dir = data.join("quire").join("helper");
             Ok(InstallPlan {
                 binary: install_dir.join("quire-helper"),
                 manifests: LINUX_BROWSER_DIRS
                     .iter()
-                    .map(|dir| config.join(dir).join("NativeMessagingHosts").join(MANIFEST_FILE))
+                    .map(|dir| {
+                        config
+                            .join(dir)
+                            .join("NativeMessagingHosts")
+                            .join(MANIFEST_FILE)
+                    })
                     .collect(),
                 registry_keys: Vec::new(),
                 install_dir,
@@ -362,7 +378,8 @@ mod tests {
             vec![
                 support.join("Google/Chrome/NativeMessagingHosts/com.quire.helper.json"),
                 support.join("Microsoft Edge/NativeMessagingHosts/com.quire.helper.json"),
-                support.join("BraveSoftware/Brave-Browser/NativeMessagingHosts/com.quire.helper.json"),
+                support
+                    .join("BraveSoftware/Brave-Browser/NativeMessagingHosts/com.quire.helper.json"),
                 support.join("Chromium/NativeMessagingHosts/com.quire.helper.json"),
             ]
         );
@@ -378,7 +395,9 @@ mod tests {
         );
         assert_eq!(
             plan.manifests[0],
-            PathBuf::from("/home/ana/.config/google-chrome/NativeMessagingHosts/com.quire.helper.json")
+            PathBuf::from(
+                "/home/ana/.config/google-chrome/NativeMessagingHosts/com.quire.helper.json"
+            )
         );
         assert_eq!(plan.manifests.len(), 4);
     }

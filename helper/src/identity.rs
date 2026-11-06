@@ -22,7 +22,10 @@ mod tests {
 
     #[test]
     fn allowed_origin_is_built_from_the_extension_id() {
-        assert_eq!(ALLOWED_ORIGIN, format!("chrome-extension://{EXTENSION_ID}/"));
+        assert_eq!(
+            ALLOWED_ORIGIN,
+            format!("chrome-extension://{EXTENSION_ID}/")
+        );
     }
 
     #[test]
