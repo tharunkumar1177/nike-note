@@ -1,0 +1,180 @@
+/*
+ * Quire design tokens and base element styles shared by the popup and the app page.
+ * Light theme by default, dark theme through prefers-color-scheme.
+ */
+:root {
+  color-scheme: light dark;
+
+  --q-font-sans: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text",
+    "Segoe UI", system-ui, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+  --q-font-mono: ui-monospace, "SFMono-Regular", "Cascadia Code", Menlo, Consolas, monospace;
+
+  --q-text-xs: 12px;
+  --q-text-sm: 14px;
+  --q-text-md: 16px;
+  --q-text-lg: 20px;
+  --q-text-xl: 30px;
+
+  --q-space-1: 4px;
+  --q-space-2: 8px;
+  --q-space-3: 12px;
+  --q-space-4: 16px;
+  --q-space-6: 24px;
+  --q-space-8: 32px;
+  --q-space-12: 48px;
+
+  --q-radius-sm: 4px;
+  --q-radius: 6px;
+  --q-radius-lg: 10px;
+
+  --q-bg: #ffffff;
+  --q-bg-sidebar: #f8f8f7;
+  --q-bg-subtle: #f1f1ef;
+  --q-bg-hover: rgba(55, 53, 47, 0.06);
+  --q-bg-active: rgba(55, 53, 47, 0.1);
+  --q-border: rgba(55, 53, 47, 0.12);
+  --q-text: #37352f;
+  --q-text-muted: rgba(55, 53, 47, 0.68);
+  --q-text-faint: rgba(55, 53, 47, 0.48);
+  --q-accent: #2383e2;
+  --q-accent-hover: #0b6ec5;
+  --q-accent-text: #ffffff;
+  --q-success: #448361;
+  --q-warning: #cb912f;
+  --q-danger: #d44c47;
+  --q-danger-bg: #fdebec;
+  --q-code-bg: rgba(135, 131, 120, 0.15);
+  --q-code-text: #eb5757;
+  --q-shadow: 0 0 0 1px rgba(15, 15, 15, 0.05), 0 3px 6px rgba(15, 15, 15, 0.1),
+    0 9px 24px rgba(15, 15, 15, 0.2);
+  --q-focus: 0 0 0 2px rgba(35, 131, 226, 0.55);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --q-bg: #191919;
+    --q-bg-sidebar: #202020;
+    --q-bg-subtle: #252525;
+    --q-bg-hover: rgba(255, 255, 255, 0.055);
+    --q-bg-active: rgba(255, 255, 255, 0.09);
+    --q-border: rgba(255, 255, 255, 0.094);
+    --q-text: rgba(255, 255, 255, 0.86);
+    --q-text-muted: rgba(255, 255, 255, 0.58);
+    --q-text-faint: rgba(255, 255, 255, 0.4);
+    --q-accent-hover: #3b94ea;
+    --q-success: #4dab9a;
+    --q-warning: #ffa344;
+    --q-danger: #ff7369;
+    --q-danger-bg: rgba(255, 115, 105, 0.12);
+    --q-code-bg: rgba(255, 255, 255, 0.08);
+    --q-code-text: #ff7369;
+    --q-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 3px 6px rgba(0, 0, 0, 0.3),
+      0 9px 24px rgba(0, 0, 0, 0.45);
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--q-bg);
+  color: var(--q-text);
+  font-family: var(--q-font-sans);
+  font-size: var(--q-text-sm);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+p,
+ol,
+ul {
+  margin: 0;
+}
+
+code,
+kbd,
+pre {
+  font-family: var(--q-font-mono);
+  font-size: 0.875em;
+}
+
+:focus-visible {
+  outline: none;
+  box-shadow: var(--q-focus);
+}
+
+.q-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--q-space-2);
+  height: 32px;
+  padding: 0 var(--q-space-3);
+  border: 1px solid var(--q-border);
+  border-radius: var(--q-radius);
+  background: var(--q-bg);
+  color: var(--q-text);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 120ms ease;
+}
+
+.q-button:hover {
+  background: var(--q-bg-hover);
+}
+
+.q-button:active {
+  background: var(--q-bg-active);
+}
+
+.q-button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.q-button--primary {
+  border-color: transparent;
+  background: var(--q-accent);
+  color: var(--q-accent-text);
+}
+
+.q-button--primary:hover {
+  background: var(--q-accent-hover);
+}
+
+.q-button--primary:active {
+  background: var(--q-accent-hover);
+}
+
+.q-button--large {
+  height: 36px;
+  font-size: var(--q-text-sm);
+}
+
+.q-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

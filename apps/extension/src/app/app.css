@@ -1,0 +1,240 @@
+/*
+ * App page layout: connection screens, workspace grid (sidebar, page, status bar).
+ */
+html,
+body,
+#root {
+  height: 100%;
+}
+
+/* Connection screens */
+
+.screen {
+  display: grid;
+  min-height: 100%;
+  place-items: center;
+  padding: var(--q-space-8) var(--q-space-4);
+}
+
+.screen__card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--q-space-4);
+  width: min(100%, 520px);
+}
+
+.screen__title {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+}
+
+.screen__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--q-space-3);
+  color: var(--q-text-muted);
+  font-size: var(--q-text-md);
+  line-height: 1.6;
+}
+
+.screen__body strong,
+.screen__body code {
+  color: var(--q-text);
+}
+
+.screen__body code {
+  padding: 1px 4px;
+  border-radius: var(--q-radius-sm);
+  background: var(--q-code-bg);
+}
+
+.screen__actions {
+  display: flex;
+  gap: var(--q-space-2);
+}
+
+.screen__detail {
+  color: var(--q-text-faint);
+  font-size: var(--q-text-xs);
+}
+
+.screen__detail summary {
+  cursor: pointer;
+}
+
+.screen__detail code {
+  display: block;
+  margin-top: var(--q-space-2);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--q-space-2);
+  padding-left: var(--q-space-6);
+}
+
+.command {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--q-space-2);
+  margin-top: var(--q-space-2);
+  padding: var(--q-space-2) var(--q-space-2) var(--q-space-2) var(--q-space-3);
+  border-radius: var(--q-radius);
+  background: var(--q-bg-subtle);
+}
+
+.screen__body .command__text {
+  flex: 1;
+  padding: 0;
+  background: none;
+  font-size: var(--q-text-xs);
+  line-height: 1.7;
+  word-break: break-all;
+}
+
+.command__copy {
+  flex: none;
+  height: 26px;
+  font-size: var(--q-text-xs);
+}
+
+.connecting {
+  display: flex;
+  align-items: center;
+  gap: var(--q-space-3);
+  color: var(--q-text-muted);
+  opacity: 0;
+  animation: q-fade-in 160ms ease 300ms forwards;
+}
+
+.connecting__spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--q-border);
+  border-top-color: var(--q-text-muted);
+  border-radius: 50%;
+  animation: q-spin 800ms linear infinite;
+}
+
+@keyframes q-fade-in {
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes q-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Workspace */
+
+.workspace {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) 28px;
+  grid-template-areas:
+    "sidebar page"
+    "status status";
+  height: 100%;
+}
+
+.sidebar {
+  grid-area: sidebar;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
+  border-right: 1px solid var(--q-border);
+  background: var(--q-bg-sidebar);
+}
+
+.sidebar__header {
+  display: flex;
+  align-items: center;
+  gap: var(--q-space-2);
+  height: 45px;
+  padding: 0 var(--q-space-3);
+  font-weight: 600;
+}
+
+.sidebar__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.page {
+  grid-area: page;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.page__content {
+  width: min(100%, 708px);
+  margin: 0 auto;
+  padding: 80px var(--q-space-12) 120px;
+}
+
+.page__title {
+  margin-bottom: var(--q-space-3);
+  font-size: 40px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.015em;
+}
+
+.page__lead {
+  color: var(--q-text-muted);
+  font-size: var(--q-text-md);
+}
+
+/* Status bar */
+
+.status-bar {
+  grid-area: status;
+  display: flex;
+  align-items: center;
+  gap: var(--q-space-4);
+  padding: 0 var(--q-space-3);
+  border-top: 1px solid var(--q-border);
+  background: var(--q-bg-sidebar);
+  color: var(--q-text-muted);
+  font-size: var(--q-text-xs);
+}
+
+.status-bar__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.status-bar__spacer {
+  flex: 1;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--q-text-faint);
+}
+
+.status-dot--ok {
+  background: var(--q-success);
+}
+
+.status-dot--warn {
+  background: var(--q-warning);
+}
+
+.status-dot--error {
+  background: var(--q-danger);
+}

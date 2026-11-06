@@ -2,33 +2,30 @@
 
 ## Outcome or responsibility
 
-The monorepo scaffold and the GitHub Actions workflow that installs, checks, tests, and builds every Quire app and package. It is the only authority for whether code works.
+The repository scaffold and the GitHub Actions workflow that checks, tests, and builds the extension and the native helper, runs end-to-end tests on the unpacked extension with the helper, and publishes the extension zip and per-OS helper binaries as artifacts. It is the only authority for whether code works.
 
 ## Current verified status
 
-**Status:** Partial
+**Status:** Planned
 
-The scaffold and workflow exist on branch `slice/01-walking-skeleton` (audited 2026-10-02), but no run is green yet. GitHub Actions run `37037129602` failed in `typecheck` on `packages/config` type errors. Owned by ROADMAP slice 1.
+Owned by ROADMAP slice 1. The cloud-era workflow is replaced.
 
 ## Architecture dependencies
 
-- [Naming and brand](../architecture.md#naming-and-brand): every package `name` is `@quire/<name>`, set explicitly. The forbidden word is enforced by agent guardrails, not by a CI job.
-- [Component model](../architecture.md#component-model): the scaffold creates the listed `apps/*` and `packages/*` workspaces so later slices only add code.
-- [Dependency direction](../architecture.md#dependency-direction): lint configuration rejects imports that violate the direction rules.
-- [Toolchain and CI](../architecture.md#toolchain-and-ci): pinned Node and pnpm; lockfile generated in CI and committed through a follow-up commit or artifact, never hand-written.
-- [Verification boundaries](../architecture.md#verification-boundaries): the workflow provides Postgres and Redis service containers (object storage is added with the files slice) and a Playwright job, even when early suites are small.
+- [Naming and brand](../architecture.md#naming-and-brand): artifact names use `quire-extension` and `quire-helper-<os>`.
+- [Component model](../architecture.md#component-model): the workspace contains `apps/extension`, `packages/config`, and the Cargo crate in `helper/`, which is outside the pnpm workspace.
+- [Dependency direction](../architecture.md#dependency-direction): the `app` and `core` ESLint layers reject imports that break the direction.
+- [Toolchain and CI](../architecture.md#toolchain-and-ci): pinned Node and pnpm, Rust stable, the three helper targets, and lockfiles produced by CI.
+- [Verification boundaries](../architecture.md#verification-boundaries): the workflow provides every listed level.
 
 ## Local rules and implications
 
-- Jobs: `install` → `lint`, `typecheck`, `test` (parallel) → `build` → `e2e`.
-- pnpm enforces a one-day `minimumReleaseAge`. Pin only versions published at least 24 hours before the CI run; the policy stays on.
-- Dependencies with install scripts must be listed under `allowBuilds` in `pnpm-workspace.yaml`.
-- TypeScript is pinned to the newest release that satisfies the `typescript-eslint` peer range (6.0.x as of 2026-09-30; the native 7.x compiler is outside that range). Check the peer range before bumping.
-- Workspace convention: every `packages/*` library (except `packages/config`, which ships plain JS and JSON) builds with `tsc` to `dist/` and exposes `exports` with `types` and `default` pointing into `dist/`. Node apps build with `tsc` to `dist/` and run `node dist/index.js`. Turborepo `build`, `typecheck`, and `test` depend on upstream `^build`.
-- Every workspace has an `eslint.config.js` calling `createQuireEslintConfig({ layer })` from `@quire/config/eslint` with its layer: `core` for `packages/core`; `domain` for `packages/db`, `packages/editor`, `packages/ui`; `tooling` for `packages/config`; `app` for `apps/*`. Scripts: `lint` = `eslint .`, `typecheck` = `tsc --noEmit`, `test` = `vitest run`.
-- Turborepo caches task outputs; CI uses `turbo run <task>` so only affected workspaces rebuild.
-- Every app must build with no environment secrets other than those provided to CI; missing required env fails fast at startup, not at build.
-- The skeleton ships a real, minimal Quire landing route in `apps/web` and health endpoints in `apps/realtime` and `apps/worker`, each covered by a test.
+- Jobs: `install` (pnpm, uploads `pnpm-lock.yaml`), then `lint`, `typecheck`, `test` in parallel, then `build` (uploads `quire-extension`). `helper` runs as a three-OS matrix in parallel (fmt, clippy with `-D warnings`, tests, release build, install smoke test, uploads `quire-helper-<os>` and `Cargo.lock` from Linux). `e2e` needs `build` and `helper` and runs Playwright on Linux.
+- Lockfiles: while a lockfile is missing from the repo, CI resolves it and uploads it as an artifact. The agent commits the artifact contents. After that, installs are frozen (`--frozen-lockfile`, `cargo --locked`).
+- pnpm enforces a one-day `minimumReleaseAge`. Pin only versions published at least 24 hours before the CI run.
+- TypeScript stays on 6.0.x until `typescript-eslint` supports 7.x.
+- Every pnpm workspace has an `eslint.config.js` that calls `createQuireEslintConfig({ layer })`. Scripts: `lint` = `eslint .`, `typecheck` = `tsc --noEmit`, `test` = `vitest run`.
+- The macOS helper is one universal binary made with `lipo` from the arm64 and x64 builds. The Linux helper is statically linked with musl.
 
 ## Related blueprints
 
@@ -38,29 +35,27 @@ None
 
 ### Impact checks
 
-- [production-readiness](production-readiness.md) — check when a change adds or removes a CI job, a supply-chain control, or lockfile handling, because those close or open rows in its gap register.
+- [native-helper](native-helper.md): check when helper targets, the install smoke test, or the helper artifact layout change.
+- [extension-shell](extension-shell.md): check when the extension build output or the e2e harness changes.
 
 ## Relevant implementation and tests
 
-- `.github/workflows/ci.yml` — job graph and service containers
-- `package.json`, `pnpm-workspace.yaml`, `turbo.json`, `.nvmrc` — toolchain pins and task graph
-- `packages/config/tests/dependency-direction.test.ts` — import direction rules
-- `packages/config/eslint/index.js`, `packages/config/vitest/index.js`, `packages/config/tsconfig/` — shared lint, test, and compiler config
-
-None of these tests has passed in CI yet.
+- `.github/workflows/ci.yml`: job graph
+- `package.json`, `pnpm-workspace.yaml`, `turbo.json`, `.nvmrc`: toolchain pins and task graph
+- `helper/Cargo.toml`, `helper/rust-toolchain.toml`: Rust pins
+- `packages/config/tests/dependency-direction.test.ts`: import direction rules
+- `apps/extension/playwright.config.ts`, `apps/extension/e2e/`: end-to-end harness
 
 ## Acceptance or verification criteria
 
-- [ ] A push to a branch triggers the CI workflow.
-- [ ] Lint, type-check, unit tests, build, and e2e all run and pass on the skeleton.
-- [ ] `apps/web` renders a Quire page verified by a Playwright test.
-- [ ] `apps/realtime` and `apps/worker` health endpoints are covered by tests.
+- [ ] A push to a branch triggers the workflow.
+- [ ] Extension lint, type-check, unit tests, and build pass.
+- [ ] The helper passes fmt, clippy, tests, and release builds on Windows, macOS, and Linux.
+- [ ] The e2e job loads the unpacked extension and completes the `hello` handshake with the Linux helper.
+- [ ] Artifacts `quire-extension`, `quire-helper-windows`, `quire-helper-macos`, and `quire-helper-linux` are uploaded.
 
 ## Remaining gaps and unknowns
 
-- The CI-generated lockfile is uploaded as an artifact but never committed, so runs are not reproducible. How it gets committed (bot commit vs. manual follow-up) is still undecided and blocks slice 1.
-- The workflow declares no `permissions:` block and pins actions by tag rather than commit SHA.
-- No dependency audit, CodeQL, or Dependabot configuration exists.
-- `minimumReleaseAge` relies on the pnpm default and is not declared in `pnpm-workspace.yaml`.
-- The S3-compatible CI container is not yet provisioned: the `minio/minio` Docker Hub image is no longer pullable. The files and media slice picks the emulator image and adds it to the test job.
-- Deploy workflows (Vercel, Fly.io) are out of scope until a deploy slice is scheduled.
+- Actions are pinned by major tag, not commit SHA.
+- Helper binaries are unsigned. Windows SmartScreen and macOS Gatekeeper warn on first run.
+- There is no release workflow. Artifacts come from CI runs only.

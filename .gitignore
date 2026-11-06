@@ -4,9 +4,10 @@ agent-configs.md
 node_modules/
 
 # Build outputs
-.next/
 dist/
 .turbo/
+helper/target/
+helper/out/
 
 # Test and coverage
 coverage/

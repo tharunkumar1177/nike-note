@@ -1,6 +1,9 @@
+/**
+ * Type declarations for the shared Quire ESLint config.
+ */
 import type { Linter } from "eslint";
 
-export type QuireEslintLayer = "core" | "domain" | "tooling" | "app";
+export type QuireEslintLayer = "core" | "tooling" | "app";
 
 export declare const QUIRE_ESLINT_LAYERS: readonly QuireEslintLayer[];
 

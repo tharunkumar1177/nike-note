@@ -6,16 +6,15 @@
       "dependsOn": ["^build"]
     },
     "test": {
-      "dependsOn": ["^build"],
-      "env": ["DATABASE_URL", "REDIS_URL"]
+      "dependsOn": ["^build"]
     },
     "build": {
       "dependsOn": ["^build"],
-      "outputs": [".next/**", "!.next/cache/**", "dist/**"]
+      "outputs": ["dist/**"]
     },
     "e2e": {
       "dependsOn": ["build"],
-      "passThroughEnv": ["CI"]
+      "passThroughEnv": ["CI", "QUIRE_HELPER_BINARY"]
     }
   }
 }
