@@ -1,71 +1,59 @@
 # Quire Roadmap
 
-Quire is a block-based workspace for pages, databases, and team collaboration, built to match the reference product feature for feature.
+Quire is a local Markdown workspace that runs as a Chromium extension (Chrome, Edge, Brave) with a small native helper program. The notes live in a folder on the user's computer. Every page is a folder with a `README.md`. The helper keeps the folder committed and pushed to a Git remote. There is no Quire server, no account, and no cloud deploy.
 
 ## Approved decisions
 
-- Stack: Next.js App Router, pnpm + Turborepo, custom block tree with Lexical for inline text, Node WebSocket realtime service with Redis pub/sub, PostgreSQL + Drizzle, Better Auth, S3-compatible storage, BullMQ, Vitest + Playwright. Details in [architecture.md](architecture.md).
-- Sync: server-ordered operations; last writer wins per block property.
-- API: tRPC internally; public REST API in a later slice.
-- Deploy: Vercel (web) and Fly.io (realtime, worker).
-- Email: Resend.
+- **Product shape:** Manifest V3 extension. The popup has one button, **Open Quire**, which opens or focuses the full-page app (`app.html`). The app talks to the native helper through Chrome native messaging.
+- **Extension stack:** TypeScript, React, Vite multi-page build, pnpm workspaces with Turborepo.
+- **Stable extension ID:** `hbddhigdogedopjjlihlkpehidopddac`, fixed by the public `key` in the manifest. The helper accepts only this ID.
+- **Markdown:** a TypeScript parser and serializer written in-house, with no DOM or Chrome APIs. Each line is one block. Multi-line constructs (fenced code, tables, front matter) are single blocks. Unchanged lines are written back byte-for-byte. The project does not use remark or markdown-it.
+- **Native helper:** Rust, a single binary. It owns all disk access, file watching (`notify`), search (`ignore`, `grep-searcher`), and Git (the user's `git` command). It never parses Markdown. It installs and registers itself with `quire-helper install`.
+- **Page structure:** every page is a folder with a `README.md`. Sub-pages are child folders, and link lines in the parent set their order. `assets/`, `.git/`, and folders whose names start with a dot are never pages.
+- **Git:** mandatory. The notes folder must be a repository with an `origin` remote. Auto-commit and push run after an idle period. Rebase happens only when it is conflict-free; otherwise auto-sync stops and shows a conflict state. Local work is never discarded.
+- **AI:** optional, bring-your-own key, Gemini first. Each provider SDK is bundled as a lazy-loaded chunk and loaded only after the user selects that provider. The key stays in `chrome.storage.local`.
+- **Targets:** Windows x64, macOS universal (arm64 and x64), Linux x64 (musl). Binaries are unsigned for now.
+- **Build authority:** GitHub Actions only. CI produces the lockfiles (`pnpm-lock.yaml`, `Cargo.lock`), and they are committed from the CI artifacts.
+- **Non-goals:** cloud hosting, accounts, multiple users, real-time co-editing, Firefox, and Safari.
+
+Shared contracts are in [architecture.md](architecture.md). Responsibility detail is routed through [the blueprint manifest](blueprints/README.md).
 
 ## How to resume
 
-Pick the first unchecked slice. Route it through [the blueprint manifest](blueprints/README.md) and follow the build loop in `AGENTS.md`. Slice branches are named `slice/<number>-<short-name>`.
+Pick the first unchecked slice. Route it through [the blueprint manifest](blueprints/README.md) and follow the build loop in `.cursor/orchestrator.md`. Slice branches are named `slice/<number>-<short-name>`. A slice is done only when its CI run is green and its blueprint records the evidence.
 
 ## Slices
 
 ### Foundation
 
-- [ ] 1. Walking skeleton: monorepo scaffold, CI (install, lint, type-check, test, build, e2e)
-- [ ] 2. Auth and workspaces: sign in with email code, password, or Google; create and switch workspaces
-- [ ] 3. Block store: persist blocks through transactions with revisions and conflict handling
-- [ ] 4. Basic editor: type paragraphs, headings, and bulleted lists on a page
-- [ ] 5. Sidebar page tree: nested pages, create, rename, delete, drag to reorder and nest
-- [ ] 6. Page style: title, icon, cover, font, small text, full width, lock page
-- [ ] 7. Real-time sync: two sessions co-edit a page with live updates
+- [ ] 1. Walking skeleton: remove the cloud code; MV3 extension with the popup and an app page; a Rust helper that answers a `hello` handshake over native messaging; CI for both (extension lint, type-check, unit tests, build; helper fmt, clippy, tests, and release builds on Windows, macOS, and Linux; Playwright e2e on the unpacked extension with the helper)
+- [ ] 2. Helper install and connection: `quire-helper install` and `uninstall` for Chrome, Edge, Brave, and Chromium on each OS; app screens for a missing, rejected, outdated, or stopped helper
+- [ ] 3. Folder and Git setup: pick the folder through the helper; require a repo with `origin`; guided init and first push; status bar with the branch
 
-### Editor and collaboration
+### Reading and editing
 
-- [ ] 8. Members and roles: invite by email, owner/member/guest roles
-- [ ] 9. Permissions and share menu: page grants with inheritance, general access
-- [ ] 10. Rich blocks: to-do, numbered list, toggle, toggle headings, quote, callout, divider, code
-- [ ] 11. Slash menu and markdown shortcuts
-- [ ] 12. Block handle: drag, indent, turn into, duplicate, color, multi-block selection, undo and redo
-- [ ] 13. Inline formatting: bold, italic, underline, strike, code, links, text and background colors
-- [ ] 14. Mentions: people, pages, dates
-- [ ] 15. Comments: inline and page comments, resolve and reopen
-- [ ] 16. Presence: avatar stack and live cursors
+- [ ] 4. Page tree: build the sidebar from the folder structure and link order
+- [ ] 5. Read rendering: one block per line for the initial block set
+- [ ] 6. Edit and save: autosave through the helper, unchanged lines kept identical, outside edits picked up through the file watcher
+- [ ] 7. Auto-sync: auto-commit, fetch, push, the full status bar, and the conflict state
 
-### Databases, search, portability
+### Notion-style editing
 
-- [ ] 17. Database core: inline and full-page databases, table view, row pages
-- [ ] 18. Property types: all standard property types with number formats and status groups
-- [ ] 19. Board, list, and gallery views
-- [ ] 20. Filters, sorts, grouping, sub-grouping, calculations
-- [ ] 21. Relations and rollups
-- [ ] 22. Search: Ctrl+K full-text search with filters and recents
-- [ ] 23. Import and export: Markdown, CSV, HTML import; Markdown + CSV zip, HTML, PDF export
+- [ ] 8. Block keyboard behavior and Markdown shortcuts while typing
+- [ ] 9. Slash menu: `/h1` to `/h6`, `/quote`, `/bullet`, `/numbered`, `/todo`, `/code`, `/divider`, `/text`, `/page`
+- [ ] 10. Inline formatting with a selection toolbar
+- [ ] 11. Block handle: drag, turn into, duplicate, delete, indent and outdent
+- [ ] 12. Page operations: create a sub-page (folder, README, and link line), rename, move, delete
+- [ ] 13. Rich blocks: tables, images from `assets/`, callouts, toggles
+- [ ] 14. Search: Ctrl+K, run by the helper
 
-### Complete product
+### AI and polish
 
-- [ ] 24. Trash and version history: restore, permanent delete, page history restore
-- [ ] 25. Inbox, notifications, and reminders
-- [ ] 26. Files and media: image, video, audio, file, embed, bookmark blocks
-- [ ] 27. Advanced blocks: simple table, columns, synced blocks, table of contents, breadcrumb, equation, button, link to page
-- [ ] 28. Calendar and timeline views
-- [ ] 29. Formulas 2.0
-- [ ] 30. Teamspaces, favorites, and Home
-- [ ] 31. Publish to web
-- [ ] 32. Database templates, locking, and automations
-- [ ] 33. Chart, feed, map, and form views
-- [ ] 34. Settings, themes, and keyboard shortcuts
-- [ ] 35. Public REST API and integrations
-- [ ] 36. Page analytics
-- [ ] 37. AI features
+- [ ] 15. AI setup: provider and model choice, key entry, lazy SDK load, summarize page
+- [ ] 16. AI writing: generate blocks (for example, a vacation plan) and ask about a page
+- [ ] 17. Settings: theme, font, full width, shortcut reference
 
 ## Checkpoint log
 
-- 2026-09-30: Phase 0 complete. Stack, name (Quire), and slice plan approved. Next: slice 1.
-- 2026-10-02: Production-readiness audit recorded in [blueprints/production-readiness.md](blueprints/production-readiness.md). Quire is not production ready; most go-live gaps have no slice yet and need a scheduling decision. Slice 1 is blocked: the guard job fails on a tracked agent prompt file.
+- 2026-09-30: Phase 0 complete for the earlier cloud, multi-user plan.
+- 2026-11-07: Pivot approved. The cloud plan (Next.js, realtime service, worker, Postgres, hosting) is replaced by the local extension and native helper described above. The previous slice list and the production-readiness audit are retired. Next: slice 1 on branch `slice/01-extension-skeleton`.
