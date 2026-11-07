@@ -14,6 +14,7 @@ pub enum ErrorCode {
     TooLarge,
     OutsideRoot,
     NotFound,
+    Stale,
     Io,
     Git,
 }
@@ -28,6 +29,7 @@ impl ErrorCode {
             ErrorCode::TooLarge => "TOO_LARGE",
             ErrorCode::OutsideRoot => "OUTSIDE_ROOT",
             ErrorCode::NotFound => "NOT_FOUND",
+            ErrorCode::Stale => "STALE",
             ErrorCode::Io => "IO",
             ErrorCode::Git => "GIT",
         }
@@ -70,6 +72,11 @@ pub enum Outgoing {
         id: Option<u64>,
         error: ProtocolError,
     },
+    /// A notification that answers no request.
+    Event {
+        event: &'static str,
+        data: Value,
+    },
 }
 
 impl Outgoing {
@@ -81,6 +88,7 @@ impl Outgoing {
                 "id": id,
                 "error": { "code": error.code.as_str(), "message": error.message },
             }),
+            Outgoing::Event { event, data } => json!({ "event": event, "data": data }),
         }
     }
 }
@@ -152,6 +160,7 @@ pub fn encode(message: &Outgoing) -> Vec<u8> {
     let id = match message {
         Outgoing::Response { id, .. } => Some(*id),
         Outgoing::Error { id, .. } => *id,
+        Outgoing::Event { .. } => None,
     };
     Outgoing::Error {
         id,
@@ -235,6 +244,15 @@ mod tests {
         assert_eq!(
             error.to_value(),
             json!({ "id": null, "error": { "code": "BAD_REQUEST", "message": "bad" } })
+        );
+
+        let event = Outgoing::Event {
+            event: "filesChanged",
+            data: json!({ "pages": [""] }),
+        };
+        assert_eq!(
+            event.to_value(),
+            json!({ "event": "filesChanged", "data": { "pages": [""] } })
         );
     }
 

@@ -1,7 +1,10 @@
 /**
- * Renders a page's blocks read-only, one element per block, in source order.
+ * Renders one block formatted, as shown when the caret is not in it. Page
+ * blocks show the sub-page's current title from `childTitles` (keyed by folder
+ * name) when it exists, so a renamed heading shows up without rewriting the
+ * link line.
  */
-import { listNumbers, parseInline, type Block } from "@quire/markdown";
+import { parseInline, type Block } from "@quire/markdown";
 import type { CSSProperties, ReactNode } from "react";
 
 import { PageIcon } from "../../shared/icons";
@@ -41,18 +44,20 @@ function ListItem({
 }
 
 /**
- * Render one block.
+ * Render one block formatted. `onToggle` checks or unchecks a to-do item.
  */
-function BlockView({
+export function BlockView({
   block,
   number,
   pagePath,
   childTitles,
+  onToggle,
 }: {
   block: Block;
   number: number | undefined;
   pagePath: string;
   childTitles: ReadonlyMap<string, string>;
+  onToggle: () => void;
 }) {
   switch (block.type) {
     case "text":
@@ -106,7 +111,7 @@ function BlockView({
               type="checkbox"
               className="block__checkbox"
               checked={block.checked}
-              readOnly
+              onChange={onToggle}
               aria-label={block.checked ? "Done" : "Not done"}
             />
           }
@@ -152,34 +157,4 @@ function BlockView({
         </pre>
       );
   }
-}
-
-/**
- * Render blocks for the page at `pagePath`. Page blocks show the sub-page's
- * current title from `childTitles` (keyed by folder name) when it exists, so a
- * renamed heading shows up without rewriting the link line.
- */
-export function BlockList({
-  blocks,
-  pagePath,
-  childTitles,
-}: {
-  blocks: readonly Block[];
-  pagePath: string;
-  childTitles: ReadonlyMap<string, string>;
-}) {
-  const numbers = listNumbers(blocks);
-  return (
-    <div className="blocks">
-      {blocks.map((block, index) => (
-        <BlockView
-          key={`${block.line}:${index}`}
-          block={block}
-          number={numbers.get(index)}
-          pagePath={pagePath}
-          childTitles={childTitles}
-        />
-      ))}
-    </div>
-  );
 }

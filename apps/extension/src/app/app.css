@@ -582,6 +582,96 @@ body,
   color: var(--q-text);
 }
 
+.save-status {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--q-space-2);
+  margin-left: auto;
+  padding-left: var(--q-space-3);
+  color: var(--q-text-faint);
+  font-size: var(--q-text-xs);
+  white-space: nowrap;
+}
+
+.save-status[data-state="failed"],
+.save-status[data-state="conflict"] {
+  color: var(--q-danger);
+}
+
+.save-status__retry {
+  padding: 2px 6px;
+  border: none;
+  border-radius: var(--q-radius-sm);
+  background: none;
+  color: var(--q-accent);
+  font: inherit;
+  cursor: pointer;
+}
+
+.save-status__retry:hover {
+  background: var(--q-bg-hover);
+}
+
+.save-status__others {
+  color: var(--q-warning);
+}
+
+.page__conflict {
+  display: flex;
+  flex-direction: column;
+  gap: var(--q-space-3);
+  margin-bottom: var(--q-space-4);
+  padding: var(--q-space-3) var(--q-space-4);
+  border: 1px solid var(--q-warning);
+  border-radius: var(--q-radius);
+}
+
+.page__conflict-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--q-space-2);
+}
+
+.page__title-input {
+  display: block;
+  width: 100%;
+  min-height: 1.2em;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font-family: inherit;
+  resize: none;
+  field-sizing: content;
+  outline: none;
+}
+
+.page__title-input::placeholder {
+  color: var(--q-text-faint);
+}
+
+h1.page__title {
+  cursor: text;
+}
+
+h1.page__title:focus-visible {
+  border-radius: var(--q-radius-sm);
+  box-shadow: var(--q-focus);
+  outline: none;
+}
+
+.page__tail {
+  min-height: 30vh;
+  cursor: text;
+}
+
+.page__placeholder {
+  margin: 0;
+  padding: 3px 2px;
+  color: var(--q-text-faint);
+}
+
 .page__content {
   width: min(100%, 708px);
   margin: 0 auto;
@@ -630,6 +720,42 @@ body,
 
 .block--empty {
   height: calc(1.5em + 6px);
+}
+
+.block-slot {
+  border-radius: var(--q-radius-sm);
+  cursor: text;
+}
+
+.block-slot:hover {
+  background: var(--q-bg-hover);
+}
+
+.block--editing {
+  border-radius: var(--q-radius-sm);
+  background: var(--q-bg-hover);
+}
+
+.block__source {
+  display: block;
+  width: 100%;
+  min-height: 1.5em;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  line-height: inherit;
+  resize: none;
+  field-sizing: content;
+  outline: none;
+}
+
+.block--source-edit .block__source {
+  font-family: var(--q-font-mono);
+  font-size: var(--q-text-sm);
+  line-height: 1.55;
+  tab-size: 4;
 }
 
 .block--heading {

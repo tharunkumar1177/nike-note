@@ -1,6 +1,6 @@
 /**
- * End-to-end tests for read-only page rendering: README.md bodies read by the
- * helper are shown as blocks with inline formatting and safe links.
+ * End-to-end tests for page rendering: README.md bodies read by the helper are
+ * shown as blocks with inline formatting and safe links.
  */
 import { expect, test } from "./fixtures";
 import { createNotes } from "./notes";
