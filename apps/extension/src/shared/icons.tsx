@@ -102,6 +102,16 @@ export function SearchIcon() {
   );
 }
 
+/** Four-pointed sparkle, for AI actions. */
+export function SparkleIcon() {
+  return (
+    <svg {...iconProps}>
+      <path d="M8 1.75c.4 3.1 2.15 4.85 5.25 5.25-3.1.4-4.85 2.15-5.25 5.25C7.6 9.15 5.85 7.4 2.75 7 5.85 6.6 7.6 4.85 8 1.75z" />
+      <path d="M12.75 11.5v2.5M11.5 12.75H14" />
+    </svg>
+  );
+}
+
 /** Check mark. */
 export function CheckIcon() {
   return (

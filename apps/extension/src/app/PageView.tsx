@@ -13,8 +13,11 @@ import {
 } from "@quire/markdown";
 import { useContext, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 
-import { PageIcon } from "../shared/icons";
+import { PageIcon, SparkleIcon } from "../shared/icons";
 import { pageHash, pageTrail, type CreatedPage, type PageNode } from "../shared/pages";
+import { AiSetupDialog } from "./ai/AiSetupDialog";
+import type { AiSettingsStore } from "./ai/aiStore";
+import { SummaryDialog } from "./ai/SummaryDialog";
 import { AssetContext } from "./assetStore";
 import { PageEditor } from "./blocks/PageEditor";
 import type { PageEditorStore, PageEditorView } from "./pageEditorStore";
@@ -115,6 +118,7 @@ export function PageView({
   root,
   path,
   editor,
+  ai,
   treeLoading,
   onCreatePage,
   onRename,
@@ -122,12 +126,17 @@ export function PageView({
   root: PageNode;
   path: string;
   editor: PageEditorStore;
+  ai: AiSettingsStore;
   /** True while the page tree reloads, when a just-moved page may be missing from it. */
   treeLoading: boolean;
   onCreatePage: (parent: string, title: string) => Promise<CreatedPage>;
   onRename: (path: string, title: string, from: string) => Promise<void>;
 }) {
   const view = useSyncExternalStore(editor.subscribe, editor.getSnapshot);
+  const aiView = useSyncExternalStore(ai.subscribe, ai.getSnapshot);
+  const [aiDialog, setAiDialog] = useState<{ path: string; kind: "setup" | "summary" } | null>(
+    null,
+  );
   const assets = useContext(AssetContext);
   const [renameError, setRenameError] = useState<{ path: string; message: string } | null>(
     null,
@@ -210,7 +219,36 @@ export function PageView({
           </ol>
         </nav>
         {current && <SaveStatus view={view} onRetry={() => editor.retry()} />}
+        <button
+          type="button"
+          className="page-bar__ai"
+          disabled={source === null || !aiView.loaded}
+          onClick={() => setAiDialog({ path, kind: aiView.settings ? "summary" : "setup" })}
+        >
+          <SparkleIcon />
+          <span>Summarize</span>
+        </button>
       </header>
+      {aiDialog?.path === path && aiDialog.kind === "setup" && (
+        <AiSetupDialog
+          store={ai}
+          settings={aiView.settings}
+          onSaved={() => setAiDialog({ path, kind: "summary" })}
+          onClose={() => setAiDialog(null)}
+        />
+      )}
+      {aiDialog?.path === path &&
+        aiDialog.kind === "summary" &&
+        aiView.settings &&
+        source !== null && (
+          <SummaryDialog
+            settings={aiView.settings}
+            title={title ?? page.title}
+            source={source}
+            pagePath={path}
+            onClose={() => setAiDialog(null)}
+          />
+        )}
       <div className="page__content">
         {markdown ? (
           <PageEditor
