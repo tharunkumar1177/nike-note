@@ -61,6 +61,7 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type DragEvent,
   type FocusEvent,
   type KeyboardEvent,
   type MouseEvent,
@@ -711,6 +712,19 @@ export function PageEditor({
   };
 
   /**
+   * The block index a drag over the page would drop before: the block under
+   * the pointer, or the one after it when the pointer is over its lower half,
+   * never above the title. Null when the pointer is not over a block.
+   */
+  const dropIndex = (event: DragEvent<HTMLElement>): number | null => {
+    const slot = event.target instanceof Element ? event.target.closest("[data-index]") : null;
+    if (!(slot instanceof HTMLElement)) return null;
+    const at = Number(slot.dataset.index);
+    const rect = slot.getBoundingClientRect();
+    return Math.max(event.clientY < rect.top + rect.height / 2 ? at : at + 1, firstMovable);
+  };
+
+  /**
    * Add an image for `/image` typed into block `index`, whose text without
    * the command is `text`: ask for a file, then put the image on that line
    * (or after it, when the line has words).
@@ -920,14 +934,8 @@ export function PageEditor({
           if (drag === null && !files) return;
           event.preventDefault();
           event.dataTransfer.dropEffect = files ? "copy" : "move";
-          const slot = event.target instanceof Element ? event.target.closest("[data-index]") : null;
-          if (!(slot instanceof HTMLElement)) return;
-          const at = Number(slot.dataset.index);
-          const rect = slot.getBoundingClientRect();
-          const before = Math.max(
-            event.clientY < rect.top + rect.height / 2 ? at : at + 1,
-            firstMovable,
-          );
+          const before = dropIndex(event);
+          if (before === null) return;
           if (drag === null) {
             if (before !== fileDrop) setFileDrop(before);
           } else if (before !== drag.before) {
@@ -941,7 +949,7 @@ export function PageEditor({
         onDrop={(event) => {
           if (drag === null) {
             const files = imageFiles(event.dataTransfer);
-            const before = fileDrop;
+            const before = dropIndex(event) ?? fileDrop;
             setFileDrop(null);
             if (files.length === 0) return;
             event.preventDefault();
