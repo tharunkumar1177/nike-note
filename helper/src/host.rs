@@ -4,6 +4,7 @@
 use std::io::{self, Read, Write};
 use std::process::ExitCode;
 use std::sync::mpsc::{self, Receiver, Sender};
+use std::sync::{Arc, Mutex, PoisonError};
 use std::thread;
 
 use serde_json::{Map, Value, json};
@@ -17,6 +18,7 @@ use crate::identity::{ALLOWED_ORIGIN, EXTENSION_ID, PROTOCOL_VERSION};
 use crate::install::TargetOs;
 use crate::pages;
 use crate::protocol::{ErrorCode, Outgoing, ProtocolError, Request, encode, parse_request};
+use crate::sync;
 use crate::watch::{self, PageWatch};
 use crate::workspace::{Workspace, status_for};
 
@@ -34,6 +36,10 @@ pub struct Session {
     workspace: Workspace,
     out: Sender<Outgoing>,
     watch: Option<PageWatch>,
+    /// Held by page writes and by sync while Git changes files.
+    writes: Arc<Mutex<()>>,
+    /// Held for a whole sync, so syncs run one at a time.
+    syncing: Arc<Mutex<()>>,
 }
 
 impl Session {
@@ -44,6 +50,8 @@ impl Session {
             workspace,
             out,
             watch: None,
+            writes: Arc::default(),
+            syncing: Arc::default(),
         }
     }
 
@@ -115,6 +123,13 @@ impl Session {
                 }
                 Err(error) => Err(error),
             },
+            "sync" => match self.workspace.root() {
+                Ok(root) => {
+                    self.start_sync(root, request.id);
+                    return Dispatch::Deferred;
+                }
+                Err(error) => Err(error),
+            },
             other => Err(ProtocolError::new(
                 ErrorCode::UnknownMethod,
                 format!("Unknown method \"{other}\"."),
@@ -131,12 +146,25 @@ impl Session {
         let path = string(params, "path")?;
         let content = string(params, "content")?;
         let base_hash = optional_string(params, "baseHash")?;
+        let _guard = self.writes.lock().unwrap_or_else(PoisonError::into_inner);
         body::write_page(
             &self.workspace.root()?,
             &path,
             &content,
             base_hash.as_deref(),
         )
+    }
+
+    /// Sync the notes folder with its remote on a worker thread and reply when
+    /// done (`sync`). A second request waits for the first to finish.
+    fn start_sync(&self, root: std::path::PathBuf, id: u64) {
+        let out = self.out.clone();
+        let writes = Arc::clone(&self.writes);
+        let syncing = Arc::clone(&self.syncing);
+        thread::spawn(move || {
+            let _running = syncing.lock().unwrap_or_else(PoisonError::into_inner);
+            let _ = out.send(reply(id, sync::sync(&root, &writes)));
+        });
     }
 
     /// Watch the notes folder and report changes as `filesChanged` events,
@@ -474,10 +502,13 @@ mod tests {
                 hello_request(1),
                 json!({ "id": 2, "method": "gitInit" }),
                 json!({ "id": 3, "method": "gitPublish" }),
+                json!({ "id": 4, "method": "sync" }),
             ],
         );
-        assert_eq!(replies.len(), 3);
+        assert_eq!(replies.len(), 4);
         assert_eq!(replies[2]["id"], json!(3));
         assert_eq!(replies[2]["error"]["code"], json!("GIT"));
+        assert_eq!(replies[3]["id"], json!(4));
+        assert_eq!(replies[3]["error"]["code"], json!("GIT"));
     }
 }

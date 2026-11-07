@@ -12,6 +12,7 @@ mod install;
 mod pages;
 mod paths;
 mod protocol;
+mod sync;
 #[cfg(test)]
 mod testdir;
 mod watch;

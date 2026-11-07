@@ -150,7 +150,17 @@ The helper runs the user's `git` command with terminal prompts and optional lock
 
 Setup is a fixed sequence, and the app shows the first incomplete step: Git available, repository initialized (`main` unless the user set `init.defaultBranch`), author identity (written to the repository's local config only when not already set), `origin` remote, and a first push that sets the upstream. The first push commits a `README.md` titled with the folder name when the repository has no commits. A folder is ready when its branch has an upstream.
 
-**Intended (slice 7).** After setup, sync runs on its own. After 5 seconds with no saves, it stages changed files and commits with the message `Quire: update <n> page(s)`. It fetches `origin`, rebases only when the rebase completes without conflict, and pushes. On conflict it aborts the rebase, stops auto-sync, and emits a conflict state. Local work is never discarded.
+After setup, sync runs on its own through `sync` (no params), which runs on a worker thread, one at a time per connection, and answers `{ state, ahead, behind, committed, pulled, files, message }`:
+
+1. If Git is in the middle of a rebase, merge, cherry-pick, or revert, nothing is touched and the state is `conflict` with a `message`.
+2. Stage everything and commit it as `Quire: update 1 page`, `Quire: update <n> pages` (counting the distinct page folders touched; files under `assets` count for their page), or `Quire: update notes` when only non-page files changed. `committed` is the page count.
+3. Fetch the branch's upstream remote. If that fails, the state is `offline` with Git's `message`, and the commits wait for the next sync.
+4. When the remote has new commits: fast-forward if there is no local work, otherwise rebase local commits onto the remote. A rebase that stops on a conflict is aborted at once; the state is `conflict` and `files` lists the files changed on both sides. Local work is never discarded and no merge commits are made. `pulled` is true when remote changes came in.
+5. Push `HEAD` to the upstream branch. A push refused because the remote moved goes back to step 3, at most 3 times.
+
+`ahead` and `behind` count commits not yet on the remote and not yet taken in. Page writes and the Git steps that change files (commit, fast-forward, rebase) share a lock, so a write never lands in the middle of a rebase. Errors that are not about the remote (no upstream, a failed commit) are `GIT` errors.
+
+The app syncs once when the workspace opens, 5 seconds after file changes settle (every `filesChanged` event, including its own saves), 1 second after the tab is hidden, and every minute while the tab is visible. After `offline` or an error it retries after 30 seconds, then 1, 2, and 5 minutes. After `conflict` it stops until the user selects **Sync now**. The app allows a sync 3 minutes.
 
 ### AI providers
 
@@ -173,8 +183,8 @@ Popup **Open Quire** focuses an existing app tab (found with `chrome.runtime.get
 
 | Level | Establishes |
 | --- | --- |
-| Unit (Vitest) | Protocol validators, helper client request matching, Markdown block and inline parsing, byte-exact round trips, source edits, link rules |
-| Unit (`cargo test`) | Framing, envelope handling, origin check, registration paths and manifests, page path safety, page reads and guarded writes, change classification and a live watch |
+| Unit (Vitest) | Protocol validators, helper client request matching, Markdown block and inline parsing, byte-exact round trips, source edits, link rules, sync results |
+| Unit (`cargo test`) | Framing, envelope handling, origin check, registration paths and manifests, page path safety, page reads and guarded writes, change classification and a live watch, sync against a local bare remote and a second clone |
 | Install smoke (CI, each OS) | `install` writes the manifests or registry keys; `uninstall` removes them |
 | End-to-end (Playwright, Linux) | User-visible slice acceptance on the unpacked extension talking to the real helper |
 
