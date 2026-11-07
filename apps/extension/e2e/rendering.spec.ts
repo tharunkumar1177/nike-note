@@ -55,8 +55,8 @@ test("a page body renders as blocks with its heading as the title", async ({ ope
   await expect(blocks.locator(".inline-code")).toHaveText("code");
   await expect(blocks.locator("blockquote")).toHaveText("Bring a jacket");
   await expect(blocks.locator(".block--bullet")).toHaveText(["•Pack", "◦Socks"]);
-  await expect(blocks.getByRole("checkbox", { name: "Done" })).toBeChecked();
-  await expect(blocks.getByRole("checkbox", { name: "Not done" })).not.toBeChecked();
+  await expect(blocks.getByRole("checkbox", { name: "Done", exact: true })).toBeChecked();
+  await expect(blocks.getByRole("checkbox", { name: "Not done", exact: true })).not.toBeChecked();
   await expect(blocks.locator(".block--numbered .block__marker")).toHaveText(["3.", "4."]);
   await expect(blocks.locator("hr")).toHaveCount(1);
   await expect(blocks.locator(".block--code figcaption")).toHaveText("js");
