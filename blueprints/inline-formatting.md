@@ -6,7 +6,9 @@ Selecting words in the block being edited shows a small toolbar above them, like
 
 ## Current verified status
 
-**Status:** Planned
+**Status:** Implemented
+
+Verified in CI (Markdown unit tests for toggling, nesting, splitting, carets, code, links, and address completion; end-to-end tests for every criterion below) and by hand in Chrome on Windows with the CI build: on a CRLF page, a mouse click on Bold, Ctrl+I, Ctrl+K with `example.com`, and Ctrl+B at a caret saved `**_[bold](https://example.com)_**__x__` with CRLF endings kept, the toolbar followed the selection and showed Bold, Italic, and Link as on, and the text box kept focus throughout.
 
 ## Architecture dependencies
 
@@ -45,14 +47,15 @@ Selecting words in the block being edited shows a small toolbar above them, like
 
 ## Acceptance or verification criteria
 
-- [ ] Selecting a word shows the toolbar; Bold saves `**word**` and shows Bold as on, and the text box keeps focus and the selection.
-- [ ] Ctrl+I on bold text saves `**_word_**`, and Bold then saves `_word_`.
-- [ ] Turning a style off for part of a styled run keeps it on the rest.
-- [ ] Ctrl+K opens the address field; `example.com` and Enter save `[word](https://example.com)`, and Remove restores the plain word.
-- [ ] Ctrl+B at a caret, typing, and Ctrl+B again saves `**x**` and continues unstyled; Ctrl+Shift+X strikes a selection.
+- [x] Selecting a word shows the toolbar; Bold saves `**word**` and shows Bold as on, and the text box keeps focus and the selection.
+- [x] Ctrl+I on bold text saves `**_word_**`, and Bold then saves `_word_`.
+- [x] Turning a style off for part of a styled run keeps it on the rest.
+- [x] Ctrl+K opens the address field; `example.com` and Enter save `[word](https://example.com)`, and Remove restores the plain word.
+- [x] Ctrl+B at a caret, typing, and Ctrl+B again saves `**x**` and continues unstyled; Ctrl+Shift+X strikes a selection.
 
 ## Remaining gaps and unknowns
 
 - The title and multi-line blocks (code, tables) get no toolbar.
 - The toolbar is placed above the start of the selection and is not moved back into view near the top edge of the page.
 - Text colors and highlights have no standard Markdown form and are not offered.
+- While the address field has focus, the browser hides the text box's selection, so the words being linked are not highlighted.
