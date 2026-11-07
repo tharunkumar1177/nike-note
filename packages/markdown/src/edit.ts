@@ -20,7 +20,7 @@ export interface Edit {
 }
 
 /** Block types whose source spans several lines, where Enter inserts a newline. */
-const MULTI_LINE = new Set<Block["type"]>(["code", "table", "frontMatter"]);
+const MULTI_LINE = new Set<Block["type"]>(["code", "table", "frontMatter", "callout", "toggle"]);
 
 const FENCE_OPEN = /^ {0,3}(`{3,}|~{3,})/;
 const TODO_ITEM = /^([ \t]*)([-*+])( \[[ xX]\])(?:[ \t]+|$)/;
@@ -367,6 +367,50 @@ export function insertLinkLine(document: MarkdownDocument, index: number, link: 
   const at = block ? index + 1 : document.blocks.length;
   const line = after ? after.line + blockLineCount(after) : 0;
   return { source: insertLines(document, at, link), caret: { line, column: link.length } };
+}
+
+/** Multi-line blocks the slash menu adds from a template. */
+export type TemplateKind = "table" | "callout" | "toggle";
+
+/** Each template's lines and where the caret goes in them. */
+const TEMPLATES: Record<TemplateKind, { lines: readonly string[]; caret: SourcePosition }> = {
+  table: {
+    lines: ["| Column 1 | Column 2 |", "| --- | --- |", "|  |  |"],
+    caret: { line: 2, column: 2 },
+  },
+  callout: { lines: ["> [!NOTE]", "> "], caret: { line: 1, column: 2 } },
+  toggle: {
+    lines: ["<details>", "<summary>Toggle</summary>", "", "", "</details>"],
+    caret: { line: 3, column: 0 },
+  },
+};
+
+/**
+ * Add a `kind` block from its template for one-line block `index`, whose
+ * text is now `text`: the template replaces a line without words and goes
+ * after a line with words. Returns null for a multi-line block.
+ */
+export function insertTemplate(
+  document: MarkdownDocument,
+  index: number,
+  text: string,
+  kind: TemplateKind,
+): Edit | null {
+  const block = document.blocks[index];
+  if (!block || !isSingleLine(block) || text.includes("\n")) return null;
+  const template = TEMPLATES[kind];
+  const source = template.lines.join("\n");
+  if (splitLine(text).content.trim() === "") {
+    return {
+      source: replaceBlockText(document, index, source),
+      caret: { line: block.line + template.caret.line, column: template.caret.column },
+    };
+  }
+  const kept = parseDocument(replaceBlockText(document, index, text));
+  return {
+    source: insertLines(kept, index + 1, source),
+    caret: { line: block.line + 1 + template.caret.line, column: template.caret.column },
+  };
 }
 
 /**

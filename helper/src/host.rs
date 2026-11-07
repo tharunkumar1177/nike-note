@@ -9,6 +9,7 @@ use std::thread;
 
 use serde_json::{Map, Value, json};
 
+use crate::assets;
 use crate::body;
 use crate::config;
 use crate::dirs;
@@ -120,6 +121,16 @@ impl Session {
             }),
             "deletePage" => string(params, "path")
                 .and_then(|path| pageops::delete_page(&self.workspace.root()?, &path)),
+            "readAsset" => string(params, "path").and_then(|path| {
+                let offset = params.get("offset").and_then(Value::as_u64).unwrap_or(0);
+                assets::read_asset(&self.workspace.root()?, &path, offset)
+            }),
+            "writeAsset" => string(params, "page").and_then(|page| {
+                let name = string(params, "name")?;
+                let data = string(params, "data")?;
+                let _guard = self.writes.lock().unwrap_or_else(PoisonError::into_inner);
+                assets::write_asset(&self.workspace.root()?, &page, &name, &data)
+            }),
             "watch" => self.start_watch(),
             "gitInit" => self.with_root(git::init),
             "gitSetIdentity" => string(params, "name").and_then(|name| {

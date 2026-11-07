@@ -9,6 +9,7 @@ export {
   serializeDocument,
   titleBlockIndex,
   type Block,
+  type CalloutKind,
   type HeadingLevel,
   type MarkdownDocument,
 } from "./blocks";
@@ -28,6 +29,8 @@ export {
   insertDivider,
   insertLines,
   insertLinkLine,
+  insertTemplate,
+  type TemplateKind,
   isSingleLine,
   mergeWithPrevious,
   offsetInBlock,
@@ -65,13 +68,16 @@ export {
 } from "./inline";
 export {
   README,
+  assetImageLine,
   isExternalHref,
   pageLinkLine,
   parsePageLinkLine,
+  resolveFileHref,
   resolvePageHref,
   type PageLinkLine,
 } from "./links";
 export { dominantEol, indentWidth, splitLines, type SourceLine } from "./lines";
+export { parseTable, splitRow, type CellAlign, type TableCells } from "./table";
 export {
   LIST_KINDS,
   applyShortcut,

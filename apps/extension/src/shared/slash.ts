@@ -3,10 +3,13 @@
  * blueprints/slash-menu.md). Typing `/` then a name such as `h2`, `todo`, or
  * `page` narrows the list; the best match comes first.
  */
-import type { TurnIntoKind } from "@quire/markdown";
+import type { TemplateKind, TurnIntoKind } from "@quire/markdown";
 
-/** What a slash command does: turn the line into a block type, or add a sub-page. */
-export type SlashCommand = TurnIntoKind | "page";
+/**
+ * What a slash command does: turn the line into a block type, add a block
+ * from a template, add an image, or add a sub-page.
+ */
+export type SlashCommand = TurnIntoKind | TemplateKind | "image" | "page";
 
 /** One entry of the slash menu. */
 export interface SlashItem {
@@ -54,6 +57,30 @@ export const SLASH_ITEMS: readonly SlashItem[] = [
     label: "Divider",
     hint: "A line between sections",
     keywords: ["divider", "line", "rule", "hr"],
+  },
+  {
+    command: "table",
+    label: "Table",
+    hint: "Rows and columns",
+    keywords: ["table", "grid", "columns", "rows"],
+  },
+  {
+    command: "callout",
+    label: "Callout",
+    hint: "A note that stands out",
+    keywords: ["callout", "note", "tip", "warning", "alert"],
+  },
+  {
+    command: "toggle",
+    label: "Toggle",
+    hint: "Content that opens and closes",
+    keywords: ["toggle", "details", "collapse", "fold"],
+  },
+  {
+    command: "image",
+    label: "Image",
+    hint: "Add a picture from your computer",
+    keywords: ["image", "picture", "photo", "img"],
   },
   {
     command: "page",

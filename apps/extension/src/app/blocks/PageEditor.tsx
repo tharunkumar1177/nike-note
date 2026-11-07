@@ -20,6 +20,7 @@ import {
   insertDivider,
   insertLines,
   insertLinkLine,
+  insertTemplate,
   isSingleLine,
   linkAt,
   linkHref,
@@ -135,6 +136,18 @@ interface Slash {
 
 /** Elements inside a formatted block that keep their own click behavior. */
 const INTERACTIVE = "a, button, input, summary";
+/** Image types that can be added to a page, as a file input `accept` list. */
+const IMAGE_TYPES = "image/png,image/jpeg,image/gif,image/webp,image/avif,image/bmp,image/svg+xml";
+
+/** The image files among dropped or pasted files. */
+function imageFiles(data: DataTransfer | null): File[] {
+  return Array.from(data?.files ?? []).filter((file) => IMAGE_TYPES.split(",").includes(file.type));
+}
+
+/** True while a drag carries files from outside the page. */
+function carriesFiles(data: DataTransfer): boolean {
+  return Array.from(data.types).includes("Files");
+}
 
 /**
  * A text box that grows with its content, takes focus when it appears, and
@@ -414,6 +427,7 @@ export function PageEditor({
   onCreatePage,
   onTransform,
   onTitleCommit,
+  onAddImage,
   children,
 }: {
   markdown: MarkdownDocument;
@@ -425,6 +439,8 @@ export function PageEditor({
   onTransform: (change: (source: string) => string) => boolean;
   /** Called with the new and the earlier title when focus leaves a title that was edited. */
   onTitleCommit?: (title: string, from: string) => void;
+  /** Saves an image file into the page's assets and answers its image line. */
+  onAddImage?: (file: File) => Promise<string>;
   children?: ReactNode;
 }) {
   const [focus, setFocus] = useState<Focus | null>(null);
@@ -432,6 +448,7 @@ export function PageEditor({
   const [pageError, setPageError] = useState<string | null>(null);
   const [toolbar, setToolbar] = useState<Toolbar | null>(null);
   const [drag, setDrag] = useState<{ from: number; before: number | null } | null>(null);
+  const [fileDrop, setFileDrop] = useState<number | null>(null);
   const menuId = useId();
   const blocks = markdown.blocks;
   const titleIndex = titleBlockIndex(blocks);
@@ -665,7 +682,52 @@ export function PageEditor({
         });
         if (linked) window.location.hash = pageHash(created.path);
       })
-      .catch((error: unknown) => setPageError(messageOf(error)));
+      .catch((error: unknown) =>
+        setPageError(`Quire couldn't add the sub-page: ${messageOf(error)}`),
+      );
+  };
+
+  /**
+   * Save image `files` into the page's assets and put their image lines on
+   * source line `line` when it is empty, otherwise after its block (`where`
+   * "after"), or before the block at `line` (`where` "before").
+   */
+  const addImages = (files: readonly File[], line: number, where: "after" | "before"): void => {
+    if (!onAddImage || files.length === 0) return;
+    setPageError(null);
+    Promise.all(files.map((file) => onAddImage(file)))
+      .then((lines) => {
+        const text = lines.join("\n");
+        onTransform((source) => {
+          const document = parseDocument(source);
+          const at = blockAtLine(document.blocks, line);
+          if (where === "after") {
+            return insertLinkLine(document, at < 0 ? document.blocks.length : at, text).source;
+          }
+          return insertLines(document, at < 0 ? document.blocks.length : at, text);
+        });
+      })
+      .catch((error: unknown) => setPageError(`Quire couldn't add the image: ${messageOf(error)}`));
+  };
+
+  /**
+   * Add an image for `/image` typed into block `index`, whose text without
+   * the command is `text`: ask for a file, then put the image on that line
+   * (or after it, when the line has words).
+   */
+  const pickImage = (index: number, block: Block, text: string, offset: number): void => {
+    apply(replaceBlockText(markdown, index, text), {
+      kind: "body",
+      ...positionInText(block.line, text, offset),
+    });
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = IMAGE_TYPES;
+    input.multiple = true;
+    input.addEventListener("change", () => {
+      addImages(Array.from(input.files ?? []), block.line, "after");
+    });
+    input.click();
   };
 
   /**
@@ -679,11 +741,21 @@ export function PageEditor({
     const text = parts.prefix + content;
     const offset = parts.prefix.length + slash.start;
     setSlash(null);
-    if (item.command === "page") {
+    const command = item.command;
+    if (command === "page") {
       addSubPage(index, block, text, offset);
       return;
     }
-    const edit = turnInto(markdown, index, text, offset, item.command);
+    if (command === "image") {
+      pickImage(index, block, text, offset);
+      return;
+    }
+    if (command === "table" || command === "callout" || command === "toggle") {
+      const inserted = insertTemplate(markdown, index, text, command);
+      if (inserted) apply(inserted.source, { kind: "body", ...inserted.caret });
+      return;
+    }
+    const edit = turnInto(markdown, index, text, offset, command);
     if (!edit) return;
     const next = parseDocument(edit.source);
     const titled = titleBlockIndex(next.blocks);
@@ -844,9 +916,10 @@ export function PageEditor({
       <div
         className="blocks"
         onDragOver={(event) => {
-          if (drag === null) return;
+          const files = drag === null && onAddImage !== undefined && carriesFiles(event.dataTransfer);
+          if (drag === null && !files) return;
           event.preventDefault();
-          event.dataTransfer.dropEffect = "move";
+          event.dataTransfer.dropEffect = files ? "copy" : "move";
           const slot = event.target instanceof Element ? event.target.closest("[data-index]") : null;
           if (!(slot instanceof HTMLElement)) return;
           const at = Number(slot.dataset.index);
@@ -855,14 +928,39 @@ export function PageEditor({
             event.clientY < rect.top + rect.height / 2 ? at : at + 1,
             firstMovable,
           );
-          if (before !== drag.before) setDrag({ ...drag, before });
+          if (drag === null) {
+            if (before !== fileDrop) setFileDrop(before);
+          } else if (before !== drag.before) {
+            setDrag({ ...drag, before });
+          }
+        }}
+        onDragLeave={(event) => {
+          const next = event.relatedTarget;
+          if (!(next instanceof Node && event.currentTarget.contains(next))) setFileDrop(null);
         }}
         onDrop={(event) => {
-          if (drag === null) return;
+          if (drag === null) {
+            const files = imageFiles(event.dataTransfer);
+            const before = fileDrop;
+            setFileDrop(null);
+            if (files.length === 0) return;
+            event.preventDefault();
+            const target = before === null ? undefined : blocks[before];
+            const end = blocks.at(-1);
+            const line = target ? target.line : end ? end.line + blockLineCount(end) : 0;
+            addImages(files, line, "before");
+            return;
+          }
           event.preventDefault();
           const edit = drag.before === null ? null : moveBlock(markdown, drag.from, drag.before);
           setDrag(null);
           if (edit) onChange(edit.source);
+        }}
+        onPaste={(event) => {
+          const files = imageFiles(event.clipboardData);
+          if (files.length === 0 || focus?.kind !== "body") return;
+          event.preventDefault();
+          addImages(files, focus.line, "after");
         }}
       >
         {blocks.map((block, index) => {
@@ -936,8 +1034,9 @@ export function PageEditor({
               </EditingBlock>
             );
           }
-          const dropBefore = drag?.before === index;
-          const dropAfter = drag?.before === blocks.length && index === blocks.length - 1;
+          const dropAt = drag?.before ?? fileDrop;
+          const dropBefore = dropAt === index;
+          const dropAfter = dropAt === blocks.length && index === blocks.length - 1;
           return (
             <div
               key={key}
@@ -967,7 +1066,7 @@ export function PageEditor({
       </div>
       {pageError !== null && (
         <p className="page__inline-error" role="alert">
-          Quire couldn&apos;t add the sub-page: {pageError}
+          {pageError}
         </p>
       )}
       <div
