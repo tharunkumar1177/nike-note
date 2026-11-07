@@ -2,28 +2,14 @@
  * End-to-end test for choosing a notes folder and setting up Git sync against
  * a local bare repository.
  */
-import { execFileSync } from "node:child_process";
 import { join } from "node:path";
 
 import { expect, test } from "./fixtures";
-
-/**
- * Run git with the sandbox's empty global configuration and return its output.
- */
-function git(sandboxDir: string, args: string[]): string {
-  return execFileSync("git", args, {
-    encoding: "utf8",
-    env: {
-      ...process.env,
-      GIT_CONFIG_GLOBAL: join(sandboxDir, "gitconfig"),
-      GIT_CONFIG_NOSYSTEM: "1",
-    },
-  });
-}
+import { git } from "./notes";
 
 test("a new folder is set up, pushed, and remembered", async ({ sandbox, openApp }) => {
   const remote = join(sandbox.dir, "remote.git");
-  git(sandbox.dir, ["init", "--bare", "--quiet", remote]);
+  git(sandbox, ["init", "--bare", "--quiet", remote]);
 
   const app = await openApp();
   await expect(app.getByRole("heading", { name: "Choose a notes folder" })).toBeVisible();
@@ -52,9 +38,9 @@ test("a new folder is set up, pushed, and remembered", async ({ sandbox, openApp
   });
   await expect(app.getByTestId("status-branch")).toHaveText("main");
 
-  const log = git(sandbox.dir, ["--git-dir", remote, "log", "--format=%an <%ae> %s", "main"]);
+  const log = git(sandbox, ["--git-dir", remote, "log", "--format=%an <%ae> %s", "main"]);
   expect(log.trim()).toBe("Ana Writer <ana@example.com> Quire: initial commit");
-  const files = git(sandbox.dir, ["--git-dir", remote, "ls-tree", "--name-only", "main"]);
+  const files = git(sandbox, ["--git-dir", remote, "ls-tree", "--name-only", "main"]);
   expect(files.trim()).toBe("README.md");
 
   await app.reload();

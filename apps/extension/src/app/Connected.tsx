@@ -46,5 +46,7 @@ export function Connected({ hello, helper }: { hello: HelloResult; helper: Helpe
   if (stage !== "ready") {
     return <GitSetup stage={stage} workspace={workspace} store={store} view={view} />;
   }
-  return <Workspace hello={hello} workspace={workspace} store={store} />;
+  return (
+    <Workspace key={workspace.root} hello={hello} workspace={workspace} store={store} />
+  );
 }

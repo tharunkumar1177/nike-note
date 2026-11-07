@@ -6,6 +6,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 
 import { ArrowUpIcon, FolderIcon, HomeIcon, PlusIcon } from "../shared/icons";
 import { parseCreatedDir, parseDirListing, type DirListing } from "../shared/workspace";
+import { openPage } from "./route";
 import { ScreenCard } from "./ScreenCard";
 import type { WorkspaceStore, WorkspaceView } from "./workspaceStore";
 
@@ -96,6 +97,14 @@ export function FolderPicker({
     } finally {
       setCreating(false);
     }
+  }
+
+  /**
+   * Make the shown folder the notes folder; a different folder opens at its root page.
+   */
+  async function choose(path: string): Promise<void> {
+    const chosen = await store.run("setRoot", { path });
+    if (chosen && path !== current) openPage("");
   }
 
   const choosing = view.busy === "setRoot";
@@ -210,7 +219,7 @@ export function FolderPicker({
           type="button"
           className="q-button q-button--primary"
           disabled={!listing || choosing}
-          onClick={() => listing && void store.run("setRoot", { path: listing.path })}
+          onClick={() => listing && void choose(listing.path)}
         >
           {choosing ? "Opening…" : "Use this folder"}
         </button>

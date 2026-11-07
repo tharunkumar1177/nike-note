@@ -52,6 +52,25 @@ export function PlusIcon() {
   );
 }
 
+/** Page (a document with a folded corner). */
+export function PageIcon() {
+  return (
+    <svg {...iconProps}>
+      <path d="M4 1.75h5.25L12.5 5v9.25H4z" />
+      <path d="M9 1.75V5.25h3.5" />
+    </svg>
+  );
+}
+
+/** Chevron pointing right; rotated by CSS when expanded. */
+export function ChevronIcon() {
+  return (
+    <svg {...iconProps} width={12} height={12}>
+      <path d="m6 3.5 4.5 4.5L6 12.5" />
+    </svg>
+  );
+}
+
 /** Git branch. */
 export function BranchIcon() {
   return (
