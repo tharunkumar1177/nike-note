@@ -156,6 +156,13 @@ Workspace methods answer with the workspace state `{ root, rootName, rootError, 
 - `readAsset { path, offset }` reads an image by its path in the notes folder (`/`-separated, no segment starting with `.`, checked like a page path) and answers `{ path, size, offset, mime, data }`: up to 512 KiB from `offset`, in base64, so a reply stays under the 1 MiB limit. The app asks again from the next offset until it has `size` bytes, and gives up if the size or type changes meanwhile. Files over 32 MiB get `TOO_LARGE`.
 - `writeAsset { page, name, data }` saves base64 `data` (at most 16 MiB decoded, sent in one request under the 64 MiB inbound limit) as a new file in page `page`'s `assets/` folder, creating the folder. The file name is `name` cleaned like a page folder name, with a lowercase extension; a name already used, compared without case, gets ` 2`, ` 3`, and so on before the extension. It is written to a dot-named temporary file and renamed into place, never replacing a file, and answers `{ path, name }`. The app then writes the line `![<name without extension>](assets/<percent-encoded name>)`.
 
+### Search
+
+- `search { query }` runs on a worker thread and answers `{ results, truncated }`, where each result is `{ path, title, snippet }`, best first. A connection has one search at a time: starting one makes any earlier one stop and answer `{ results: [], truncated: false, superseded: true }`.
+- The query is split on whitespace into at most 8 words, compared without regard to case. A page matches when every word appears in its title or its body (the `README.md` text except the title line). Pages are walked with the same limits and exclusions as `pageTree`.
+- Ranking: a word in the title scores 15 when the title starts with it and 10 otherwise; each word adds its body occurrences, at most 5. Ties go by title, then path. At most 50 results are sent, and `truncated` says more matched.
+- The snippet is the first non-blank body line containing a query word (trying the words in order), or the first body line when only the title matched, with leading Markdown markers (`#`s, `>`, list and to-do markers, numbers) removed. Lines longer than 160 characters are cut to 160 starting 60 characters before the match, with `…` where cut.
+
 ### Git sync
 
 The helper runs the user's `git` command with terminal prompts and optional locks disabled, and never stores credentials. Remote sign-in relies on the credential helper or SSH agent the user already has.
@@ -195,8 +202,8 @@ Popup **Open Quire** focuses an existing app tab (found with `chrome.runtime.get
 
 | Level | Establishes |
 | --- | --- |
-| Unit (Vitest) | Protocol validators, helper client request matching, Markdown block and inline parsing, byte-exact round trips, source edits, link rules, sync results |
-| Unit (`cargo test`) | Framing, envelope handling, origin check, registration paths and manifests, page path safety, page reads and guarded writes, change classification and a live watch, sync against a local bare remote and a second clone |
+| Unit (Vitest) | Protocol validators, helper client request matching, Markdown block and inline parsing, byte-exact round trips, source edits, link rules, sync and search results, search highlighting |
+| Unit (`cargo test`) | Framing, envelope handling, origin check, registration paths and manifests, page path safety, page reads and guarded writes, change classification and a live watch, sync against a local bare remote and a second clone, search matching, ranking, snippets, and supersession |
 | Install smoke (CI, each OS) | `install` writes the manifests or registry keys; `uninstall` removes them |
 | End-to-end (Playwright, Linux) | User-visible slice acceptance on the unpacked extension talking to the real helper |
 
