@@ -27,13 +27,7 @@ test.describe("with the helper registered", () => {
   test("the app page completes the hello handshake", async ({ openApp }) => {
     const app = await openApp();
     await expect(app).toHaveTitle("Quire");
-    await expect(
-      app.getByRole("heading", { name: "Quire Helper is connected" }),
-    ).toBeVisible();
-    await expect(app.getByRole("contentinfo", { name: "Status" })).toContainText(
-      /Helper \d+\.\d+\.\d+/,
-    );
-    await expect(app.getByText(/running on Linux \(x86_64\)/)).toBeVisible();
+    await expect(app.getByRole("heading", { name: "Choose a notes folder" })).toBeVisible();
   });
 });
 

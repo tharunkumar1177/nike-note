@@ -155,9 +155,38 @@ pre {
   background: var(--q-accent-hover);
 }
 
+.q-button--primary:disabled {
+  background: var(--q-accent);
+}
+
 .q-button--large {
   height: 36px;
   font-size: var(--q-text-sm);
+}
+
+.q-button--icon {
+  width: 32px;
+  padding: 0;
+  color: var(--q-text-muted);
+}
+
+.q-input {
+  height: 32px;
+  min-width: 0;
+  padding: 0 var(--q-space-2);
+  border: 1px solid var(--q-border);
+  border-radius: var(--q-radius);
+  background: var(--q-bg);
+  color: var(--q-text);
+  font: inherit;
+}
+
+.q-input::placeholder {
+  color: var(--q-text-faint);
+}
+
+.q-input:focus-visible {
+  border-color: var(--q-accent);
 }
 
 .q-visually-hidden {

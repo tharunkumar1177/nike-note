@@ -12,6 +12,9 @@ pub enum ErrorCode {
     UnknownMethod,
     ProtocolMismatch,
     TooLarge,
+    NotFound,
+    Io,
+    Git,
 }
 
 impl ErrorCode {
@@ -22,6 +25,9 @@ impl ErrorCode {
             ErrorCode::UnknownMethod => "UNKNOWN_METHOD",
             ErrorCode::ProtocolMismatch => "PROTOCOL_MISMATCH",
             ErrorCode::TooLarge => "TOO_LARGE",
+            ErrorCode::NotFound => "NOT_FOUND",
+            ErrorCode::Io => "IO",
+            ErrorCode::Git => "GIT",
         }
     }
 }

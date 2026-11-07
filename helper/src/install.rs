@@ -68,14 +68,14 @@ pub struct InstallPlan {
 }
 
 /// Read a non-empty environment variable as a path.
-fn path_var(var: &impl Fn(&str) -> Option<OsString>, name: &str) -> Option<PathBuf> {
+pub fn path_var(var: &impl Fn(&str) -> Option<OsString>, name: &str) -> Option<PathBuf> {
     var(name)
         .filter(|value| !value.is_empty())
         .map(PathBuf::from)
 }
 
 /// Read an XDG base-directory variable; the specification ignores relative values.
-fn xdg_var(var: &impl Fn(&str) -> Option<OsString>, name: &str) -> Option<PathBuf> {
+pub fn xdg_var(var: &impl Fn(&str) -> Option<OsString>, name: &str) -> Option<PathBuf> {
     path_var(var, name).filter(|path| path.to_string_lossy().starts_with('/'))
 }
 

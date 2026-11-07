@@ -28,7 +28,7 @@ Pick the first unchecked slice. Route it through [the blueprint manifest](bluepr
 
 - [x] 1. Walking skeleton: remove the cloud code; MV3 extension with the popup and an app page; a Rust helper that answers a `hello` handshake over native messaging; CI for both (extension lint, type-check, unit tests, build; helper fmt, clippy, tests, and release builds on Windows, macOS, and Linux; Playwright e2e on the unpacked extension with the helper)
 - [x] 2. Helper install and connection: `quire-helper install` and `uninstall` for Chrome, Edge, Brave, and Chromium on each OS; app screens for a missing, rejected, outdated, or stopped helper
-- [ ] 3. Folder and Git setup: pick the folder through the helper; require a repo with `origin`; guided init and first push; status bar with the branch
+- [x] 3. Folder and Git setup: pick the folder through the helper; require a repo with `origin`; guided init and first push; status bar with the branch
 
 ### Reading and editing
 
@@ -58,3 +58,4 @@ Pick the first unchecked slice. Route it through [the blueprint manifest](bluepr
 - 2026-09-30: Phase 0 complete for the earlier cloud, multi-user plan.
 - 2026-11-07: Pivot approved. The cloud plan (Next.js, realtime service, worker, Postgres, hosting) is replaced by the local extension and native helper described above. The previous slice list and the production-readiness audit are retired. Next: slice 1 on branch `slice/01-extension-skeleton`.
 - 2026-11-07: Slices 1 and 2 done and green in CI on Windows, macOS, and Linux. The downloaded CI build was verified by hand in Chrome 156 on Windows: install, Open Quire, and the handshake. Next: slice 3 (folder and Git setup).
+- 2026-11-07: Slice 3 done and green in CI. The e2e test runs the whole setup against a bare remote. The downloaded CI build was verified by hand in Chrome on Windows: browse from the home folder, create a folder, turn on Git, connect a local bare remote, push, and reopen the picker with Change folder. Hand testing found hidden Windows folders such as `AppData` listed in the picker; they are now filtered by attribute. Next: slice 4 (page tree).

@@ -11,7 +11,7 @@ import { parseHelloResult, type HelloResult } from "../shared/protocol";
 export type ConnectionState =
   | { status: "unsupported" }
   | { status: "connecting" }
-  | { status: "connected"; hello: HelloResult }
+  | { status: "connected"; hello: HelloResult; helper: HelperConnection; session: number }
   | {
       status: "missing" | "forbidden" | "outdated" | "stopped";
       detail: string;
@@ -40,11 +40,6 @@ export class ConnectionStore {
 
   /** Current state for `useSyncExternalStore`. */
   readonly getSnapshot = (): ConnectionState => this.state;
-
-  /** The live connection, available only while connected. */
-  get helper(): HelperConnection | null {
-    return this.state.status === "connected" ? this.connection : null;
-  }
 
   /**
    * Open a fresh connection and perform the `hello` handshake.
@@ -79,7 +74,9 @@ export class ConnectionStore {
       .request("hello", { protocol: PROTOCOL_VERSION }, parseHelloResult)
       .then(
         (hello) => {
-          if (attempt === this.attempt) this.set({ status: "connected", hello });
+          if (attempt === this.attempt) {
+            this.set({ status: "connected", hello, helper: connection, session: attempt });
+          }
         },
         (error: unknown) => {
           if (attempt !== this.attempt) return;
