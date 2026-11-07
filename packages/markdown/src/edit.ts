@@ -5,7 +5,7 @@
  */
 import { parseDocument, titleBlockIndex, type Block, type MarkdownDocument } from "./blocks";
 import { indentWidth } from "./lines";
-import { LIST_KINDS, nestedIndent, splitLine } from "./prefix";
+import { LIST_KINDS, nestedIndent, splitLine, type LineParts } from "./prefix";
 
 /** A caret in source coordinates: zero-based line and UTF-16 column. */
 export interface SourcePosition {
@@ -215,10 +215,30 @@ export function clearPrefix(document: MarkdownDocument, index: number): Edit {
 }
 
 /**
- * Tab (`step` 1) or Shift+Tab (`step` -1) on list item `index`: nest it under
- * the list item before it, or move it one level out. Returns null when the
- * block is not a list item or cannot move. The caret is at the start of the
- * item's text.
+ * The nearest list item before `index` at the same level as an item indented
+ * by `width` or less, and whether it is the block right before `index`.
+ */
+function previousSibling(
+  document: MarkdownDocument,
+  index: number,
+  width: number,
+): { parts: LineParts; adjacent: boolean } | null {
+  for (let at = index - 1; at >= 0; at -= 1) {
+    const block = document.blocks[at];
+    if (!block || !isSingleLine(block)) return null;
+    const parts = splitLine(blockText(block));
+    if (!LIST_KINDS.has(parts.kind)) return null;
+    if (indentWidth(parts.indent) <= width) return { parts, adjacent: at === index - 1 };
+  }
+  return null;
+}
+
+/**
+ * Tab (`step` 1) or Shift+Tab (`step` -1) on list item `index`: nest it as the
+ * last child of the item before it at the same level, or move it one level
+ * out. A numbered item that starts a new nested list is numbered 1. Returns
+ * null when the block is not a list item or cannot move. The caret is at the
+ * start of the item's text.
  */
 export function indentItem(document: MarkdownDocument, index: number, step: 1 | -1): Edit | null {
   const block = document.blocks[index];
@@ -227,21 +247,21 @@ export function indentItem(document: MarkdownDocument, index: number, step: 1 | 
   const parts = splitLine(text);
   if (!LIST_KINDS.has(parts.kind)) return null;
   let indent: string;
+  let rest = text.slice(parts.indent.length);
   if (step < 0) {
     if (parts.indent === "") return null;
     indent = outdent(document, index, parts.indent);
   } else {
-    const previous = document.blocks[index - 1];
-    const parent = previous && isSingleLine(previous) ? splitLine(blockText(previous)) : null;
-    if (!parent || !LIST_KINDS.has(parent.kind)) return null;
-    indent = nestedIndent(parent);
+    const sibling = previousSibling(document, index, indentWidth(parts.indent));
+    if (!sibling) return null;
+    indent = nestedIndent(sibling.parts);
     if (indentWidth(parts.indent) >= indentWidth(indent)) return null;
+    if (parts.kind === "numbered" && sibling.adjacent) rest = rest.replace(/^\d+/, "1");
   }
-  const rest = text.slice(parts.indent.length);
-  const prefixLength = indent.length + parts.prefix.length - parts.indent.length;
+  const line = indent + rest;
   return {
-    source: replaceBlockText(document, index, indent + rest),
-    caret: { line: block.line, column: prefixLength },
+    source: replaceBlockText(document, index, line),
+    caret: { line: block.line, column: splitLine(line).prefix.length },
   };
 }
 

@@ -159,7 +159,15 @@ describe("indentItem", () => {
     });
     expect(indentItem(parseDocument(nested?.source ?? ""), 1, 1)).toBeNull();
     expect(indentItem(parseDocument(nested?.source ?? ""), 1, -1)?.source).toBe(source);
-    expect(indentItem(document, 3, 1)?.source).toBe("- one\n- two\n1. three\n   4. four\n");
+    expect(indentItem(document, 3, 1)).toEqual({
+      source: "- one\n- two\n1. three\n   1. four\n",
+      caret: { line: 3, column: 6 },
+    });
+  });
+
+  it("nests under the item at the same level, after its existing children", () => {
+    const document = parseDocument("1. a\n   1. b\n2. c\n");
+    expect(indentItem(document, 2, 1)?.source).toBe("1. a\n   1. b\n   2. c\n");
   });
 
   it("leaves first items, top-level outdents, and other blocks alone", () => {
