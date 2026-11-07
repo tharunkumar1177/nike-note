@@ -15,6 +15,7 @@
     "src/shared/identity.ts",
     "src/shared/protocol.ts",
     "src/shared/pending.ts",
+    "src/shared/workspace.ts",
     "tests/**/*.ts",
     "e2e/**/*.ts"
   ]

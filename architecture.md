@@ -97,7 +97,22 @@ Run with no arguments, the binary performs `install`, so a double-click works on
 
 ### Notes folder and path safety
 
-**Intended (slice 3).** The helper stores the chosen notes folder path in its own per-user config file, so the browser never prompts for folder access. Every path in a request is relative to that root and uses `/` separators. The helper rejects absolute paths, `..` segments, and any path whose resolved location (after following symbolic links) is outside the root, with `OUTSIDE_ROOT`.
+**Intended.** The helper remembers the chosen notes folder in its own per-user config file, so the browser never prompts for folder access:
+
+| OS | Config file |
+| --- | --- |
+| Windows | `%LOCALAPPDATA%\Quire\config.json` |
+| macOS | `~/Library/Application Support/Quire/config.json` |
+| Linux | `$XDG_CONFIG_HOME/quire/config.json` (default `~/.config`) |
+
+The file holds `{ "notesRoot": <absolute path> }` and is replaced atomically. The helper reads it when a connection starts.
+
+Two kinds of path cross the protocol:
+
+- **Setup paths** are absolute and appear only in the folder-choice methods (`listDirs`, `createDir`, `setRoot`). They let the app browse folders before a root exists. `listDirs` returns folder names only, never file names or contents, and hides names that start with `.` or `$`. `createDir` accepts a single folder name, not a path.
+- **Page paths**, used by every later method, are relative to the root and use `/` separators. The helper rejects absolute paths, `..` segments, and any path whose resolved location (after following symbolic links) is outside the root, with `OUTSIDE_ROOT`.
+
+Workspace methods answer with the workspace state `{ root, rootName, rootError, git }`. `rootError` is set when the remembered folder no longer exists. `git` is `null` without a root, otherwise `{ available, version, isRepo, branch, hasCommits, origin, upstream, identity }`. `isRepo` is true only when the root itself is the top level of a repository, so a folder inside another repository is not treated as set up.
 
 ### Page structure
 
@@ -124,7 +139,11 @@ Run with no arguments, the binary performs `install`, so a double-click works on
 
 ### Git sync
 
-**Intended (slice 7).** The helper runs the user's `git` command and never stores credentials. After 5 seconds with no saves, it stages changed files and commits with the message `Quire: update <n> page(s)`. It fetches `origin`, rebases only when the rebase completes without conflict, and pushes. On conflict it aborts the rebase, stops auto-sync, and emits a conflict state. Local work is never discarded.
+The helper runs the user's `git` command with terminal prompts and optional locks disabled, and never stores credentials. Remote sign-in relies on the credential helper or SSH agent the user already has.
+
+Setup is a fixed sequence, and the app shows the first incomplete step: Git available, repository initialized (`main` unless the user set `init.defaultBranch`), author identity (written to the repository's local config only when not already set), `origin` remote, and a first push that sets the upstream. The first push commits a `README.md` titled with the folder name when the repository has no commits. A folder is ready when its branch has an upstream.
+
+**Intended (slice 7).** After setup, sync runs on its own. After 5 seconds with no saves, it stages changed files and commits with the message `Quire: update <n> page(s)`. It fetches `origin`, rebases only when the rebase completes without conflict, and pushes. On conflict it aborts the rebase, stops auto-sync, and emits a conflict state. Local work is never discarded.
 
 ### AI providers
 
@@ -134,7 +153,7 @@ Run with no arguments, the binary performs `install`, so a double-click works on
 
 ### Open and connect flow
 
-Popup **Open Quire** focuses an existing app tab (found with `chrome.runtime.getContexts`) or creates one. The app page connects to the helper and sends `hello`. A missing host, a rejected origin, a protocol mismatch, or a disconnect each maps to a distinct app screen.
+Popup **Open Quire** focuses an existing app tab (found with `chrome.runtime.getContexts`) or creates one. The app page connects to the helper and sends `hello`. A missing host, a rejected origin, a protocol mismatch, or a disconnect each maps to a distinct app screen. After `hello`, the app sends `getWorkspace` and shows the folder picker, the Git setup step, or the workspace, as described in [Notes folder and path safety](#notes-folder-and-path-safety) and [Git sync](#git-sync). Each new connection reloads the workspace state.
 
 ## Toolchain and CI
 

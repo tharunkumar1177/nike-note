@@ -2,12 +2,12 @@
  * Full-page screens shown while the helper is connecting, missing, rejected,
  * outdated, or stopped (see blueprints/extension-shell.md).
  */
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
 
 import { EXTENSION_ID } from "../shared/identity";
 import { detectOs, type DesktopOs } from "../shared/platform";
-import { QuireMark } from "../shared/QuireMark";
 import type { ConnectionState } from "./connection";
+import { ScreenCard, Waiting } from "./ScreenCard";
 
 type FailedState = Exclude<ConnectionState, { status: "connected" }>;
 
@@ -78,46 +78,6 @@ function InstallSteps({ os }: { os: DesktopOs }) {
 }
 
 /**
- * Centered card layout shared by every connection screen.
- */
-function ScreenCard({
-  title,
-  children,
-  detail,
-  onRetry,
-}: {
-  title: string;
-  children: ReactNode;
-  detail?: string;
-  onRetry?: () => void;
-}) {
-  return (
-    <main className="screen">
-      <section className="screen__card" aria-labelledby="screen-title">
-        <QuireMark size={40} />
-        <h1 id="screen-title" className="screen__title">
-          {title}
-        </h1>
-        <div className="screen__body">{children}</div>
-        {onRetry && (
-          <div className="screen__actions">
-            <button type="button" className="q-button q-button--primary" onClick={onRetry}>
-              Retry
-            </button>
-          </div>
-        )}
-        {detail && (
-          <details className="screen__detail">
-            <summary>Technical details</summary>
-            <code>{detail}</code>
-          </details>
-        )}
-      </section>
-    </main>
-  );
-}
-
-/**
  * Pick the screen for a non-connected state.
  */
 export function ConnectionScreen({
@@ -129,14 +89,7 @@ export function ConnectionScreen({
 }) {
   switch (state.status) {
     case "connecting":
-      return (
-        <main className="screen screen--connecting" aria-busy="true">
-          <div className="connecting" role="status">
-            <span className="connecting__spinner" aria-hidden="true" />
-            Connecting to Quire Helper…
-          </div>
-        </main>
-      );
+      return <Waiting label="Connecting to Quire Helper…" />;
 
     case "unsupported":
       return (
