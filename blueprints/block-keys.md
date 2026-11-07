@@ -6,9 +6,9 @@ Writing feels like Notion rather than like a Markdown file: the block being edit
 
 ## Current verified status
 
-**Status:** Partial
+**Status:** Implemented
 
-Code, Markdown unit tests, and end-to-end tests are written for slice 8. Not yet verified by CI or by hand in Chrome.
+Verified in CI (Markdown unit tests for the marker split, shortcuts, Enter, Backspace, and Tab; end-to-end tests typing real keys for every criterion below) and by hand in Chrome on Windows with the CI build: shortcuts typed one key at a time into a CRLF page produced a heading, a checked to-do, a nested numbered item starting at 1, a quote, and a divider, saved with CRLF endings, while the text boxes held only the text.
 
 ## Architecture dependencies
 
@@ -17,12 +17,12 @@ Code, Markdown unit tests, and end-to-end tests are written for slice 8. Not yet
 ## Local rules and implications
 
 - Marker split (`packages/markdown/src/prefix.ts`): `splitLine` returns the kind, the marker with its indentation (`prefix`), and the text. A marker counts only when a space or tab follows it, so typing `-5` or `#tag` never flashes a list or heading. Dividers and multi-line text have no marker.
-- Shortcuts at the start of a plain line, applied as the space after them is typed: `#` to `######` make headings, `-`, `*`, or `+` a bullet, `1.` or `1)` a numbered item, `>` or `"` a quote, `[]`, `[ ]`, or `[x]` a to-do (written as `- [ ] `), and `---` a divider followed by a new empty line. The ones Markdown already covers need no rewrite; the line is parsed again.
+- Shortcuts at the start of a plain line, applied as the space after them is typed: `#` to `######` make headings, `-`, `*`, or `+` a bullet, `1.` or `1)` a numbered item, `>` or `"` a quote, `[]`, `[ ]`, or `[x]` a to-do (written as `- [x] `), and `---` a divider followed by a new empty line. The ones Markdown already covers need no rewrite; the line is parsed again.
 - A `# ` heading typed above the title, or on a page without one, becomes the page title, and the caret moves into the title.
 - Keys in a one-line block:
   - Enter at the start of a non-empty heading or quote opens an empty line above it; Enter in an empty heading or quote turns it into plain text.
   - Backspace at the start of a block with a marker removes the marker and indentation; at the start of plain text it joins the line to the one before.
-  - Tab nests a list item under the list item before it (indented to line up with that item's text); Shift+Tab moves it one level out. Tab never leaves the editor; Escape does.
+  - Tab nests a list item as the last child of the item before it at the same level (indented to line up with that item's text); a numbered item that starts a new nested list is renumbered 1. Shift+Tab moves it one level out. Tab never leaves the editor; Escape does.
   - Ctrl+Enter (Cmd+Enter on macOS) checks or unchecks a to-do.
   - Up and Down keep the caret at the same offset in the text, not counting markers.
 - Placeholders in empty blocks name the block type (**Heading 2**, **List**, **To-do**, **Quote**); an empty plain line lists the main shortcuts.
@@ -48,12 +48,12 @@ Code, Markdown unit tests, and end-to-end tests are written for slice 8. Not yet
 
 ## Acceptance or verification criteria
 
-- [ ] Typing `## `, `- `, `[] `, `" `, and `---` at the start of a line produces a heading, a bullet, a to-do, a quote, and a divider, saved as standard Markdown.
-- [ ] The text box of a heading, list item, or to-do holds only its text, with the marker drawn.
-- [ ] Ctrl+Enter checks a to-do; Enter on an empty list item ends the list.
-- [ ] Tab and Shift+Tab nest and un-nest a list item.
-- [ ] Backspace at the start of a heading makes it plain text, and a second Backspace joins it to the line before.
-- [ ] Up and Down keep the caret at the same place in the text across blocks with markers of different widths.
+- [x] Typing `## `, `- `, `[] `, `" `, and `---` at the start of a line produces a heading, a bullet, a to-do, a quote, and a divider, saved as standard Markdown.
+- [x] The text box of a heading, list item, or to-do holds only its text, with the marker drawn.
+- [x] Ctrl+Enter checks a to-do; Enter on an empty list item ends the list.
+- [x] Tab and Shift+Tab nest and un-nest a list item.
+- [x] Backspace at the start of a heading makes it plain text, and a second Backspace joins it to the line before.
+- [x] Up and Down keep the caret at the same place in the text across blocks with markers of different widths.
 
 ## Remaining gaps and unknowns
 
