@@ -52,6 +52,15 @@ export function PlusIcon() {
   );
 }
 
+/** Three dots in a row, for a menu of more actions. */
+export function MoreIcon() {
+  return (
+    <svg {...iconProps}>
+      <path d="M3.5 8h.01M8 8h.01M12.5 8h.01" strokeWidth={2.5} />
+    </svg>
+  );
+}
+
 /** Page (a document with a folded corner). */
 export function PageIcon() {
   return (

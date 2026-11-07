@@ -106,8 +106,20 @@ impl Session {
             "writePage" => self.write_page(params),
             "createPage" => string(params, "parent").and_then(|parent| {
                 let title = string(params, "title")?;
-                pageops::create_page(&self.workspace.root()?, &parent, &title)
+                let link = params.get("link").and_then(Value::as_bool) == Some(true);
+                pageops::create_page(&self.workspace.root()?, &parent, &title, link)
             }),
+            "renamePage" => string(params, "path").and_then(|path| {
+                let title = string(params, "title")?;
+                let from = params.get("from").and_then(Value::as_str);
+                pageops::rename_page(&self.workspace.root()?, &path, &title, from)
+            }),
+            "movePage" => string(params, "path").and_then(|path| {
+                let parent = string(params, "parent")?;
+                pageops::move_page(&self.workspace.root()?, &path, &parent)
+            }),
+            "deletePage" => string(params, "path")
+                .and_then(|path| pageops::delete_page(&self.workspace.root()?, &path)),
             "watch" => self.start_watch(),
             "gitInit" => self.with_root(git::init),
             "gitSetIdentity" => string(params, "name").and_then(|name| {
@@ -513,6 +525,33 @@ mod tests {
         assert_eq!(replies[3]["error"]["code"], json!("BAD_REQUEST"));
         let readme = dir.path().join("Plans/Untitled/README.md");
         assert!(readme.is_file());
+    }
+
+    #[test]
+    fn page_operations_rename_move_and_delete_pages() {
+        let dir = TestDir::new("host-pageops");
+        let mut workspace = Workspace::load(None);
+        workspace.set_root(&dir.path().to_string_lossy()).unwrap();
+        let replies = exchange_with(
+            workspace,
+            &[
+                hello_request(1),
+                json!({ "id": 2, "method": "createPage", "params": { "parent": "", "title": "A", "link": true } }),
+                json!({ "id": 3, "method": "createPage", "params": { "parent": "", "title": "B" } }),
+                json!({ "id": 4, "method": "renamePage", "params": { "path": "A", "title": "Alpha" } }),
+                json!({ "id": 5, "method": "movePage", "params": { "path": "B", "parent": "Alpha" } }),
+                json!({ "id": 6, "method": "deletePage", "params": { "path": "Alpha/B" } }),
+                json!({ "id": 7, "method": "movePage", "params": { "path": "Alpha" } }),
+            ],
+        );
+        assert_eq!(replies[3]["result"]["path"], json!("Alpha"));
+        assert_eq!(replies[4]["result"]["path"], json!("Alpha/B"));
+        assert_eq!(replies[5]["result"]["path"], json!("Alpha/B"));
+        assert_eq!(replies[6]["error"]["code"], json!("BAD_REQUEST"));
+        let home = std::fs::read_to_string(dir.path().join("README.md")).unwrap();
+        assert_eq!(home, "[Alpha](Alpha/README.md)\n");
+        let alpha = std::fs::read_to_string(dir.path().join("Alpha/README.md")).unwrap();
+        assert_eq!(alpha, "# Alpha\n");
     }
 
     #[test]

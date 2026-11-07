@@ -10,6 +10,7 @@ import { parseCreatedPage, type CreatedPage } from "../shared/pages";
 import type { HelloResult } from "../shared/protocol";
 import type { WorkspaceState } from "../shared/workspace";
 import { PageEditorStore } from "./pageEditorStore";
+import { createPageOps } from "./pageOps";
 import { PageTreeNav } from "./PageTreeNav";
 import { PageTreeStore } from "./pageTreeStore";
 import { PageView } from "./PageView";
@@ -33,6 +34,7 @@ export function Workspace({
 }) {
   const [pages] = useState(() => new PageTreeStore(store.helper));
   const [editor] = useState(() => new PageEditorStore(store.helper));
+  const [ops] = useState(() => createPageOps(store.helper, pages, editor));
   const [sync] = useState(
     () =>
       new SyncStore(store.helper, () => {
@@ -102,7 +104,7 @@ export function Workspace({
           </span>
         </div>
         <div className="sidebar__pages">
-          {tree && <PageTreeNav root={tree.root} selected={selected} />}
+          {tree && <PageTreeNav root={tree.root} selected={selected} ops={ops} />}
           {tree?.truncated && (
             <p className="sidebar__note">
               This folder has too many pages to show them all. Some pages are missing here.
@@ -125,7 +127,14 @@ export function Workspace({
         </div>
       </aside>
       {tree ? (
-        <PageView root={tree.root} path={selected} editor={editor} onCreatePage={createPage} />
+        <PageView
+          root={tree.root}
+          path={selected}
+          editor={editor}
+          treeLoading={view.loading}
+          onCreatePage={createPage}
+          onRename={(path, title, from) => ops.rename(path, title, from)}
+        />
       ) : (
         <main className="page" aria-busy={view.loading} />
       )}

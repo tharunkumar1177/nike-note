@@ -72,6 +72,55 @@ export function parseCreatedPage(value: unknown): CreatedPage {
 }
 
 /**
+ * Validate the result of `renamePage` or `movePage`: like {@link CreatedPage},
+ * except that renaming the home page gives an empty path and folder.
+ */
+export function parseChangedPage(value: unknown): CreatedPage {
+  if (
+    !isRecord(value) ||
+    typeof value.path !== "string" ||
+    typeof value.folder !== "string" ||
+    typeof value.title !== "string" ||
+    !value.path.endsWith(value.folder) ||
+    (value.folder === "") !== (value.path === "")
+  ) {
+    throw new TypeError("The helper sent an invalid page.");
+  }
+  return { path: value.path, folder: value.folder, title: value.title };
+}
+
+/**
+ * The parent page of `path`; the root page for a top-level page.
+ */
+export function parentPath(path: string): string {
+  const slash = path.lastIndexOf("/");
+  return slash < 0 ? "" : path.slice(0, slash);
+}
+
+/**
+ * Where page `path` is after page `from` moved to `to`: the same path when it
+ * is neither `from` nor one of its sub-pages.
+ */
+export function movedPath(path: string, from: string, to: string): string {
+  if (path === from) return to;
+  return from !== "" && path.startsWith(`${from}/`) ? `${to}${path.slice(from.length)}` : path;
+}
+
+/**
+ * True when `path` is `page` or one of its sub-pages.
+ */
+export function isWithin(path: string, page: string): boolean {
+  return path === page || isAncestor(page, path);
+}
+
+/**
+ * Every page under `node`, `node` included, in tree order.
+ */
+export function flattenPages(node: PageNode): PageNode[] {
+  return [node, ...node.children.flatMap(flattenPages)];
+}
+
+/**
  * Validate the result of `pageTree`.
  */
 export function parsePageTree(value: unknown): PageTree {

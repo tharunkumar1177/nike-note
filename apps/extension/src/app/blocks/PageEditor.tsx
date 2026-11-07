@@ -54,6 +54,7 @@ import {
   type TurnIntoKind,
 } from "@quire/markdown";
 import {
+  useEffect,
   useId,
   useLayoutEffect,
   useRef,
@@ -314,6 +315,22 @@ function nextSlash(
   return typedSlash ? { line, start: caret - 1, query: "", active: 0 } : null;
 }
 
+/**
+ * Report a title typed in this editor once, when the editor has lost focus or
+ * closes. `edited` holds the title before the first keystroke, or null when
+ * nothing was typed. An emptied or unchanged title is not reported.
+ */
+function commitTitle(
+  latest: { current: { title: string; onTitleCommit?: (title: string, from: string) => void } },
+  edited: { current: string | null },
+): void {
+  const from = edited.current;
+  if (from === null) return;
+  edited.current = null;
+  const title = latest.current.title.trim();
+  if (title !== "" && title !== from.trim()) latest.current.onTitleCommit?.(title, from);
+}
+
 /** Block types that are list items, which the block menu can indent and outdent. */
 const LIST_TYPES: ReadonlySet<Block["type"]> = new Set(["bullet", "numbered", "todo"]);
 
@@ -396,6 +413,7 @@ export function PageEditor({
   onChange,
   onCreatePage,
   onTransform,
+  onTitleCommit,
   children,
 }: {
   markdown: MarkdownDocument;
@@ -405,6 +423,8 @@ export function PageEditor({
   onChange: (source: string) => void;
   onCreatePage: (title: string) => Promise<CreatedPage>;
   onTransform: (change: (source: string) => string) => boolean;
+  /** Called with the new and the earlier title when focus leaves a title that was edited. */
+  onTitleCommit?: (title: string, from: string) => void;
   children?: ReactNode;
 }) {
   const [focus, setFocus] = useState<Focus | null>(null);
@@ -424,6 +444,16 @@ export function PageEditor({
   const bodyCount = blocks.length - (titleIndex >= 0 ? 1 : 0);
   const firstMovable = Math.max(blocks[0]?.type === "frontMatter" ? 1 : 0, titleIndex + 1);
   const lineCount = blocks.reduce((total, block) => total + blockLineCount(block), 0);
+  const idle = focus === null;
+  const latestTitle = useRef({ title, onTitleCommit });
+  const titleEdited = useRef<string | null>(null);
+  useLayoutEffect(() => {
+    latestTitle.current = { title, onTitleCommit };
+  });
+  useEffect(() => {
+    if (idle) commitTitle(latestTitle, titleEdited);
+  }, [idle]);
+  useEffect(() => () => commitTitle(latestTitle, titleEdited), []);
 
   /** Apply an edit and put the caret where it belongs afterwards. */
   const apply = (source: string, caret: Focus | null): void => {
@@ -793,9 +823,10 @@ export function PageEditor({
           caret={focus.offset}
           label="Page title"
           placeholder={fallbackTitle}
-          onChange={(value, caret) =>
-            apply(setTitle(markdown, value), { kind: "title", offset: caret })
-          }
+          onChange={(value, caret) => {
+            titleEdited.current ??= title;
+            apply(setTitle(markdown, value), { kind: "title", offset: caret });
+          }}
           onKeyDown={onTitleKey}
           onBlur={release(focus)}
         />

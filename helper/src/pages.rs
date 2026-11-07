@@ -93,7 +93,7 @@ fn ordered_children(mut names: Vec<String>, links: &[String]) -> Vec<String> {
 }
 
 /// True for folder names that can never be pages.
-fn is_excluded(name: &str) -> bool {
+pub fn is_excluded(name: &str) -> bool {
     name.starts_with('.') || name == "assets"
 }
 
@@ -128,23 +128,30 @@ fn read_readme(dir: &Path) -> Option<String> {
 
 /// Lines of a Markdown body that are ordinary text: not front matter and not inside a code fence.
 fn prose_lines(text: &str) -> impl Iterator<Item = &str> {
-    let mut lines = text.lines().peekable();
-    if lines.peek().is_some_and(|line| line.trim_end() == "---") {
-        let mut front_matter = text.lines();
-        front_matter.next();
-        let closed = front_matter.any(|line| matches!(line.trim_end(), "---" | "..."));
-        if closed {
-            lines.next();
-            for line in lines.by_ref() {
-                if matches!(line.trim_end(), "---" | "...") {
-                    break;
-                }
-            }
+    text.lines()
+        .zip(prose_mask(text))
+        .filter_map(|(line, prose)| prose.then_some(line))
+}
+
+/// For each line of `text`, as `str::lines` splits it, whether it is ordinary
+/// text: not in leading front matter and not in a fenced code block.
+pub fn prose_mask(text: &str) -> Vec<bool> {
+    let lines: Vec<&str> = text.lines().collect();
+    let mut mask = vec![true; lines.len()];
+    let mut start = 0;
+    if lines.first().is_some_and(|line| line.trim_end() == "---") {
+        let close = lines
+            .iter()
+            .skip(1)
+            .position(|line| matches!(line.trim_end(), "---" | "..."));
+        if let Some(close) = close {
+            start = close + 2;
+            mask[..start].fill(false);
         }
     }
 
     let mut fence: Option<(char, usize)> = None;
-    lines.filter(move |line| {
+    for (index, line) in lines.iter().enumerate().skip(start) {
         let trimmed = line.trim_start();
         match fence {
             Some((marker, length)) => {
@@ -152,34 +159,36 @@ fn prose_lines(text: &str) -> impl Iterator<Item = &str> {
                 if run >= length && trimmed[run * marker.len_utf8()..].trim().is_empty() {
                     fence = None;
                 }
-                false
+                mask[index] = false;
             }
             None => {
                 let marker = trimmed.chars().next().unwrap_or(' ');
                 let run = trimmed.chars().take_while(|&c| c == marker).count();
                 if (marker == '`' || marker == '~') && run >= 3 {
                     fence = Some((marker, run));
-                    false
-                } else {
-                    true
+                    mask[index] = false;
                 }
             }
         }
-    })
+    }
+    mask
+}
+
+/// The title a `# ` heading line gives, without a closing `#` sequence.
+pub fn line_title(line: &str) -> Option<String> {
+    let heading = line.strip_prefix("# ")?.trim();
+    let open = heading.trim_end_matches('#');
+    let title = if open.is_empty() || open.ends_with(' ') {
+        open.trim_end()
+    } else {
+        heading
+    };
+    (!title.is_empty()).then(|| title.to_string())
 }
 
 /// The text of the first `# ` heading, without a closing `#` sequence.
 pub fn heading_title(text: &str) -> Option<String> {
-    prose_lines(text).find_map(|line| {
-        let heading = line.strip_prefix("# ")?.trim();
-        let open = heading.trim_end_matches('#');
-        let title = if open.is_empty() || open.ends_with(' ') {
-            open.trim_end()
-        } else {
-            heading
-        };
-        (!title.is_empty()).then(|| title.to_string())
-    })
+    prose_lines(text).find_map(line_title)
 }
 
 /// Folder names linked as sub-pages by whole lines of the form `[Title](folder/README.md)`.
@@ -188,7 +197,7 @@ pub fn linked_folders(text: &str) -> Vec<String> {
 }
 
 /// The folder a sub-page link line points at, if the line is one.
-fn link_target_folder(line: &str) -> Option<String> {
+pub fn link_target_folder(line: &str) -> Option<String> {
     let line = line.trim();
     if !line.starts_with('[') || !line.ends_with(')') {
         return None;
@@ -208,7 +217,7 @@ fn link_target_folder(line: &str) -> Option<String> {
 }
 
 /// Decode `%XX` escapes; None when the result is not UTF-8 or an escape is malformed.
-fn percent_decode(value: &str) -> Option<String> {
+pub fn percent_decode(value: &str) -> Option<String> {
     let bytes = value.as_bytes();
     let mut decoded = Vec::with_capacity(bytes.len());
     let mut index = 0;

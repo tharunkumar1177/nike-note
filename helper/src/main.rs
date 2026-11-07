@@ -13,6 +13,7 @@ mod pageops;
 mod pages;
 mod paths;
 mod protocol;
+mod relink;
 mod sync;
 #[cfg(test)]
 mod testdir;
