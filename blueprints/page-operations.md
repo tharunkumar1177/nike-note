@@ -6,7 +6,9 @@ Pages are added, renamed, moved, and deleted from the sidebar, like Notion. Each
 
 ## Current verified status
 
-**Status:** Planned
+**Status:** Implemented
+
+Verified in CI (helper unit tests for title and link-line edits, folder following, relinking, moving, refusing moves into a page's own sub-pages, and deleting, on Windows, macOS, and Linux; end-to-end tests for every criterion below) and by hand in Chrome on Windows with the CI build: on a CRLF page with a byte order mark, a rename from the right-click menu, a real mouse drag into another page, a header title edit, and Delete with the confirmation dialog each kept the byte order mark and CRLF endings, rewrote the parent link lines, a link with a fragment, and the moved page's `../` link, and kept the open page at its new address.
 
 ## Architecture dependencies
 
@@ -45,14 +47,15 @@ Pages are added, renamed, moved, and deleted from the sidebar, like Notion. Each
 
 ## Acceptance or verification criteria
 
-- [ ] Renaming from the sidebar menu renames the folder, rewrites the title line, the parent's link line, and a link with a fragment elsewhere, and keeps the page open at its new address.
-- [ ] Adding a page from the sidebar creates a linked Untitled page and opens it; typing a title in the header renames its folder when the title loses focus.
-- [ ] Moving a page with the dialog and dragging it back rewrites the link lines in both parents and the links into and out of the page.
-- [ ] Deleting asks first, Cancel keeps the page, and Delete removes the folder and its sub-pages and the link line and opens the parent.
+- [x] Renaming from the sidebar menu renames the folder, rewrites the title line, the parent's link line, and a link with a fragment elsewhere, and keeps the page open at its new address.
+- [x] Adding a page from the sidebar creates a linked Untitled page and opens it; typing a title in the header renames its folder when the title loses focus.
+- [x] Moving a page with the dialog and dragging it back rewrites the link lines in both parents and the links into and out of the page.
+- [x] Deleting asks first, Cancel keeps the page, and Delete removes the folder and its sub-pages and the link line and opens the parent.
 
 ## Remaining gaps and unknowns
 
 - There is no trash in the app; a deleted page can only be restored from the Git history.
+- Deleting a page removes only its parent's link lines; inline links to it elsewhere are left in place and stop resolving.
 - Dragging a row moves a page into another page; reordering pages within a parent by drag is not designed yet.
 - Link targets are compared exactly, so a link written with different letter case on a case-insensitive file system is not rewritten.
 - Links in loose Markdown files outside page bodies are not rewritten.
