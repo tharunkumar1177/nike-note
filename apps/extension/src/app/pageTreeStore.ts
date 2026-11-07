@@ -17,6 +17,7 @@ export class PageTreeStore {
   private readonly listeners = new Set<() => void>();
   private readonly helper: HelperConnection;
   private queued = false;
+  private running: Promise<void> | null = null;
 
   /**
    * Bind the store to one helper connection.
@@ -36,26 +37,37 @@ export class PageTreeStore {
 
   /**
    * Fetch the tree. A call during a fetch schedules one more fetch after it.
+   * The promise settles once the tree reflects the folder as it was when
+   * `load` was called.
    */
-  async load(): Promise<void> {
-    if (this.view.loading) {
+  load(): Promise<void> {
+    if (this.running) {
       this.queued = true;
-      return;
+      return this.running;
     }
-    this.update({ loading: true });
-    try {
-      const tree = await this.helper.request("pageTree", {}, parsePageTree);
-      this.update({ tree, error: null, loading: false });
-    } catch (error) {
-      this.update({
-        error: error instanceof Error ? error.message : String(error),
-        loading: false,
-      });
-    }
-    if (this.queued) {
+    this.running = this.fetchUntilCurrent();
+    return this.running;
+  }
+
+  /**
+   * Fetch the tree, then again for as long as more loads were asked for
+   * meanwhile.
+   */
+  private async fetchUntilCurrent(): Promise<void> {
+    do {
       this.queued = false;
-      await this.load();
-    }
+      this.update({ loading: true });
+      try {
+        const tree = await this.helper.request("pageTree", {}, parsePageTree);
+        this.update({ tree, error: null, loading: false });
+      } catch (error) {
+        this.update({
+          error: error instanceof Error ? error.message : String(error),
+          loading: false,
+        });
+      }
+    } while (this.queued);
+    this.running = null;
   }
 
   /**

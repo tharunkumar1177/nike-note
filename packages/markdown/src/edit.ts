@@ -276,6 +276,99 @@ export function insertDivider(document: MarkdownDocument, index: number): Edit {
   return { source: insertLines(divided, index + 1, ""), caret: { line: line + 1, column: 0 } };
 }
 
+/** Block types a line can be turned into from the slash menu. */
+export type TurnIntoKind =
+  | "text"
+  | "h1"
+  | "h2"
+  | "h3"
+  | "h4"
+  | "h5"
+  | "h6"
+  | "bullet"
+  | "numbered"
+  | "todo"
+  | "quote"
+  | "code"
+  | "divider";
+
+/** The marker a one-line block of `kind` starts with, without indentation. */
+function markerFor(kind: Exclude<TurnIntoKind, "code" | "divider">): string {
+  switch (kind) {
+    case "text":
+      return "";
+    case "bullet":
+      return "- ";
+    case "numbered":
+      return "1. ";
+    case "todo":
+      return "- [ ] ";
+    case "quote":
+      return "> ";
+    default:
+      return `${"#".repeat(Number(kind.slice(1)))} `;
+  }
+}
+
+/**
+ * Turn one-line block `index`, whose current text is `text` with the caret at
+ * `offset`, into a block of `kind`, keeping its words. A list item keeps its
+ * indentation when it stays a list item. A divider replaces an empty line, or
+ * goes after the line (with a blank line, so the text never becomes a
+ * heading). Returns null for multi-line blocks.
+ */
+export function turnInto(
+  document: MarkdownDocument,
+  index: number,
+  text: string,
+  offset: number,
+  kind: TurnIntoKind,
+): Edit | null {
+  const block = document.blocks[index];
+  if (!block || !isSingleLine(block) || text.includes("\n")) return null;
+  const parts = splitLine(text);
+  const column = Math.min(Math.max(offset - parts.prefix.length, 0), parts.content.length);
+  if (kind === "divider") {
+    if (text.trim() === "") return insertDivider(document, index);
+    const kept = parseDocument(replaceBlockText(document, index, text));
+    return {
+      source: insertLines(kept, index + 1, "\n---\n"),
+      caret: { line: block.line + 3, column: 0 },
+    };
+  }
+  if (kind === "code") {
+    return {
+      source: replaceBlockText(document, index, `\`\`\`\n${parts.content}\n\`\`\``),
+      caret: { line: block.line + 1, column },
+    };
+  }
+  const toList = kind === "bullet" || kind === "numbered" || kind === "todo";
+  const indent = toList && LIST_KINDS.has(parts.kind) ? parts.indent : "";
+  const prefix = indent + markerFor(kind);
+  return {
+    source: replaceBlockText(document, index, prefix + parts.content),
+    caret: { line: block.line, column: prefix.length + column },
+  };
+}
+
+/**
+ * Put the link line `link` in place of block `index` when that block is an
+ * empty line, or on a new line after it otherwise.
+ */
+export function insertLinkLine(document: MarkdownDocument, index: number, link: string): Edit {
+  const block = document.blocks[index];
+  if (block && isSingleLine(block) && blockText(block).trim() === "") {
+    return {
+      source: replaceBlockText(document, index, link),
+      caret: { line: block.line, column: link.length },
+    };
+  }
+  const after = block ?? document.blocks.at(-1);
+  const at = block ? index + 1 : document.blocks.length;
+  const line = after ? after.line + blockLineCount(after) : 0;
+  return { source: insertLines(document, at, link), caret: { line, column: link.length } };
+}
+
 /**
  * Backspace at the start of block `index`: join it to the end of the block
  * before it. An empty block after a title or multi-line block is removed

@@ -16,6 +16,7 @@ use crate::framing::{ReadError, read_frame, write_frame};
 use crate::git;
 use crate::identity::{ALLOWED_ORIGIN, EXTENSION_ID, PROTOCOL_VERSION};
 use crate::install::TargetOs;
+use crate::pageops;
 use crate::pages;
 use crate::protocol::{ErrorCode, Outgoing, ProtocolError, Request, encode, parse_request};
 use crate::sync;
@@ -103,6 +104,10 @@ impl Session {
             "readPage" => string(params, "path")
                 .and_then(|path| body::read_page(&self.workspace.root()?, &path)),
             "writePage" => self.write_page(params),
+            "createPage" => string(params, "parent").and_then(|parent| {
+                let title = string(params, "title")?;
+                pageops::create_page(&self.workspace.root()?, &parent, &title)
+            }),
             "watch" => self.start_watch(),
             "gitInit" => self.with_root(git::init),
             "gitSetIdentity" => string(params, "name").and_then(|name| {
@@ -487,6 +492,27 @@ mod tests {
         assert_eq!(replies[3]["result"]["content"], json!("# Home\n"));
         assert_eq!(replies[4]["result"]["watching"], json!(true));
         assert_eq!(replies[5]["error"]["code"], json!("BAD_REQUEST"));
+    }
+
+    #[test]
+    fn create_page_adds_a_sub_page_folder() {
+        let dir = TestDir::new("host-create");
+        let mut workspace = Workspace::load(None);
+        workspace.set_root(&dir.path().to_string_lossy()).unwrap();
+        let replies = exchange_with(
+            workspace,
+            &[
+                hello_request(1),
+                json!({ "id": 2, "method": "createPage", "params": { "parent": "", "title": "Plans" } }),
+                json!({ "id": 3, "method": "createPage", "params": { "parent": "Plans", "title": "" } }),
+                json!({ "id": 4, "method": "createPage", "params": { "parent": "" } }),
+            ],
+        );
+        assert_eq!(replies[1]["result"]["path"], json!("Plans"));
+        assert_eq!(replies[2]["result"]["path"], json!("Plans/Untitled"));
+        assert_eq!(replies[3]["error"]["code"], json!("BAD_REQUEST"));
+        let readme = dir.path().join("Plans/Untitled/README.md");
+        assert!(readme.is_file());
     }
 
     #[test]

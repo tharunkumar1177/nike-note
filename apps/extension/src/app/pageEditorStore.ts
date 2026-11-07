@@ -127,6 +127,18 @@ export class PageEditorStore {
   }
 
   /**
+   * Rewrite page `path`'s latest text with `change`, for edits that finish
+   * after a helper request. Returns false, changing nothing, when that page is
+   * no longer open.
+   */
+  transform(path: string, change: (source: string) => string): boolean {
+    const session = this.openSession();
+    if (!session || session.path !== path) return false;
+    this.edit(change(session.source));
+    return true;
+  }
+
+  /**
    * Save every page with pending changes now, for example when the tab is hidden.
    */
   flushAll(): void {

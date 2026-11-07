@@ -6,6 +6,7 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 
 import { FolderIcon } from "../shared/icons";
 import { parseFilesChanged } from "../shared/pageBody";
+import { parseCreatedPage, type CreatedPage } from "../shared/pages";
 import type { HelloResult } from "../shared/protocol";
 import type { WorkspaceState } from "../shared/workspace";
 import { PageEditorStore } from "./pageEditorStore";
@@ -79,6 +80,17 @@ export function Workspace({
     };
   }, [pages, editor, sync, store]);
 
+  /** Create a sub-page and wait until the page tree shows it. */
+  const createPage = async (parent: string, title: string): Promise<CreatedPage> => {
+    const created = await store.helper.request(
+      "createPage",
+      { parent, title },
+      parseCreatedPage,
+    );
+    await pages.load();
+    return created;
+  };
+
   const tree = view.tree;
   return (
     <div className="workspace">
@@ -113,7 +125,7 @@ export function Workspace({
         </div>
       </aside>
       {tree ? (
-        <PageView root={tree.root} path={selected} editor={editor} />
+        <PageView root={tree.root} path={selected} editor={editor} onCreatePage={createPage} />
       ) : (
         <main className="page" aria-busy={view.loading} />
       )}

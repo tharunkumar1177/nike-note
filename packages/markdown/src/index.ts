@@ -20,6 +20,7 @@ export {
   indentItem,
   insertDivider,
   insertLines,
+  insertLinkLine,
   isSingleLine,
   mergeWithPrevious,
   offsetInBlock,
@@ -30,13 +31,16 @@ export {
   splitBlock,
   titleText,
   toggleTodo,
+  turnInto,
   type Edit,
   type SourcePosition,
+  type TurnIntoKind,
 } from "./edit";
 export { inlineText, parseInline, type Inline } from "./inline";
 export {
   README,
   isExternalHref,
+  pageLinkLine,
   parsePageLinkLine,
   resolvePageHref,
   type PageLinkLine,

@@ -13,6 +13,7 @@ import {
   indentItem,
   insertDivider,
   insertLines,
+  insertLinkLine,
   mergeWithPrevious,
   offsetInBlock,
   positionInText,
@@ -22,6 +23,7 @@ import {
   splitBlock,
   titleText,
   toggleTodo,
+  turnInto,
 } from "../src/edit";
 
 /** Index of the first block whose text is `text`. */
@@ -184,6 +186,75 @@ describe("insertDivider", () => {
     expect(insertDivider(document, 1)).toEqual({
       source: "# T\r\n---\r\n\r\nnext\r\n",
       caret: { line: 2, column: 0 },
+    });
+  });
+});
+
+describe("turnInto", () => {
+  it("swaps the marker and keeps the words and caret", () => {
+    const document = parseDocument("# T\n- [x] buy milk\nnext\n");
+    expect(turnInto(document, 1, "- [x] buy milk", 10, "h2")).toEqual({
+      source: "# T\n## buy milk\nnext\n",
+      caret: { line: 1, column: 7 },
+    });
+  });
+
+  it("uses the text given, so a typed command can be left out", () => {
+    const document = parseDocument("# T\n## Plan /text\n");
+    expect(turnInto(document, 1, "## Plan ", 8, "text")).toEqual({
+      source: "# T\nPlan \n",
+      caret: { line: 1, column: 5 },
+    });
+  });
+
+  it("keeps list indentation only between list kinds", () => {
+    const document = parseDocument("- a\n  - b\n");
+    expect(turnInto(document, 1, "  - b", 4, "todo")).toEqual({
+      source: "- a\n  - [ ] b\n",
+      caret: { line: 1, column: 8 },
+    });
+    expect(turnInto(document, 1, "  - b", 4, "quote")?.source).toBe("- a\n> b\n");
+    expect(turnInto(document, 1, "  - b", 4, "numbered")?.source).toBe("- a\n  1. b\n");
+  });
+
+  it("wraps the words in a code block with the page's line endings", () => {
+    const document = parseDocument("# T\r\nsome code\r\n");
+    expect(turnInto(document, 1, "some code", 9, "code")).toEqual({
+      source: "# T\r\n```\r\nsome code\r\n```\r\n",
+      caret: { line: 2, column: 9 },
+    });
+  });
+
+  it("makes an empty line a divider and puts one after a line with words", () => {
+    expect(turnInto(parseDocument("# T\n/div\nnext\n"), 1, "", 0, "divider")).toEqual({
+      source: "# T\n---\n\nnext\n",
+      caret: { line: 2, column: 0 },
+    });
+    expect(turnInto(parseDocument("# T\nidea\n"), 1, "idea", 4, "divider")).toEqual({
+      source: "# T\nidea\n\n---\n\n",
+      caret: { line: 4, column: 0 },
+    });
+  });
+
+  it("leaves multi-line blocks alone", () => {
+    expect(turnInto(parseDocument("```\nx\n```\n"), 0, "x", 0, "h1")).toBeNull();
+  });
+});
+
+describe("insertLinkLine", () => {
+  const link = "[A](A/README.md)";
+
+  it("fills an empty line", () => {
+    expect(insertLinkLine(parseDocument("# T\n\nnext\n"), 1, link)).toEqual({
+      source: `# T\n${link}\nnext\n`,
+      caret: { line: 1, column: link.length },
+    });
+  });
+
+  it("goes on a new line after a line with words", () => {
+    expect(insertLinkLine(parseDocument("# T\nidea"), 1, link)).toEqual({
+      source: `# T\nidea\n${link}\n`,
+      caret: { line: 2, column: link.length },
     });
   });
 });

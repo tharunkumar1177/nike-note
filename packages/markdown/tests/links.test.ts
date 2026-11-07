@@ -3,7 +3,19 @@
  */
 import { describe, expect, it } from "vitest";
 
-import { isExternalHref, parsePageLinkLine, resolvePageHref } from "../src/links";
+import { isExternalHref, pageLinkLine, parsePageLinkLine, resolvePageHref } from "../src/links";
+
+describe("pageLinkLine", () => {
+  it("writes a link line that reads back as the same page", () => {
+    const line = pageLinkLine("Trip [draft]", "Trip (2026) é");
+    expect(line).toBe("[Trip draft](Trip%20%282026%29%20%C3%A9/README.md)");
+    expect(parsePageLinkLine(line)).toEqual({ title: "Trip draft", folder: "Trip (2026) é" });
+  });
+
+  it("uses the folder name when the title has no words", () => {
+    expect(pageLinkLine(" [] ", "Untitled")).toBe("[Untitled](Untitled/README.md)");
+  });
+});
 
 describe("parsePageLinkLine", () => {
   it("accepts the forms the page tree accepts", () => {
