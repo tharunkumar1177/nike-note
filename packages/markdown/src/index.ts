@@ -16,6 +16,9 @@ export {
   blockAtLine,
   blockLineCount,
   blockText,
+  clearPrefix,
+  indentItem,
+  insertDivider,
   insertLines,
   isSingleLine,
   mergeWithPrevious,
@@ -39,3 +42,11 @@ export {
   type PageLinkLine,
 } from "./links";
 export { dominantEol, indentWidth, splitLines, type SourceLine } from "./lines";
+export {
+  LIST_KINDS,
+  applyShortcut,
+  nestedIndent,
+  splitLine,
+  type LineKind,
+  type LineParts,
+} from "./prefix";

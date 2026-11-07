@@ -3,8 +3,9 @@
  * Every edit rewrites only the lines it touches and returns new source text;
  * all other blocks keep their exact `raw`, line endings included.
  */
-import { titleBlockIndex, type Block, type MarkdownDocument } from "./blocks";
+import { parseDocument, titleBlockIndex, type Block, type MarkdownDocument } from "./blocks";
 import { indentWidth } from "./lines";
+import { LIST_KINDS, nestedIndent, splitLine, type LineParts } from "./prefix";
 
 /** A caret in source coordinates: zero-based line and UTF-16 column. */
 export interface SourcePosition {
@@ -185,11 +186,94 @@ export function splitBlock(
       caret: { line, column: replacement.length },
     };
   }
+  const parts = splitLine(text);
+  if (!item && parts.prefix !== "") {
+    if (parts.content.trim() === "") return clearPrefix(document, index);
+    if (offset <= parts.prefix.length) {
+      return {
+        source: replaceBlockText(document, index, `\n${text}`),
+        caret: { line: line + 1, column: parts.prefix.length },
+      };
+    }
+  }
   const continuation = item?.next ?? "";
   return {
     source: replaceBlockText(document, index, `${before}\n${continuation}${after}`),
     caret: { line: line + 1, column: continuation.length },
   };
+}
+
+/**
+ * Turn block `index` into plain text by removing its marker and indentation,
+ * for example Backspace at the start of a list item or heading.
+ */
+export function clearPrefix(document: MarkdownDocument, index: number): Edit {
+  const block = document.blocks[index];
+  const line = block?.line ?? 0;
+  const content = block ? splitLine(blockText(block)).content : "";
+  return { source: replaceBlockText(document, index, content), caret: { line, column: 0 } };
+}
+
+/**
+ * The nearest list item before `index` at the same level as an item indented
+ * by `width` or less, and whether it is the block right before `index`.
+ */
+function previousSibling(
+  document: MarkdownDocument,
+  index: number,
+  width: number,
+): { parts: LineParts; adjacent: boolean } | null {
+  for (let at = index - 1; at >= 0; at -= 1) {
+    const block = document.blocks[at];
+    if (!block || !isSingleLine(block)) return null;
+    const parts = splitLine(blockText(block));
+    if (!LIST_KINDS.has(parts.kind)) return null;
+    if (indentWidth(parts.indent) <= width) return { parts, adjacent: at === index - 1 };
+  }
+  return null;
+}
+
+/**
+ * Tab (`step` 1) or Shift+Tab (`step` -1) on list item `index`: nest it as the
+ * last child of the item before it at the same level, or move it one level
+ * out. A numbered item that starts a new nested list is numbered 1. Returns
+ * null when the block is not a list item or cannot move. The caret is at the
+ * start of the item's text.
+ */
+export function indentItem(document: MarkdownDocument, index: number, step: 1 | -1): Edit | null {
+  const block = document.blocks[index];
+  if (!block || !isSingleLine(block)) return null;
+  const text = blockText(block);
+  const parts = splitLine(text);
+  if (!LIST_KINDS.has(parts.kind)) return null;
+  let indent: string;
+  let rest = text.slice(parts.indent.length);
+  if (step < 0) {
+    if (parts.indent === "") return null;
+    indent = outdent(document, index, parts.indent);
+  } else {
+    const sibling = previousSibling(document, index, indentWidth(parts.indent));
+    if (!sibling) return null;
+    indent = nestedIndent(sibling.parts);
+    if (indentWidth(parts.indent) >= indentWidth(indent)) return null;
+    if (parts.kind === "numbered" && sibling.adjacent) rest = rest.replace(/^\d+/, "1");
+  }
+  const line = indent + rest;
+  return {
+    source: replaceBlockText(document, index, line),
+    caret: { line: block.line, column: splitLine(line).prefix.length },
+  };
+}
+
+/**
+ * Typing `---` into an empty line makes a divider: the line becomes the
+ * divider and the caret moves to a new empty line after it.
+ */
+export function insertDivider(document: MarkdownDocument, index: number): Edit {
+  const block = document.blocks[index];
+  const line = block?.line ?? 0;
+  const divided = parseDocument(replaceBlockText(document, index, "---"));
+  return { source: insertLines(divided, index + 1, ""), caret: { line: line + 1, column: 0 } };
 }
 
 /**

@@ -12,7 +12,7 @@ import { pageHash } from "../../shared/pages";
 import { InlineView } from "./InlineView";
 
 /** Bullet glyphs by nesting depth, repeating. */
-const BULLETS = ["•", "◦", "▪"];
+export const BULLETS = ["•", "◦", "▪"];
 
 /**
  * Inline content of a text-bearing block.
