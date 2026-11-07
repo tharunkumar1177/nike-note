@@ -9,6 +9,7 @@ mod host;
 mod identity;
 mod install;
 mod pages;
+mod paths;
 mod protocol;
 #[cfg(test)]
 mod testdir;

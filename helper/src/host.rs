@@ -88,6 +88,8 @@ impl Session {
                 .workspace
                 .root()
                 .and_then(|root| pages::page_tree(&root)),
+            "readPage" => string(params, "path")
+                .and_then(|path| pages::read_page(&self.workspace.root()?, &path)),
             "gitInit" => self.with_root(git::init),
             "gitSetIdentity" => string(params, "name").and_then(|name| {
                 let email = string(params, "email")?;

@@ -8,7 +8,8 @@ use std::path::Path;
 use serde_json::{Value, json};
 
 use crate::dirs::{compare_names, has_hidden_attribute};
-use crate::protocol::ProtocolError;
+use crate::paths::{outside, page_dir};
+use crate::protocol::{ErrorCode, ProtocolError};
 
 /// The file that holds a page's body.
 pub const README: &str = "README.md";
@@ -21,6 +22,55 @@ const MAX_DEPTH: usize = 64;
 
 /// Largest `README.md` read for its title and links.
 const MAX_README_BYTES: u64 = 8 * 1024 * 1024;
+
+/// Largest page body sent to the app; JSON escaping must still fit the 1 MiB message limit.
+pub const MAX_PAGE_BYTES: u64 = 512 * 1024;
+
+/// The error for a `README.md` that cannot be read.
+fn read_error(error: std::io::Error) -> ProtocolError {
+    ProtocolError::new(ErrorCode::Io, format!("Cannot read {README}: {error}"))
+}
+
+/// Read a page body. A page folder without `README.md` has an empty body.
+pub fn read_page(root: &Path, page: &str) -> Result<Value, ProtocolError> {
+    let resolved = page_dir(root, page)?;
+    let file = resolved.dir.join(README);
+    let metadata = match fs::metadata(&file) {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            return Ok(json!({ "path": page, "exists": false, "content": "" }));
+        }
+        Err(error) => return Err(read_error(error)),
+    };
+    let real_file = fs::canonicalize(&file).map_err(read_error)?;
+    if !resolved.contains(&real_file) {
+        return Err(outside(page));
+    }
+    if !metadata.is_file() {
+        return Err(ProtocolError::new(
+            ErrorCode::Io,
+            format!("{README} in \"{page}\" is not a file."),
+        ));
+    }
+    if metadata.len() > MAX_PAGE_BYTES {
+        return Err(ProtocolError::new(
+            ErrorCode::TooLarge,
+            format!(
+                "This page is {} KB. Quire can open pages up to {} KB.",
+                metadata.len() / 1024,
+                MAX_PAGE_BYTES / 1024
+            ),
+        ));
+    }
+    let bytes = fs::read(&real_file).map_err(read_error)?;
+    let content = String::from_utf8(bytes).map_err(|_| {
+        ProtocolError::new(
+            ErrorCode::Io,
+            format!("{README} in \"{page}\" is not UTF-8 text, so Quire cannot open it."),
+        )
+    })?;
+    Ok(json!({ "path": page, "exists": true, "content": content }))
+}
 
 /// Page budget shared by one scan.
 struct Scan {
@@ -338,6 +388,51 @@ mod tests {
         );
         assert_eq!(tree["root"]["hasReadme"], json!(false));
         assert_eq!(tree["root"]["children"], json!([]));
+    }
+
+    #[test]
+    fn reads_page_bodies_exactly() {
+        let dir = TestDir::new("pages-read");
+        let body = "\u{feff}# Trip\r\n\r\nTokyo é\n";
+        write(dir.path(), "Trips/README.md", body);
+        fs::create_dir_all(dir.path().join("Empty")).unwrap();
+
+        let page = read_page(dir.path(), "Trips").unwrap();
+        assert_eq!(page["exists"], json!(true));
+        assert_eq!(page["content"], json!(body));
+        let empty = read_page(dir.path(), "Empty").unwrap();
+        assert_eq!(empty["exists"], json!(false));
+        assert_eq!(empty["content"], json!(""));
+        assert_eq!(
+            read_page(dir.path(), "../x").unwrap_err().code,
+            ErrorCode::OutsideRoot
+        );
+    }
+
+    #[test]
+    fn refuses_large_and_non_text_bodies() {
+        let dir = TestDir::new("pages-refuse");
+        write(
+            dir.path(),
+            "Big/README.md",
+            &"a".repeat(MAX_PAGE_BYTES as usize + 1),
+        );
+        fs::create_dir_all(dir.path().join("Binary")).unwrap();
+        fs::write(dir.path().join("Binary").join(README), [0xff, 0xfe, 0x00]).unwrap();
+        fs::create_dir_all(dir.path().join("Odd").join(README)).unwrap();
+
+        assert_eq!(
+            read_page(dir.path(), "Big").unwrap_err().code,
+            ErrorCode::TooLarge
+        );
+        assert_eq!(
+            read_page(dir.path(), "Binary").unwrap_err().code,
+            ErrorCode::Io
+        );
+        assert_eq!(
+            read_page(dir.path(), "Odd").unwrap_err().code,
+            ErrorCode::Io
+        );
     }
 
     #[test]

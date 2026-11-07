@@ -35,7 +35,7 @@ System overview diagram: [assets/diagrams/system-overview.mmd](assets/diagrams/s
 | Popup | `apps/extension/src/popup` | One **Open Quire** button that opens or focuses the app page. It never connects to the helper. |
 | App page | `apps/extension/src/app` | The full-page UI at `chrome-extension://<id>/app.html`. It owns the single helper connection, the editor, the status bar, and AI calls. |
 | Shared extension code | `apps/extension/src/shared` | Protocol types and validators, the helper client, and the design tokens |
-| Markdown package | `packages/markdown` (planned, slice 5) | Pure TypeScript parser and serializer. No DOM, Chrome, or I/O APIs. |
+| Markdown package | `packages/markdown` | Pure TypeScript block parser, serializer, inline parser, and link rules. No DOM, Chrome, or I/O APIs. |
 | Native helper | `helper/` | Rust binary: native messaging host, self-install, disk access, file watching, search, and Git |
 | Shared config | `packages/config` | Shared TypeScript, ESLint, and Vitest configuration |
 
@@ -110,7 +110,7 @@ The file holds `{ "notesRoot": <absolute path> }` and is replaced atomically. Th
 Two kinds of path cross the protocol:
 
 - **Setup paths** are absolute and appear only in the folder-choice methods (`listDirs`, `createDir`, `setRoot`). They let the app browse folders before a root exists. `listDirs` returns folder names only, never file names or contents, and hides names that start with `.` or `$` and, on Windows, folders with the hidden or system attribute. `createDir` accepts a single folder name, not a path.
-- **Page paths**, used by every later method, are relative to the root and use `/` separators. The helper rejects absolute paths, `..` segments, and any path whose resolved location (after following symbolic links) is outside the root, with `OUTSIDE_ROOT`.
+- **Page paths**, used by every later method, are relative to the root and use `/` separators. The helper rejects absolute paths, `.` and `..` segments, backslashes, and any path whose resolved location (after following symbolic links) is outside the root, with `OUTSIDE_ROOT`. Empty segments get `BAD_REQUEST`, and a page folder that does not exist gets `NOT_FOUND`. One function (`helper/src/paths.rs`) performs this check for every page method.
 
 Workspace methods answer with the workspace state `{ root, rootName, rootError, git }`. `rootError` is set when the remembered folder no longer exists. `git` is `null` without a root, otherwise `{ available, version, isRepo, branch, hasCommits, origin, upstream, identity }`. `isRepo` is true only when the root itself is the top level of a repository, so a folder inside another repository is not treated as set up.
 
@@ -126,12 +126,14 @@ Workspace methods answer with the workspace state `{ root, rootName, rootError, 
 
 ### Block model and line mapping
 
-**Intended (slice 5).**
-
-- A page body is an ordered list of blocks. Each block owns a contiguous range of source lines and keeps their original text.
-- One line is one block, except fenced code blocks, tables, and front matter, which are each one multi-line block.
-- Serializing an unedited block emits its original lines unchanged, including line endings. Only edited blocks are re-rendered from their model. The file's dominant line ending (`\n` or `\r\n`) is used for new lines.
-- The block-type set and its Markdown syntax are defined in [plan.md](plan.md#block-mapping) and implemented only in `packages/markdown`.
+- `readPage { path }` returns `{ path, exists, content }`: the exact text of the page's `README.md`, including any byte order mark and its line endings. A folder without `README.md` gives `exists: false` and empty content. Bodies larger than 512 KiB get `TOO_LARGE`, so the JSON reply stays under the 1 MiB limit; bodies that are not UTF-8 get `IO`.
+- A page body is an ordered list of blocks. Each block owns a contiguous range of source lines and keeps their original text (`raw`, with line endings).
+- One line is one block, except fenced code blocks, tables, and front matter, which are each one multi-line block. An unclosed fence runs to the end of the file. Front matter is recognized only on the first line.
+- Serializing joins every block's `raw` after the byte order mark, so an unedited document round-trips byte for byte. Edited blocks (slice 6) are re-rendered from their model with the file's dominant line ending (`\n` or `\r\n`).
+- List nesting is relative: an item indented more than the item above nests one level deeper, up to 8 levels. A line of `---`, `***`, or `___` is always a divider; setext headings are not supported.
+- The page's title block is the first `# ` heading (the [Page structure](#page-structure) title rule). The app shows it as the page title and not again in the body.
+- The block-type set and its Markdown syntax are defined in [plan.md](plan.md#block-mapping) and implemented only in `packages/markdown`. The helper keeps its own line scanner for titles and link lines; both must accept the same link-line forms.
+- Links: `http:`, `https:`, and `mailto:` links open in a new tab without a referrer. Relative links to a `README.md` inside the notes folder open that page in Quire. Every other link is shown as inert text with its target in a tooltip.
 
 ### File write-back and change watching
 
@@ -159,15 +161,15 @@ Popup **Open Quire** focuses an existing app tab (found with `chrome.runtime.get
 
 - Node.js (pinned in `.nvmrc`), pnpm (pinned with `packageManager`), TypeScript strict mode, Vite.
 - Rust stable with `rustfmt` and `clippy`. Helper targets: `x86_64-pc-windows-msvc`, a universal macOS binary (`aarch64-apple-darwin` and `x86_64-apple-darwin`, merged with `lipo`), and `x86_64-unknown-linux-musl`.
-- Lockfiles (`pnpm-lock.yaml`, `helper/Cargo.lock`) are produced by CI and committed from CI artifacts, never hand-written.
+- Lockfiles (`pnpm-lock.yaml`, `helper/Cargo.lock`) are produced by CI and committed from CI artifacts, never hand-written. When a `package.json` change makes `pnpm-lock.yaml` stale, CI regenerates it for the rest of the run and the `lockfile` job fails until the regenerated file is committed.
 - GitHub Actions runs extension lint, type-check, unit tests, and build; helper format, lint, tests, and release builds on three operating systems; and Playwright end-to-end tests on the unpacked extension with the Linux helper. Nothing runs locally.
 
 ## Verification boundaries
 
 | Level | Establishes |
 | --- | --- |
-| Unit (Vitest) | Protocol validators, helper client request matching, Markdown parse and serialize (slice 5 on) |
-| Unit (`cargo test`) | Framing, envelope handling, origin check, registration paths and manifests, path safety |
+| Unit (Vitest) | Protocol validators, helper client request matching, Markdown block and inline parsing, byte-exact round trips, link rules |
+| Unit (`cargo test`) | Framing, envelope handling, origin check, registration paths and manifests, page path safety, page reads |
 | Install smoke (CI, each OS) | `install` writes the manifests or registry keys; `uninstall` removes them |
 | End-to-end (Playwright, Linux) | User-visible slice acceptance on the unpacked extension talking to the real helper |
 

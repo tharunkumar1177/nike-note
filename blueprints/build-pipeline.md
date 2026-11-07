@@ -21,7 +21,7 @@ Delivered by ROADMAP slice 1. Every job in `.github/workflows/ci.yml` passes on 
 ## Local rules and implications
 
 - Jobs: `install` (pnpm, uploads `pnpm-lock.yaml`), then `lint`, `typecheck`, `test` in parallel, then `build` (uploads `quire-extension`). `helper` runs as a three-OS matrix in parallel (fmt, clippy with `-D warnings`, tests, release build, install smoke test, uploads `quire-helper-<os>` and `Cargo.lock` from Linux). `e2e` needs `build` and `helper` and runs Playwright on Linux.
-- Lockfiles: while a lockfile is missing from the repo, CI resolves it and uploads it as an artifact. The agent commits the artifact contents. After that, installs are frozen (`--frozen-lockfile`, `cargo --locked`).
+- Lockfiles: while a lockfile is missing from the repo, CI resolves it and uploads it as an artifact. The agent commits the artifact contents. After that, installs are frozen (`--frozen-lockfile`, `cargo --locked`). When a `package.json` change makes `pnpm-lock.yaml` stale, the `install` job regenerates it and every later job uses the regenerated artifact, so the run still tests the change; the `lockfile` job fails until the agent commits the artifact.
 - pnpm enforces a one-day `minimumReleaseAge`. Pin only versions published at least 24 hours before the CI run.
 - TypeScript stays on 6.0.x until `typescript-eslint` supports 7.x.
 - Every pnpm workspace has an `eslint.config.js` that calls `createQuireEslintConfig({ layer })`. Scripts: `lint` = `eslint .`, `typecheck` = `tsc --noEmit`, `test` = `vitest run`.

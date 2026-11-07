@@ -1,5 +1,7 @@
 # Quire CI: extension checks and build, helper checks and per-OS release builds,
 # and end-to-end tests of the unpacked extension talking to the real helper.
+# A stale pnpm-lock.yaml is regenerated here and shared as an artifact; the
+# "lockfile" job stays red until that regenerated file is committed.
 name: CI
 
 on:
@@ -17,6 +19,8 @@ permissions:
 jobs:
   install:
     runs-on: ubuntu-latest
+    outputs:
+      lockfile-changed: ${{ steps.deps.outputs.changed }}
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
@@ -30,17 +34,34 @@ jobs:
         with:
           node-version-file: .nvmrc
       - name: Install dependencies
+        id: deps
         run: |
-          if [ -f pnpm-lock.yaml ]; then
-            pnpm install --frozen-lockfile
+          if [ -f pnpm-lock.yaml ] && pnpm install --frozen-lockfile; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
           else
             pnpm install --no-frozen-lockfile
+            echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
       - uses: actions/upload-artifact@v7
         with:
           name: lockfile
           path: pnpm-lock.yaml
           if-no-files-found: error
+
+  # Fails until the regenerated pnpm-lock.yaml from the "lockfile" artifact is committed,
+  # so main never depends on a lockfile that only existed inside CI.
+  lockfile:
+    needs: install
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require the committed lockfile to be current
+        if: needs.install.outputs.lockfile-changed == 'true'
+        run: |
+          echo "::error file=pnpm-lock.yaml::pnpm-lock.yaml is out of date. Commit the lockfile artifact from this run."
+          exit 1
+      - name: Lockfile is current
+        if: needs.install.outputs.lockfile-changed != 'true'
+        run: echo "pnpm-lock.yaml matches package.json files."
 
   lint:
     needs: install
