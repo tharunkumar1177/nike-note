@@ -6,7 +6,9 @@ Pages show images, callouts, toggles, and tables the way Notion does, while the 
 
 ## Current verified status
 
-**Status:** Planned
+**Status:** Implemented
+
+Verified in CI (Markdown unit tests for image, callout, and toggle rules, table cells, templates, and file links; helper unit tests for base64, chunked reads, path refusals, and unique image names on Windows, macOS, and Linux; end-to-end tests for every criterion below) and by hand in Chrome on Windows with the CI build: on a CRLF page with a byte order mark, a 600 KiB image read in two chunks showed with its caption, a Tip callout, a toggle that opened without entering editing and kept its to-do read-only, and a table with left and right columns rendered, and a PNG dropped between two lines was saved byte for byte and its line written there, with the endings kept.
 
 ## Architecture dependencies
 
@@ -46,9 +48,9 @@ Pages show images, callouts, toggles, and tables the way Notion does, while the 
 
 ## Acceptance or verification criteria
 
-- [ ] An image in the page's `assets/` folder, a Warning callout with bold text, a toggle with a to-do inside, and a table with a right-aligned column render formatted.
-- [ ] `/table` adds a table and the typing goes into its first body cell.
-- [ ] An image file dropped between two blocks is saved into `assets/` and its line is written there.
+- [x] An image in the page's `assets/` folder, a Warning callout with bold text, a toggle with a to-do inside, and a table with a right-aligned column render formatted.
+- [x] `/table` adds a table and the typing goes into its first body cell.
+- [x] An image file dropped between two blocks is saved into `assets/` and its line is written there.
 
 ## Remaining gaps and unknowns
 
