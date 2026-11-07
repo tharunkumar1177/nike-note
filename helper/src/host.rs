@@ -135,15 +135,15 @@ fn reply(id: u64, result: Result<Value, ProtocolError>) -> Outgoing {
 /// Read a required string parameter.
 fn string(params: &Map<String, Value>, name: &str) -> Result<String, ProtocolError> {
     optional_string(params, name)?.ok_or_else(|| {
-        ProtocolError::new(
-            ErrorCode::BadRequest,
-            format!("params.{name} is required."),
-        )
+        ProtocolError::new(ErrorCode::BadRequest, format!("params.{name} is required."))
     })
 }
 
 /// Read an optional string parameter; a value of another type is an error.
-fn optional_string(params: &Map<String, Value>, name: &str) -> Result<Option<String>, ProtocolError> {
+fn optional_string(
+    params: &Map<String, Value>,
+    name: &str,
+) -> Result<Option<String>, ProtocolError> {
     match params.get(name) {
         None | Some(Value::Null) => Ok(None),
         Some(Value::String(value)) => Ok(Some(value.clone())),

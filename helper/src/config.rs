@@ -57,9 +57,7 @@ mod tests {
     use crate::testdir::TestDir;
 
     /// Build an environment lookup from fixed pairs.
-    fn env(
-        pairs: &'static [(&'static str, &'static str)],
-    ) -> impl Fn(&str) -> Option<OsString> {
+    fn env(pairs: &'static [(&'static str, &'static str)]) -> impl Fn(&str) -> Option<OsString> {
         move |name| {
             pairs
                 .iter()

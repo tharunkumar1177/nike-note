@@ -93,7 +93,9 @@ pub fn list_dirs(path: &str) -> Result<Value, ProtocolError> {
 
 /// Case-insensitive name order with a stable tie-break.
 pub fn compare_names(a: &str, b: &str) -> Ordering {
-    a.to_lowercase().cmp(&b.to_lowercase()).then_with(|| a.cmp(b))
+    a.to_lowercase()
+        .cmp(&b.to_lowercase())
+        .then_with(|| a.cmp(b))
 }
 
 /// Check a new folder name for characters that are invalid on any supported OS.
@@ -132,10 +134,7 @@ pub fn create_dir(parent: &str, name: &str) -> Result<Value, ProtocolError> {
             ErrorCode::NotFound,
             format!("{} does not exist.", parent.display()),
         ),
-        _ => ProtocolError::new(
-            ErrorCode::Io,
-            format!("Cannot create \"{name}\": {error}"),
-        ),
+        _ => ProtocolError::new(ErrorCode::Io, format!("Cannot create \"{name}\": {error}")),
     })?;
     Ok(json!({ "path": path.to_string_lossy() }))
 }
@@ -200,7 +199,9 @@ mod tests {
 
     #[test]
     fn rejects_unsafe_folder_names() {
-        for name in ["", " x", "x ", ".", "..", "a/b", "a\\b", "a:b", "end.", "tab\t"] {
+        for name in [
+            "", " x", "x ", ".", "..", "a/b", "a\\b", "a:b", "end.", "tab\t",
+        ] {
             assert!(validate_folder_name(name).is_err(), "{name:?}");
         }
         assert!(validate_folder_name("Trip to Japan").is_ok());
