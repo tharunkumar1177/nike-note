@@ -102,18 +102,21 @@ function BlockMenu({
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
     const items = [...(menu.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? [])];
     const at = items.findIndex((item) => item === document.activeElement);
-    let next: number | null = null;
-    if (event.key === "ArrowDown") next = (at + 1) % items.length;
-    else if (event.key === "ArrowUp") next = (at - 1 + items.length) % items.length;
-    else if (event.key === "Home") next = 0;
-    else if (event.key === "End") next = items.length - 1;
-    else if (event.key === "Escape" || event.key === "Tab") {
+    if (event.key === "Escape" || event.key === "Tab") {
       if (event.key === "Escape") event.preventDefault();
       onClose(event.key === "Escape");
       return;
-    } else return;
+    }
+    const next: Record<string, number> = {
+      ArrowDown: (at + 1) % items.length,
+      ArrowUp: (at - 1 + items.length) % items.length,
+      Home: 0,
+      End: items.length - 1,
+    };
+    const target = next[event.key];
+    if (target === undefined) return;
     event.preventDefault();
-    items[next]?.focus();
+    items[target]?.focus();
   };
 
   return (
