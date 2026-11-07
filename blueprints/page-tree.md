@@ -8,7 +8,7 @@ The sidebar shows every page in the notes folder as an expandable tree in the or
 
 **Status:** Implemented
 
-Delivered by slice 4. Helper unit tests cover titles, link lines, ordering, exclusions, and truncation on all three operating systems; `e2e/pages.spec.ts` covers the tree, routing, keyboard use, and refresh on Linux; the CI build was checked by hand in Chrome on Windows. The page body is not rendered yet; slice 5 adds it.
+Delivered by slice 4. Helper unit tests cover titles, link lines, ordering, exclusions, and truncation on all three operating systems; `e2e/pages.spec.ts` covers the tree, routing, keyboard use, and refresh on Linux; the CI build was checked by hand in Chrome on Windows. Page bodies are rendered by [page-rendering](page-rendering.md).
 
 ## Architecture dependencies
 

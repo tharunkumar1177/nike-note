@@ -33,7 +33,7 @@ Pick the first unchecked slice. Route it through [the blueprint manifest](bluepr
 ### Reading and editing
 
 - [x] 4. Page tree: build the sidebar from the folder structure and link order
-- [ ] 5. Read rendering: one block per line for the initial block set
+- [x] 5. Read rendering: one block per line for the initial block set
 - [ ] 6. Edit and save: autosave through the helper, unchanged lines kept identical, outside edits picked up through the file watcher
 - [ ] 7. Auto-sync: auto-commit, fetch, push, the full status bar, and the conflict state
 
@@ -60,3 +60,4 @@ Pick the first unchecked slice. Route it through [the blueprint manifest](bluepr
 - 2026-11-07: Slices 1 and 2 done and green in CI on Windows, macOS, and Linux. The downloaded CI build was verified by hand in Chrome 156 on Windows: install, Open Quire, and the handshake. Next: slice 3 (folder and Git setup).
 - 2026-11-07: Slice 3 done and green in CI. The e2e test runs the whole setup against a bare remote. The downloaded CI build was verified by hand in Chrome on Windows: browse from the home folder, create a folder, turn on Git, connect a local bare remote, push, and reopen the picker with Change folder. Hand testing found hidden Windows folders such as `AppData` listed in the picker; they are now filtered by attribute. Next: slice 4 (page tree).
 - 2026-11-07: Slice 4 done and green in CI, including five end-to-end tests of the tree. The CI build was checked by hand in Chrome on Windows: link order, title fallback, nested navigation, breadcrumb, and a folder without README.md. Next: slice 5 (read rendering).
+- 2026-11-07: Slice 5 done and green in CI. `@quire/markdown` parses every page into blocks and round-trips files byte for byte; the helper's `readPage` checks every page path against the notes folder. CI now regenerates a stale `pnpm-lock.yaml` and fails the `lockfile` job until it is committed. The CI build was checked by hand in Chrome on Windows with a CRLF file that starts with a byte order mark: every block type, safe external links, and a relative link to a sibling page. Next: slice 6 (edit and save).

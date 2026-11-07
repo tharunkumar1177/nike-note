@@ -6,9 +6,9 @@ Opening a page shows its `README.md` body as read-only blocks, laid out the way 
 
 ## Current verified status
 
-**Status:** Partial
+**Status:** Implemented
 
-Code, unit tests, and end-to-end tests are written for slice 5. Not yet verified by CI or by hand in Chrome.
+Delivered by slice 5. Markdown unit tests (including a seeded random round trip) and helper unit tests for path safety and page reads pass on all three operating systems; `e2e/rendering.spec.ts` covers every block type, link safety, sub-page links, and the size limit on Linux. The CI build was checked by hand in Chrome on Windows with a CRLF file that starts with a byte order mark. Pages are read-only until slice 6.
 
 ## Architecture dependencies
 
@@ -52,11 +52,11 @@ Code, unit tests, and end-to-end tests are written for slice 5. Not yet verified
 
 ## Acceptance or verification criteria
 
-- [ ] Every block type in [plan.md](../plan.md#block-mapping) up to slice 5 renders: headings, quotes, bulleted, numbered, and to-do lists with nesting, dividers, code with its language, page links, tables and front matter as source.
-- [ ] The first `# ` heading is the page title and is not repeated in the body.
-- [ ] Web links open in a new tab without a referrer, page links open in Quire, and other links are inert.
-- [ ] Unedited files round-trip byte for byte, including the byte order mark and `\r\n` line endings.
-- [ ] Paths outside the notes folder are refused, and pages over 512 KiB show an explanation.
+- [x] Every block type in [plan.md](../plan.md#block-mapping) up to slice 5 renders: headings, quotes, bulleted, numbered, and to-do lists with nesting, dividers, code with its language, page links, tables and front matter as source.
+- [x] The first `# ` heading is the page title and is not repeated in the body.
+- [x] Web links open in a new tab without a referrer, page links open in Quire, and other links are inert.
+- [x] Unedited files round-trip byte for byte, including the byte order mark and `\r\n` line endings.
+- [x] Paths outside the notes folder are refused, and pages over 512 KiB show an explanation.
 
 ## Remaining gaps and unknowns
 
