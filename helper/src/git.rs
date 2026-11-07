@@ -50,9 +50,10 @@ pub(crate) fn run_ok(dir: &Path, args: &[&str]) -> Result<String, ProtocolError>
     if output.status.success() {
         return Ok(String::from_utf8_lossy(&output.stdout).trim().to_string());
     }
+    let command = args.first().unwrap_or(&"");
     Err(ProtocolError::new(
         ErrorCode::Git,
-        format!("git {} failed: {}", args.first().unwrap_or(&""), detail(&output)),
+        format!("git {command} failed: {}", detail(&output)),
     ))
 }
 

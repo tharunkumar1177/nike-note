@@ -11,7 +11,9 @@ export const SYNC_DELAY_MS = 5_000;
 /** How often an idle, visible app checks the remote for changes. */
 export const POLL_MS = 60_000;
 /** Waits before retrying after the remote could not be reached, longest last. */
-const RETRY_MS = [30_000, 60_000, 120_000, 300_000] as const;
+const RETRY_MS: readonly number[] = [30_000, 60_000, 120_000];
+/** Wait between retries once the remote has failed many times in a row. */
+const MAX_RETRY_MS = 300_000;
 /** A sync may wait on the network for a long time. */
 const SYNC_TIMEOUT_MS = 180_000;
 /** Pause after the tab is hidden, so its last saves reach the disk first. */
@@ -135,7 +137,7 @@ export class SyncStore {
 
   /** Retry later, waiting longer after each failure in a row. */
   private retryLater(): void {
-    const delay = RETRY_MS[Math.min(this.failures, RETRY_MS.length - 1)];
+    const delay = RETRY_MS[this.failures] ?? MAX_RETRY_MS;
     this.failures += 1;
     this.schedule(delay);
   }

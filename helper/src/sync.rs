@@ -130,8 +130,10 @@ fn no_upstream() -> ProtocolError {
 fn upstream(root: &Path) -> Result<Upstream, ProtocolError> {
     let branch = query(root, &["symbolic-ref", "--short", "-q", "HEAD"]);
     let branch = branch.ok_or_else(no_upstream)?;
-    let remote = query(root, &["config", "--get", &format!("branch.{branch}.remote")]);
-    let merge = query(root, &["config", "--get", &format!("branch.{branch}.merge")]);
+    let remote_key = format!("branch.{branch}.remote");
+    let merge_key = format!("branch.{branch}.merge");
+    let remote = query(root, &["config", "--get", &remote_key]);
+    let merge = query(root, &["config", "--get", &merge_key]);
     match (remote, merge) {
         (Some(remote), Some(merge)) if !remote.starts_with('-') => Ok(Upstream { remote, merge }),
         _ => Err(no_upstream()),
@@ -261,7 +263,13 @@ pub fn sync(root: &Path, writes: &Mutex<()>) -> Result<Value, ProtocolError> {
         }
     }
     let message = "The remote kept changing while Quire pushed. Quire will try again.";
-    outcome(root, State::Offline, &done, Vec::new(), Some(message.into()))
+    outcome(
+        root,
+        State::Offline,
+        &done,
+        Vec::new(),
+        Some(message.into()),
+    )
 }
 
 #[cfg(test)]
