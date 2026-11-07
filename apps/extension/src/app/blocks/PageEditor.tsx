@@ -428,6 +428,7 @@ export function PageEditor({
   onCreatePage,
   onTransform,
   onTitleCommit,
+  onAiWrite,
   onAddImage,
   children,
 }: {
@@ -440,6 +441,8 @@ export function PageEditor({
   onTransform: (change: (source: string) => string) => boolean;
   /** Called with the new and the earlier title when focus leaves a title that was edited. */
   onTitleCommit?: (title: string, from: string) => void;
+  /** Opens Write with AI for source line `line`, where `/ai` was typed. */
+  onAiWrite?: (line: number) => void;
   /** Saves an image file into the page's assets and answers its image line. */
   onAddImage?: (file: File) => Promise<string>;
   children?: ReactNode;
@@ -762,6 +765,14 @@ export function PageEditor({
     }
     if (command === "image") {
       pickImage(index, block, text, offset);
+      return;
+    }
+    if (command === "ai") {
+      apply(replaceBlockText(markdown, index, text), {
+        kind: "body",
+        ...positionInText(block.line, text, offset),
+      });
+      onAiWrite?.(block.line);
       return;
     }
     if (command === "table" || command === "callout" || command === "toggle") {

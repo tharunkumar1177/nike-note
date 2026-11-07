@@ -763,8 +763,18 @@ body,
   display: flex;
   flex: none;
   align-items: center;
-  gap: var(--q-space-1);
+  gap: 2px;
   margin-left: auto;
+}
+
+.save-status + .page-bar__ai {
+  margin-left: var(--q-space-2);
+}
+
+.page-bar__ai-button {
+  display: flex;
+  align-items: center;
+  gap: var(--q-space-1);
   padding: 3px var(--q-space-2);
   border: none;
   border-radius: var(--q-radius-sm);
@@ -772,24 +782,21 @@ body,
   color: var(--q-text-muted);
   font: inherit;
   font-size: var(--q-text-sm);
+  white-space: nowrap;
   cursor: pointer;
 }
 
-.save-status + .page-bar__ai {
-  margin-left: var(--q-space-2);
-}
-
-.page-bar__ai:hover:not(:disabled) {
+.page-bar__ai-button:hover:not(:disabled) {
   background: var(--q-bg-hover);
   color: var(--q-text);
 }
 
-.page-bar__ai:focus-visible {
+.page-bar__ai-button:focus-visible {
   outline: none;
   box-shadow: var(--q-focus);
 }
 
-.page-bar__ai:disabled {
+.page-bar__ai-button:disabled {
   opacity: 0.55;
   cursor: default;
 }
@@ -818,7 +825,7 @@ body,
 }
 
 .ai-setup__error,
-.ai-summary__error {
+.ai-output__error {
   margin: 0;
   padding: var(--q-space-2);
   border-radius: var(--q-radius-sm);
@@ -833,18 +840,47 @@ body,
   color: var(--q-danger);
 }
 
-.ai-summary {
-  width: min(600px, calc(100vw - 32px));
-  max-height: min(640px, calc(100vh - 64px));
+.ai-dialog {
+  width: min(640px, calc(100vw - 32px));
+  max-height: min(680px, calc(100vh - 64px));
 }
 
-.ai-summary__text {
+.ai-dialog__form {
+  display: flex;
+  gap: var(--q-space-2);
+}
+
+.ai-dialog__form .modal__input {
+  flex: 1;
+  min-width: 0;
+}
+
+.ai-dialog__form--stacked {
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.ai-dialog__form--stacked .modal__input {
+  align-self: stretch;
+}
+
+.ai-dialog__request {
+  height: auto;
+  padding: var(--q-space-2);
+  resize: vertical;
+}
+
+.ai-output {
   min-height: 48px;
   overflow-y: auto;
 }
 
-.ai-summary__waiting,
-.ai-summary__note {
+.ai-output:empty {
+  display: none;
+}
+
+.ai-output__waiting,
+.ai-output__note {
   margin: 0;
   color: var(--q-text-faint);
   font-size: var(--q-text-xs);

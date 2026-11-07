@@ -5,7 +5,9 @@
  */
 import {
   assetImageLine,
+  blockAtLine,
   inlineText,
+  insertLinkLine,
   parseDocument,
   parseInline,
   titleBlockIndex,
@@ -15,9 +17,8 @@ import { useContext, useEffect, useMemo, useState, useSyncExternalStore } from "
 
 import { PageIcon, SparkleIcon } from "../shared/icons";
 import { pageHash, pageTrail, type CreatedPage, type PageNode } from "../shared/pages";
-import { AiSetupDialog } from "./ai/AiSetupDialog";
 import type { AiSettingsStore } from "./ai/aiStore";
-import { SummaryDialog } from "./ai/SummaryDialog";
+import { PageAiDialog, type AiAction } from "./ai/PageAiDialog";
 import { AssetContext } from "./assetStore";
 import { PageEditor } from "./blocks/PageEditor";
 import type { PageEditorStore, PageEditorView } from "./pageEditorStore";
@@ -134,9 +135,11 @@ export function PageView({
 }) {
   const view = useSyncExternalStore(editor.subscribe, editor.getSnapshot);
   const aiView = useSyncExternalStore(ai.subscribe, ai.getSnapshot);
-  const [aiDialog, setAiDialog] = useState<{ path: string; kind: "setup" | "summary" } | null>(
-    null,
-  );
+  const [aiDialog, setAiDialog] = useState<{
+    path: string;
+    action: AiAction;
+    setup: boolean;
+  } | null>(null);
   const assets = useContext(AssetContext);
   const [renameError, setRenameError] = useState<{ path: string; message: string } | null>(
     null,
@@ -176,6 +179,21 @@ export function PageView({
       const message = error instanceof Error ? error.message : String(error);
       setRenameError({ path, message });
     });
+  };
+
+  /** Open AI `action` on this page, with setup first when nothing is saved. */
+  const openAi = (action: AiAction): void => {
+    setAiDialog({ path, action, setup: aiView.settings === null });
+  };
+
+  /** Put generated `text` on source line `line` when it is empty, otherwise after its block. */
+  const insertGenerated = (line: number, text: string): void => {
+    editor.transform(path, (current) => {
+      const document = parseDocument(current);
+      const at = blockAtLine(document.blocks, line);
+      return insertLinkLine(document, at < 0 ? document.blocks.length : at, text).source;
+    });
+    setAiDialog(null);
   };
 
   if (!page && treeLoading) return <main className="page" aria-busy="true" />;
@@ -219,36 +237,40 @@ export function PageView({
           </ol>
         </nav>
         {current && <SaveStatus view={view} onRetry={() => editor.retry()} />}
-        <button
-          type="button"
-          className="page-bar__ai"
-          disabled={source === null || !aiView.loaded}
-          onClick={() => setAiDialog({ path, kind: aiView.settings ? "summary" : "setup" })}
-        >
-          <SparkleIcon />
-          <span>Summarize</span>
-        </button>
+        <div className="page-bar__ai">
+          <button
+            type="button"
+            className="page-bar__ai-button"
+            disabled={source === null || !aiView.loaded}
+            onClick={() => openAi({ kind: "ask" })}
+          >
+            <SparkleIcon />
+            <span>Ask AI</span>
+          </button>
+          <button
+            type="button"
+            className="page-bar__ai-button"
+            disabled={source === null || !aiView.loaded}
+            onClick={() => openAi({ kind: "summary" })}
+          >
+            <span>Summarize</span>
+          </button>
+        </div>
       </header>
-      {aiDialog?.path === path && aiDialog.kind === "setup" && (
-        <AiSetupDialog
+      {aiDialog?.path === path && source !== null && (
+        <PageAiDialog
           store={ai}
           settings={aiView.settings}
-          onSaved={() => setAiDialog({ path, kind: "summary" })}
+          setup={aiDialog.setup}
+          action={aiDialog.action}
+          title={title ?? page.title}
+          source={source}
+          pagePath={path}
+          onSetupDone={() => setAiDialog({ ...aiDialog, setup: false })}
+          onInsert={insertGenerated}
           onClose={() => setAiDialog(null)}
         />
       )}
-      {aiDialog?.path === path &&
-        aiDialog.kind === "summary" &&
-        aiView.settings &&
-        source !== null && (
-          <SummaryDialog
-            settings={aiView.settings}
-            title={title ?? page.title}
-            source={source}
-            pagePath={path}
-            onClose={() => setAiDialog(null)}
-          />
-        )}
       <div className="page__content">
         {markdown ? (
           <PageEditor
@@ -261,6 +283,7 @@ export function PageView({
             onCreatePage={(childTitle) => onCreatePage(path, childTitle)}
             onTransform={(change) => editor.transform(path, change)}
             onTitleCommit={commitTitle}
+            onAiWrite={(line) => openAi({ kind: "write", line })}
             onAddImage={
               assets
                 ? async (file) => assetImageLine((await assets.save(path, file)).name)

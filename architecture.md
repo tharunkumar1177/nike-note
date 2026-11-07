@@ -188,6 +188,7 @@ The app syncs once when the workspace opens, 5 seconds after file changes settle
 - The app page calls the provider's API directly with the user's key. The Gemini API answers cross-origin requests from the extension's origin, so no host permission is requested. The helper is not involved, and nothing else leaves the computer.
 - Settings `{ provider, model, key }` are stored under `ai` in `chrome.storage.local` (the `storage` permission), never in the notes folder or the helper's config. Every open Quire tab follows changes.
 - The build fails when a provider SDK module is in an entry chunk or in a chunk an entry imports statically (`startupLeaks` in the build plugin), so SDKs load only when an AI action first runs.
+- Generated text enters a page only when the user selects Insert, as whole Markdown lines through the page editor's normal edit and save path, so it obeys the same line mapping, hash check, and sync as typing. Prompts carry the page's title and Markdown, never other pages.
 
 ## Cross-cutting flows
 

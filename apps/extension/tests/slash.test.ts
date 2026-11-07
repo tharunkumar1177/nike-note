@@ -36,6 +36,7 @@ describe("filterSlashItems", () => {
       "toggle",
       "image",
       "page",
+      "ai",
     ]) {
       expect(commands(name)[0]).toBe(name);
     }

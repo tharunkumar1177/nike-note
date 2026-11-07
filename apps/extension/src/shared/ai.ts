@@ -134,30 +134,102 @@ export function summaryPrompt(title: string, markdown: string): AiPrompt {
       "bullet points (lines starting with \"- \") covering the main points, decisions, " +
       "dates, and open to-dos. Use only what the page says. Write in the page's language. " +
       "Do not add a heading, an introduction, or a closing remark.",
-    prompt: `Page title: ${title}\n\nPage (Markdown):\n${pageForPrompt(markdown)}`,
+    prompt: pageContext(title, markdown),
+  };
+}
+
+/** The page context every prompt about a page carries. */
+function pageContext(title: string, markdown: string): string {
+  return `Page title: ${title}\n\nPage (Markdown):\n${pageForPrompt(markdown)}`;
+}
+
+/**
+ * The prompt that writes new content for page `title` (body `markdown`) as
+ * the user asked in `request`.
+ */
+export function writePrompt(request: string, title: string, markdown: string): AiPrompt {
+  return {
+    system:
+      "You write new content for one page of a person's Markdown notes. Answer with only " +
+      "the Markdown to add to the page: no introduction, no closing remark, and no code " +
+      "fence around the answer. Use headings from ## down, paragraphs, \"- \" bullets, " +
+      "\"1. \" numbered lists, \"- [ ] \" to-dos, \"> \" quotes, and GitHub tables where " +
+      "they fit. Never use a # heading. Use the page for context and do not repeat it. " +
+      "Write in the language of the request.",
+    prompt: `${pageContext(title, markdown)}\n\nWhat to write:\n${request.trim()}`,
   };
 }
 
 /**
+ * The prompt that answers `question` about page `title` with body `markdown`.
+ */
+export function askPrompt(question: string, title: string, markdown: string): AiPrompt {
+  return {
+    system:
+      "You answer questions about one page of a person's notes. Use only what the page " +
+      "says; when it does not contain the answer, say so in one sentence. Be brief. Answer " +
+      "in Markdown, in the language of the question.",
+    prompt: `${pageContext(title, markdown)}\n\nQuestion:\n${question.trim()}`,
+  };
+}
+
+/**
+ * Generated Markdown made ready to insert into a page: a `markdown` code
+ * fence wrapped around the whole answer is removed, `#` headings become `##` so the page
+ * keeps one title, and surrounding blank lines are trimmed.
+ */
+export function cleanGenerated(text: string): string {
+  let lines = text.replace(/\r\n?/g, "\n").split("\n");
+  while (lines.length > 0 && lines[0]?.trim() === "") lines.shift();
+  while (lines.length > 0 && lines.at(-1)?.trim() === "") lines.pop();
+  const first = lines[0]?.trim() ?? "";
+  if (/^(```|~~~)\s*(markdown|md)$/i.test(first) && lines.at(-1)?.trim() === first.slice(0, 3)) {
+    lines = lines.slice(1, -1);
+  }
+  let fence: string | null = null;
+  return lines
+    .map((line) => {
+      const marker = /^\s*(```|~~~)/.exec(line)?.[1] ?? null;
+      if (marker && (fence === null || fence === marker)) fence = fence === null ? marker : null;
+      return fence === null && /^# /.test(line) ? `#${line}` : line;
+    })
+    .join("\n")
+    .trim();
+}
+
+/**
  * A readable message for a failed AI call. Provider errors often carry a
- * JSON body; its `error.message` is used when present.
+ * JSON body; its `error.message` is used when present. Streamed calls wrap
+ * the body's text in another such message, so nested bodies are unwrapped.
  */
 export function describeAiError(error: unknown): string {
   if (error instanceof Error && error.name === "AbortError") return "Stopped.";
-  const message = error instanceof Error ? error.message : String(error);
-  const start = message.indexOf("{");
-  if (start >= 0) {
-    try {
-      const body: unknown = JSON.parse(message.slice(start));
-      if (isRecord(body) && isRecord(body.error) && typeof body.error.message === "string") {
-        return body.error.message;
-      }
-    } catch {
-      return message;
-    }
+  let message = error instanceof Error ? error.message : String(error);
+  for (let depth = 0; depth < 3; depth += 1) {
+    const inner = jsonErrorMessage(message);
+    if (inner === null) break;
+    message = inner;
   }
   if (/failed to fetch|networkerror|load failed/i.test(message)) {
     return "The AI provider could not be reached. Check your connection and try again.";
   }
   return message;
+}
+
+/**
+ * The `error.message` of a JSON error body found in `text`, or null when the
+ * text holds no such body.
+ */
+function jsonErrorMessage(text: string): string | null {
+  const start = text.indexOf("{");
+  if (start < 0) return null;
+  try {
+    const body: unknown = JSON.parse(text.slice(start));
+    if (isRecord(body) && isRecord(body.error) && typeof body.error.message === "string") {
+      return body.error.message.trim();
+    }
+  } catch {
+    return null;
+  }
+  return null;
 }
