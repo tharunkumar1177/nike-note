@@ -134,6 +134,7 @@ Workspace methods answer with the workspace state `{ root, rootName, rootError, 
 - List nesting is relative: an item indented more than the item above nests one level deeper, up to 8 levels. A line of `---`, `***`, or `___` is always a divider; setext headings are not supported.
 - The page's title block is the first `# ` heading (the [Page structure](#page-structure) title rule). The app shows it as the page title and not again in the body.
 - The block-type set and its Markdown syntax are defined in [plan.md](plan.md#block-mapping) and implemented only in `packages/markdown`. The helper keeps its own line scanner for titles and link lines; both must accept the same link-line forms.
+- Inline styles (bold, italic, strikethrough, code, links) are read by one scanner in `packages/markdown` that also reports each span's source range. Formatting commands add or remove delimiters using those ranges, and the renderer uses the same scan, so what the toolbar reports as styled is what is shown.
 - Links: `http:`, `https:`, and `mailto:` links open in a new tab without a referrer. Relative links to a `README.md` inside the notes folder open that page in Quire. Every other link is shown as inert text with its target in a tooltip.
 
 ### File write-back and change watching

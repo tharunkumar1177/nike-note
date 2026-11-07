@@ -36,7 +36,26 @@ export {
   type SourcePosition,
   type TurnIntoKind,
 } from "./edit";
-export { inlineText, parseInline, type Inline } from "./inline";
+export {
+  formatsAt,
+  linkAt,
+  linkHref,
+  removeLink,
+  setLink,
+  toggleMark,
+  type Formats,
+  type LinkRange,
+  type Mark,
+  type Selected,
+} from "./format";
+export {
+  inlineText,
+  parseInline,
+  scanInline,
+  type Inline,
+  type InlineSpan,
+  type SourceRange,
+} from "./inline";
 export {
   README,
   isExternalHref,
