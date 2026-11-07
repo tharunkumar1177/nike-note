@@ -32,7 +32,7 @@ Pick the first unchecked slice. Route it through [the blueprint manifest](bluepr
 
 ### Reading and editing
 
-- [ ] 4. Page tree: build the sidebar from the folder structure and link order
+- [x] 4. Page tree: build the sidebar from the folder structure and link order
 - [ ] 5. Read rendering: one block per line for the initial block set
 - [ ] 6. Edit and save: autosave through the helper, unchanged lines kept identical, outside edits picked up through the file watcher
 - [ ] 7. Auto-sync: auto-commit, fetch, push, the full status bar, and the conflict state
@@ -59,3 +59,4 @@ Pick the first unchecked slice. Route it through [the blueprint manifest](bluepr
 - 2026-11-07: Pivot approved. The cloud plan (Next.js, realtime service, worker, Postgres, hosting) is replaced by the local extension and native helper described above. The previous slice list and the production-readiness audit are retired. Next: slice 1 on branch `slice/01-extension-skeleton`.
 - 2026-11-07: Slices 1 and 2 done and green in CI on Windows, macOS, and Linux. The downloaded CI build was verified by hand in Chrome 156 on Windows: install, Open Quire, and the handshake. Next: slice 3 (folder and Git setup).
 - 2026-11-07: Slice 3 done and green in CI. The e2e test runs the whole setup against a bare remote. The downloaded CI build was verified by hand in Chrome on Windows: browse from the home folder, create a folder, turn on Git, connect a local bare remote, push, and reopen the picker with Change folder. Hand testing found hidden Windows folders such as `AppData` listed in the picker; they are now filtered by attribute. Next: slice 4 (page tree).
+- 2026-11-07: Slice 4 done and green in CI, including five end-to-end tests of the tree. The CI build was checked by hand in Chrome on Windows: link order, title fallback, nested navigation, breadcrumb, and a folder without README.md. Next: slice 5 (read rendering).

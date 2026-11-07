@@ -6,9 +6,9 @@ The sidebar shows every page in the notes folder as an expandable tree in the or
 
 ## Current verified status
 
-**Status:** Planned
+**Status:** Implemented
 
-Delivered by slice 4. The page body is not rendered yet; slice 5 adds it.
+Delivered by slice 4. Helper unit tests cover titles, link lines, ordering, exclusions, and truncation on all three operating systems; `e2e/pages.spec.ts` covers the tree, routing, keyboard use, and refresh on Linux; the CI build was checked by hand in Chrome on Windows. The page body is not rendered yet; slice 5 adds it.
 
 ## Architecture dependencies
 
@@ -46,12 +46,12 @@ Delivered by slice 4. The page body is not rendered yet; slice 5 adds it.
 
 ## Acceptance or verification criteria
 
-- [ ] Pages appear in link order, then by name; titles come from the first `# ` line outside code fences, falling back to the folder name.
-- [ ] `assets/`, dot folders, and loose Markdown files are not pages.
-- [ ] Selecting a page in the tree updates the URL, the heading, the breadcrumb, and the window title, and the page survives a reload.
-- [ ] The tree is usable from the keyboard alone.
-- [ ] A folder without `README.md` and an unknown page path each show an explanation.
-- [ ] A page added outside Quire appears when the tab is shown again.
+- [x] Pages appear in link order, then by name; titles come from the first `# ` line outside code fences, falling back to the folder name.
+- [x] `assets/`, dot folders, and loose Markdown files are not pages.
+- [x] Selecting a page in the tree updates the URL, the heading, the breadcrumb, and the window title, and the page survives a reload.
+- [x] The tree is usable from the keyboard alone.
+- [x] A folder without `README.md` and an unknown page path each show an explanation.
+- [x] A page added outside Quire appears when the tab is shown again.
 
 ## Remaining gaps and unknowns
 
