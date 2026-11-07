@@ -752,8 +752,8 @@ export function PageEditor({
                     linking={bar.linking}
                     onMark={(mark) => format(index, block, parts, bar.start, bar.end, mark)}
                     onStartLink={() => setToolbar({ ...bar, linking: true })}
-                    onLink={(address) => link(index, block, parts, address)}
-                    onUnlink={() => link(index, block, parts, null)}
+                    onLink={(address) => applyLink(index, block, parts, address)}
+                    onUnlink={() => applyLink(index, block, parts, null)}
                     onCancelLink={() => cancelLink(block, parts)}
                     onLeave={() => {
                       setToolbar(null);
