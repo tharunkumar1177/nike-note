@@ -342,8 +342,8 @@ fn with_title(text: &str, title: &str) -> String {
         }
         return out;
     }
-    let front_matter = mask.first() == Some(&false)
-        && lines.first().is_some_and(|line| line.trim_end() == "---");
+    let front_matter =
+        mask.first() == Some(&false) && lines.first().is_some_and(|line| line.trim_end() == "---");
     let after_front_matter = if front_matter {
         (1..lines.len())
             .find(|&index| matches!(lines[index].trim_end(), "---" | "..."))
