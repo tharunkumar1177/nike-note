@@ -14,6 +14,7 @@ use crate::framing::{ReadError, read_frame, write_frame};
 use crate::git;
 use crate::identity::{ALLOWED_ORIGIN, EXTENSION_ID, PROTOCOL_VERSION};
 use crate::install::TargetOs;
+use crate::pages;
 use crate::protocol::{ErrorCode, Outgoing, ProtocolError, Request, encode, parse_request};
 use crate::workspace::{Workspace, status_for};
 
@@ -83,6 +84,10 @@ impl Session {
             "createDir" => string(params, "parent")
                 .and_then(|parent| dirs::create_dir(&parent, &string(params, "name")?)),
             "setRoot" => string(params, "path").and_then(|path| self.workspace.set_root(&path)),
+            "pageTree" => self
+                .workspace
+                .root()
+                .and_then(|root| pages::page_tree(&root)),
             "gitInit" => self.with_root(git::init),
             "gitSetIdentity" => string(params, "name").and_then(|name| {
                 let email = string(params, "email")?;

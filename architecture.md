@@ -116,13 +116,13 @@ Workspace methods answer with the workspace state `{ root, rootName, rootError, 
 
 ### Page structure
 
-**Intended (slice 4).**
-
-- Every page is a folder. Its body is the folder's `README.md`. Sub-pages are child folders. The notes folder root is the Home page.
-- The title is the text of the first `# ` line. Without one, the folder name is the title.
-- A sub-page is linked from its parent as a line `[Title](child/README.md)`. Link order sets sidebar order. Child folders with no link follow in case-insensitive alphabetical order.
-- `assets/`, `.git/`, and folders whose names start with `.` are never pages.
+- Every page is a folder. Its body is the folder's `README.md`. Sub-pages are child folders. The notes folder root is the root page, shown first in the sidebar. A page's path is its folder path relative to the root with `/` separators; the root page's path is empty.
+- The title is the text of the first line that starts with `# `, with any closing `#` sequence removed. Lines in YAML front matter (a leading `---` block) and in fenced code blocks are skipped. Without such a line, the folder name is the title.
+- A sub-page is linked from its parent by a whole line `[Title](child/README.md)`. The target may be percent-encoded (`Japan%202027/README.md`), wrapped in angle brackets (`<Japan 2027/README.md>`), or prefixed with `./`. Only direct child folders count. Link order sets sidebar order. Child folders with no link follow in case-insensitive name order.
+- `assets/` and folders whose names start with `.` (including `.git/`) are never pages, nor are Windows hidden or system folders. Symbolic links to folders are not followed.
 - A folder without `README.md` is a page with an empty body. Quire creates the file on the first edit.
+- `pageTree` returns `{ root, truncated }`, where every node is `{ path, name, title, hasReadme, children }`. The helper stops after 5,000 pages or 64 levels and sets `truncated`. `README.md` files larger than 8 MiB contribute no title or links.
+- The app keeps the open page in the URL fragment (`app.html#/Trips/Japan%202027`) and reloads the tree whenever the tab becomes visible, until file watching arrives with [File write-back and change watching](#file-write-back-and-change-watching).
 
 ### Block model and line mapping
 

@@ -37,7 +37,7 @@ fn is_hidden(name: &str) -> bool {
 
 /// True when Windows marks the folder hidden or system-owned, as it does for `AppData`.
 #[cfg(windows)]
-fn has_hidden_attribute(entry: &fs::DirEntry) -> bool {
+pub fn has_hidden_attribute(entry: &fs::DirEntry) -> bool {
     use std::os::windows::fs::MetadataExt;
     const FILE_ATTRIBUTE_HIDDEN: u32 = 0x2;
     const FILE_ATTRIBUTE_SYSTEM: u32 = 0x4;
@@ -51,7 +51,7 @@ fn has_hidden_attribute(entry: &fs::DirEntry) -> bool {
 
 /// Other systems have no hidden attribute; dot names are handled by `is_hidden`.
 #[cfg(not(windows))]
-fn has_hidden_attribute(_entry: &fs::DirEntry) -> bool {
+pub fn has_hidden_attribute(_entry: &fs::DirEntry) -> bool {
     false
 }
 
