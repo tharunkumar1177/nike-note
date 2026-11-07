@@ -112,6 +112,17 @@ export function SparkleIcon() {
   );
 }
 
+/** Two sliders, for settings. */
+export function SettingsIcon() {
+  return (
+    <svg {...iconProps}>
+      <path d="M2.5 5h6.25M12.25 5h1.25M2.5 11h1.25M7.25 11h6.25" />
+      <circle cx="10.5" cy="5" r="1.75" />
+      <circle cx="5.5" cy="11" r="1.75" />
+    </svg>
+  );
+}
+
 /** Check mark. */
 export function CheckIcon() {
   return (

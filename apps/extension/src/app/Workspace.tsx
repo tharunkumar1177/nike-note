@@ -2,16 +2,18 @@
  * Workspace for a set-up notes folder: page tree sidebar, the open page,
  * auto-sync, and the status bar. One instance per notes folder.
  */
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useContext, useEffect, useState, useSyncExternalStore } from "react";
 
-import { FolderIcon, SearchIcon } from "../shared/icons";
+import { FolderIcon, SearchIcon, SettingsIcon } from "../shared/icons";
 import { parseFilesChanged } from "../shared/pageBody";
 import { parseCreatedPage, type CreatedPage } from "../shared/pages";
 import { detectOs } from "../shared/platform";
 import type { HelloResult } from "../shared/protocol";
+import { isShortcutsKey } from "../shared/shortcuts";
 import type { WorkspaceState } from "../shared/workspace";
 import { AiSetupDialog } from "./ai/AiSetupDialog";
 import { AiSettingsStore } from "./ai/aiStore";
+import { AppearanceContext } from "./appearanceContext";
 import { AssetContext, AssetStore } from "./assetStore";
 import { PageEditorStore } from "./pageEditorStore";
 import { createPageOps } from "./pageOps";
@@ -20,6 +22,8 @@ import { PageTreeStore } from "./pageTreeStore";
 import { PageView } from "./PageView";
 import { currentPage, openPage, subscribeRoute } from "./route";
 import { SearchDialog } from "./SearchDialog";
+import { SettingsDialog } from "./SettingsDialog";
+import { ShortcutsDialog } from "./ShortcutsDialog";
 import { StatusBar } from "./StatusBar";
 import { SyncNotice } from "./SyncNotice";
 import { SyncStore } from "./syncStore";
@@ -36,8 +40,16 @@ function isSearchShortcut(event: KeyboardEvent): boolean {
   const key = event.key.toLowerCase();
   if (event.defaultPrevented || event.altKey || event.shiftKey) return false;
   if (!(event.ctrlKey || event.metaKey) || (key !== "k" && key !== "p")) return false;
-  return !(event.target instanceof Element && event.target.closest("dialog"));
+  return !inDialog(event);
 }
+
+/** True when `event` happened inside an open dialog. */
+function inDialog(event: KeyboardEvent): boolean {
+  return event.target instanceof Element && event.target.closest("dialog") !== null;
+}
+
+/** The settings dialog or shortcut reference that is open, if any. */
+type SettingsView = "settings" | "shortcuts" | null;
 
 /**
  * Render the workspace for a notes folder that is ready to sync.
@@ -69,12 +81,18 @@ export function Workspace({
   const syncView = useSyncExternalStore(sync.subscribe, sync.getSnapshot);
   const selected = useSyncExternalStore(subscribeRoute, currentPage);
   const [searching, setSearching] = useState(false);
+  const appearance = useContext(AppearanceContext);
+  const [settings, setSettings] = useState<SettingsView>(null);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
-      if (!isSearchShortcut(event)) return;
-      event.preventDefault();
-      setSearching(true);
+      if (isSearchShortcut(event)) {
+        event.preventDefault();
+        setSearching(true);
+      } else if (isShortcutsKey(event) && !inDialog(event)) {
+        event.preventDefault();
+        setSettings("shortcuts");
+      }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
@@ -154,6 +172,12 @@ export function Workspace({
           <span>Search</span>
           <kbd className="sidebar__keys">{SEARCH_KEYS}</kbd>
         </button>
+        {appearance && (
+          <button type="button" className="sidebar__search" onClick={() => setSettings("settings")}>
+            <SettingsIcon />
+            <span>Settings</span>
+          </button>
+        )}
         <div className="sidebar__pages">
           {tree && <PageTreeNav root={tree.root} selected={selected} ops={ops} />}
           {tree?.truncated && (
@@ -214,6 +238,14 @@ export function Workspace({
           onClose={() => setAiSetup(false)}
         />
       )}
+      {settings === "settings" && appearance && (
+        <SettingsDialog
+          store={appearance}
+          onShowShortcuts={() => setSettings("shortcuts")}
+          onClose={() => setSettings(null)}
+        />
+      )}
+      {settings === "shortcuts" && <ShortcutsDialog onClose={() => setSettings(null)} />}
       {searching && tree && (
         <SearchDialog
           helper={store.helper}
