@@ -92,6 +92,16 @@ export function BranchIcon() {
   );
 }
 
+/** Magnifying glass, for search. */
+export function SearchIcon() {
+  return (
+    <svg {...iconProps}>
+      <circle cx="7" cy="7" r="4.25" />
+      <path d="m10.25 10.25 3.25 3.25" />
+    </svg>
+  );
+}
+
 /** Check mark. */
 export function CheckIcon() {
   return (

@@ -3,6 +3,7 @@
 
 use std::io::{self, Read, Write};
 use std::process::ExitCode;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, Mutex, PoisonError};
 use std::thread;
@@ -20,6 +21,7 @@ use crate::install::TargetOs;
 use crate::pageops;
 use crate::pages;
 use crate::protocol::{ErrorCode, Outgoing, ProtocolError, Request, encode, parse_request};
+use crate::search;
 use crate::sync;
 use crate::watch::{self, PageWatch};
 use crate::workspace::{Workspace, status_for};
@@ -42,6 +44,8 @@ pub struct Session {
     writes: Arc<Mutex<()>>,
     /// Held for a whole sync, so syncs run one at a time.
     syncing: Arc<Mutex<()>>,
+    /// The generation of the newest search; older searches stop early.
+    searches: Arc<AtomicU64>,
 }
 
 impl Session {
@@ -54,6 +58,7 @@ impl Session {
             watch: None,
             writes: Arc::default(),
             syncing: Arc::default(),
+            searches: Arc::default(),
         }
     }
 
@@ -158,6 +163,13 @@ impl Session {
                 }
                 Err(error) => Err(error),
             },
+            "search" => match (self.workspace.root(), string(params, "query")) {
+                (Ok(root), Ok(query)) => {
+                    self.start_search(root, query, request.id);
+                    return Dispatch::Deferred;
+                }
+                (Err(error), _) | (_, Err(error)) => Err(error),
+            },
             other => Err(ProtocolError::new(
                 ErrorCode::UnknownMethod,
                 format!("Unknown method \"{other}\"."),
@@ -192,6 +204,18 @@ impl Session {
         thread::spawn(move || {
             let _running = syncing.lock().unwrap_or_else(PoisonError::into_inner);
             let _ = out.send(reply(id, sync::sync(&root, &writes)));
+        });
+    }
+
+    /// Search the notes folder on a worker thread and reply when done
+    /// (`search`). Starting a search makes any earlier one stop early.
+    fn start_search(&self, root: std::path::PathBuf, query: String, id: u64) {
+        let out = self.out.clone();
+        let latest = Arc::clone(&self.searches);
+        let generation = latest.fetch_add(1, Ordering::Relaxed) + 1;
+        thread::spawn(move || {
+            let result = search::search(&root, &query, &latest, generation);
+            let _ = out.send(reply(id, result));
         });
     }
 
@@ -586,5 +610,25 @@ mod tests {
         assert_eq!(replies[2]["error"]["code"], json!("GIT"));
         assert_eq!(replies[3]["id"], json!(4));
         assert_eq!(replies[3]["error"]["code"], json!("GIT"));
+    }
+
+    #[test]
+    fn search_replies_from_a_background_thread() {
+        let dir = TestDir::new("host-search");
+        std::fs::write(dir.path().join("README.md"), "# Home\nKyoto plans\n").unwrap();
+        let mut workspace = Workspace::load(None);
+        workspace.set_root(&dir.path().to_string_lossy()).unwrap();
+        let replies = exchange_with(
+            workspace,
+            &[
+                hello_request(1),
+                json!({ "id": 2, "method": "search" }),
+                json!({ "id": 3, "method": "search", "params": { "query": "kyoto" } }),
+            ],
+        );
+        assert_eq!(replies[1]["error"]["code"], json!("BAD_REQUEST"));
+        let first = &replies[2]["result"]["results"][0];
+        assert_eq!(first["path"], json!(""));
+        assert_eq!(first["snippet"], json!("Kyoto plans"));
     }
 }

@@ -14,10 +14,10 @@ use crate::protocol::ProtocolError;
 pub const README: &str = "README.md";
 
 /// Most pages returned in one tree, keeping the reply well under the 1 MiB message limit.
-const MAX_PAGES: usize = 5000;
+pub const MAX_PAGES: usize = 5000;
 
 /// Deepest folder nesting scanned, guarding against pathological trees.
-const MAX_DEPTH: usize = 64;
+pub const MAX_DEPTH: usize = 64;
 
 /// Largest `README.md` read for its title and links.
 const MAX_README_BYTES: u64 = 8 * 1024 * 1024;
@@ -98,7 +98,7 @@ pub fn is_excluded(name: &str) -> bool {
 }
 
 /// Names of the subfolders of `dir` that are pages. Symbolic links are not followed.
-fn child_page_names(dir: &Path) -> Vec<String> {
+pub fn child_page_names(dir: &Path) -> Vec<String> {
     let Ok(reader) = fs::read_dir(dir) else {
         return Vec::new();
     };
@@ -112,7 +112,7 @@ fn child_page_names(dir: &Path) -> Vec<String> {
 }
 
 /// Read a folder's `README.md`, or None when it is missing, not a file, or too large.
-fn read_readme(dir: &Path) -> Option<String> {
+pub fn read_readme(dir: &Path) -> Option<String> {
     let file = dir.join(README);
     let metadata = fs::metadata(&file).ok()?;
     if !metadata.is_file() || metadata.len() > MAX_README_BYTES {

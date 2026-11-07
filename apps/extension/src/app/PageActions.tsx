@@ -129,7 +129,7 @@ export function PageMenu({
  * A modal dialog that is open while it is mounted. Escape or the backdrop
  * calls `onClose`.
  */
-function Modal({
+export function Modal({
   labelledBy,
   className,
   onClose,
