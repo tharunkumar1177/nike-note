@@ -6,9 +6,9 @@ Once the notes folder is set up, the user never runs Git: edits are committed an
 
 ## Current verified status
 
-**Status:** Partial
+**Status:** Implemented
 
-Code, helper unit tests, app unit tests, and end-to-end tests are written for slice 7. Not yet verified by CI or by hand in Chrome.
+Verified in CI (helper sync tests against a local bare remote and a second clone on Windows, macOS, and Linux; app unit tests; end-to-end tests for pushing, pulling, and a paused conflict that resumes) and by hand in Chrome on Windows with the CI build against a local bare remote: the first sync committed and pushed every uncommitted page, an edit was pushed on its own, a change pushed from a second clone appeared without a merge commit, and a conflicting edit paused sync with the file listed, kept the local text, and resumed after a Git merge and Sync now.
 
 ## Architecture dependencies
 
@@ -49,11 +49,11 @@ Code, helper unit tests, app unit tests, and end-to-end tests are written for sl
 
 ## Acceptance or verification criteria
 
-- [ ] An edit is committed as `Quire: update 1 page` and pushed without any action from the user, and the status bar shows **Synced**.
-- [ ] A change pushed from another clone appears in the open page after a sync, with no merge commit.
-- [ ] Local and remote edits to the same line pause sync, list the file, keep the local text on disk and in a local commit, and leave the remote untouched.
-- [ ] After the user combines the changes with Git, **Sync now** pushes them and sync resumes.
-- [ ] An unreachable remote keeps commits locally and shows the offline state.
+- [x] An edit is committed as `Quire: update 1 page` and pushed without any action from the user, and the status bar shows **Synced**.
+- [x] A change pushed from another clone appears in the open page after a sync, with no merge commit.
+- [x] Local and remote edits to the same line pause sync, list the file, keep the local text on disk and in a local commit, and leave the remote untouched.
+- [x] After the user combines the changes with Git, **Sync now** pushes them and sync resumes.
+- [x] An unreachable remote keeps commits locally and shows the offline state.
 
 ## Remaining gaps and unknowns
 
