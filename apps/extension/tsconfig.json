@@ -1,0 +1,9 @@
+{
+  // Browser code of the extension pages (popup and app).
+  "extends": "@quire/config/tsconfig/dom.json",
+  "compilerOptions": {
+    "types": ["chrome", "vite/client"]
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx"],
+  "exclude": ["src/build/**"]
+}

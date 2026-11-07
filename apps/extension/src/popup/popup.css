@@ -1,0 +1,48 @@
+/*
+ * Popup layout: fixed width, compact header, full-width primary action.
+ */
+body {
+  width: 300px;
+}
+
+.popup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--q-space-4);
+  padding: var(--q-space-4);
+}
+
+.popup__header {
+  display: flex;
+  align-items: center;
+  gap: var(--q-space-3);
+}
+
+.popup__title {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.popup__subtitle {
+  color: var(--q-text-muted);
+  font-size: var(--q-text-xs);
+}
+
+.popup__open {
+  width: 100%;
+}
+
+.popup__error {
+  padding: var(--q-space-2) var(--q-space-3);
+  border-radius: var(--q-radius);
+  background: var(--q-danger-bg);
+  color: var(--q-danger);
+  font-size: var(--q-text-xs);
+}
+
+.popup__version {
+  color: var(--q-text-faint);
+  font-size: var(--q-text-xs);
+  text-align: center;
+}

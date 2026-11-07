@@ -1,0 +1,8 @@
+%% Quire system overview: extension pages, native helper, notes folder, and external services.
+flowchart LR
+  Popup["Popup: Open Quire"] -->|"getContexts, tabs.update or tabs.create"| AppPage["app.html"]
+  AppPage -->|"native messaging, framed JSON"| Helper["quire-helper"]
+  Helper --> Disk["Notes folder: folders with README.md"]
+  Helper -->|"git CLI"| Remote["Git remote origin"]
+  Helper -->|"OS file watcher"| Disk
+  AppPage -->|"lazy-loaded SDK, user key"| AI["AI provider: Gemini first"]

@@ -1,32 +1,23 @@
+/**
+ * Shared ESLint flat config for Quire workspaces, including the
+ * dependency-direction rules from architecture.md.
+ */
 import eslint from "@eslint/js";
 import { defineConfig } from "eslint/config";
 import tseslint from "typescript-eslint";
 
-/** @typedef {'core' | 'domain' | 'tooling' | 'app'} QuireEslintLayer */
+/** @typedef {'core' | 'tooling' | 'app'} QuireEslintLayer */
 
 export const QUIRE_ESLINT_LAYERS = Object.freeze(
-  /** @type {readonly QuireEslintLayer[]} */ ([
-    "core",
-    "domain",
-    "tooling",
-    "app",
-  ]),
+  /** @type {readonly QuireEslintLayer[]} */ (["core", "tooling", "app"]),
 );
 
 const SOURCE_GLOBS = ["**/*.{ts,tsx,js,jsx,mjs,cjs}"];
 
 const APP_IMPORT_PATHS = [
   {
-    name: "@quire/web",
-    message: "Apps must not import other apps (@quire/web).",
-  },
-  {
-    name: "@quire/realtime",
-    message: "Apps must not import other apps (@quire/realtime).",
-  },
-  {
-    name: "@quire/worker",
-    message: "Apps must not import other apps (@quire/worker).",
+    name: "@quire/extension",
+    message: "Packages and apps must not import an app (@quire/extension).",
   },
 ];
 
@@ -42,37 +33,6 @@ function createDependencyDirectionConfig(layer) {
 
   switch (layer) {
     case "core":
-      restrictedImportsRule = [
-        "error",
-        {
-          paths: APP_IMPORT_PATHS,
-          patterns: [
-            {
-              group: ["@quire/*", "!@quire/config"],
-              message:
-                "packages/core must not import @quire/* packages; only @quire/config tooling is allowed.",
-            },
-          ],
-        },
-      ];
-      break;
-
-    case "domain":
-      restrictedImportsRule = [
-        "error",
-        {
-          paths: APP_IMPORT_PATHS,
-          patterns: [
-            {
-              group: ["@quire/*", "!@quire/core", "!@quire/config"],
-              message:
-                "This package may import only @quire/core and @quire/config.",
-            },
-          ],
-        },
-      ];
-      break;
-
     case "tooling":
       restrictedImportsRule = [
         "error",
@@ -80,7 +40,7 @@ function createDependencyDirectionConfig(layer) {
           paths: APP_IMPORT_PATHS,
           patterns: [
             {
-              group: ["@quire/*", "!@quire/config"],
+              group: ["@quire/*", "!@quire/config", "!@quire/config/*"],
               message:
                 "Packages may import only @quire/config for shared tooling.",
             },
@@ -90,12 +50,7 @@ function createDependencyDirectionConfig(layer) {
       break;
 
     case "app":
-      restrictedImportsRule = [
-        "error",
-        {
-          paths: APP_IMPORT_PATHS,
-        },
-      ];
+      restrictedImportsRule = ["error", { paths: APP_IMPORT_PATHS }];
       break;
 
     default:
@@ -145,7 +100,12 @@ export function createQuireEslintConfig(options) {
 
   return defineConfig(
     {
-      ignores: ["**/dist/**", "**/.next/**", "**/node_modules/**"],
+      ignores: [
+        "**/dist/**",
+        "**/node_modules/**",
+        "**/playwright-report/**",
+        "**/test-results/**",
+      ],
     },
     eslint.configs.recommended,
     ...tseslint.configs.recommended,

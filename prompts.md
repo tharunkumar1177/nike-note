@@ -169,7 +169,7 @@ No: the browser reads and writes files, and the helper only runs Git (the user a
 
 
 - How do we keep track of orphaned sub pages?
-
+- Don't use any subagents for designing, architectural plan or for CI review. Do the designing and architectural planning yourself and test it in the cursor browser
 
 
 Build a Notion clone, every features should exactly be like Notion but keep the project name as something else. Tech stack - for frontend I think they use Next js and figure out other stacks (come up optimal one)
@@ -592,4 +592,6 @@ Never consider project root folder; archictecture.md is the only source of truth
 // A `beforeShellExecution` hook can also catch `cat prompts.md` and similar commands.
 
 
+
+The main agent follows `.cursor/orchestrator.md`; if you are the main agent and haven't received it this session, read it before acting. Subagents ignore it and follow their own file in `.cursor/agents/`.
 

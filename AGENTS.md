@@ -1,6 +1,6 @@
 # Agent Instructions
 
-The main agent follows `.cursor/orchestrator.md`; if you are the main agent and haven't received it this session, read it before acting. Subagents ignore it and follow their own file in `.cursor/agents/`.
+
 
 
 

@@ -1,0 +1,5 @@
+# Rust toolchain pin for the Quire helper; CI adds the cross-compilation targets it needs.
+[toolchain]
+channel = "stable"
+profile = "minimal"
+components = ["rustfmt", "clippy"]

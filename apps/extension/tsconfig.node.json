@@ -1,0 +1,21 @@
+{
+  // Node-side code: Vite config, build plugin, unit tests, and end-to-end tests.
+  "extends": "@quire/config/tsconfig/node.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2023", "DOM"],
+    "types": ["node"]
+  },
+  "include": [
+    "vite.config.ts",
+    "vitest.config.ts",
+    "playwright.config.ts",
+    "src/build/**/*.ts",
+    "src/shared/identity.ts",
+    "src/shared/protocol.ts",
+    "src/shared/pending.ts",
+    "tests/**/*.ts",
+    "e2e/**/*.ts"
+  ]
+}

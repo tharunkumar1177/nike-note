@@ -2,155 +2,155 @@
 
 ## Purpose and authority
 
-This document owns the shared technical contracts of Quire, a block-based workspace for pages, databases, and team collaboration. It governs rules that two or more responsibilities must obey. Responsibility-level detail lives in blueprints, routed through [the blueprint manifest](blueprints/README.md).
+This document owns the shared technical contracts of Quire, a local Markdown workspace delivered as a Chromium extension plus a native helper program. It governs rules that two or more responsibilities must obey. Responsibility-level detail lives in blueprints, routed through [the blueprint manifest](blueprints/README.md). Product scope and non-goals live in [plan.md](plan.md).
 
 Authority order when sources disagree:
 
-1. Green CI on `main` (code and tests) is authoritative for current behavior.
+1. Green CI on the branch under review (code and tests) is authoritative for current behavior.
 2. This document is authoritative for intended shared contracts.
 3. Blueprints are authoritative for responsibility-local rules.
 
-Every contract below is labeled **Intended** until a slice ships code and tests that enforce it; the owning blueprint then records the evidence and the label changes to **Enforced**.
+Each contract is labeled **Intended** until a slice ships code and tests that enforce it. The owning blueprint then records the evidence.
 
 ## System boundaries
 
-In scope: web client, internal API, real-time collaboration service, background worker, persistence, file storage, search, email delivery, and a public REST API (later slice).
-
-External actors and services:
+Quire runs entirely on the user's computer. There is no Quire server, account, or cloud deploy.
 
 | Actor or service | Role |
 | --- | --- |
-| Browser user | Signed-in member or guest, or anonymous viewer of a published page |
-| Google OAuth | Optional sign-in provider |
-| Resend | Transactional email (sign-in codes, invites, notifications) |
-| S3-compatible object store | Uploaded files, covers, export archives (S3 in production; CI emulator chosen with the files slice) |
-| Vercel | Hosts `apps/web` |
-| Fly.io | Hosts `apps/realtime` and `apps/worker` |
+| Browser user | Single local user of Chrome, Edge, Brave, or Chromium on Windows, macOS, or Linux |
+| Notes folder | A user-chosen folder of Markdown pages that is also a Git repository |
+| Git remote `origin` | The only network destination of the helper, reached through the user's `git` with their own credentials |
+| AI provider (optional) | Called directly from the app page with the user's key, only when the user runs an AI action |
 | GitHub Actions | Sole build, test, and verification authority |
 
-Excluded until a dedicated slice: native desktop and mobile apps, offline editing, third-party importers beyond Markdown/CSV/HTML, AI features.
+Excluded: cloud hosting, accounts, multiple users, real-time co-editing, Firefox, Safari, and mobile.
+
+System overview diagram: [assets/diagrams/system-overview.mmd](assets/diagrams/system-overview.mmd).
 
 ## Component model
 
-Monorepo managed with pnpm workspaces and Turborepo.
-
-| Component | Responsibility |
-| --- | --- |
-| `apps/web` | Next.js App Router application: UI shell, editor host, tRPC API, auth routes, file upload signing |
-| `apps/realtime` | Node WebSocket service: session auth, operation apply, presence, fan-out through Redis pub/sub |
-| `apps/worker` | BullMQ worker: exports, imports, search indexing, email, reminders, automations |
-| `packages/core` | Pure TypeScript domain: block and operation types, Zod schemas, permission resolution, formula engine. No I/O. |
-| `packages/db` | Drizzle schema, migrations, and data-access functions |
-| `packages/editor` | Block tree renderer, Lexical-based inline text, selection, drag and drop |
-| `packages/ui` | Design system: tokens, primitives, light and dark themes |
-| `packages/config` | Shared TypeScript, ESLint, and test configuration |
+| Component | Path | Responsibility |
+| --- | --- | --- |
+| Popup | `apps/extension/src/popup` | One **Open Quire** button that opens or focuses the app page. It never connects to the helper. |
+| App page | `apps/extension/src/app` | The full-page UI at `chrome-extension://<id>/app.html`. It owns the single helper connection, the editor, the status bar, and AI calls. |
+| Shared extension code | `apps/extension/src/shared` | Protocol types and validators, the helper client, and the design tokens |
+| Markdown package | `packages/markdown` (planned, slice 5) | Pure TypeScript parser and serializer. No DOM, Chrome, or I/O APIs. |
+| Native helper | `helper/` | Rust binary: native messaging host, self-install, disk access, file watching, search, and Git |
+| Shared config | `packages/config` | Shared TypeScript, ESLint, and Vitest configuration |
 
 ### Dependency direction
 
-`apps/*` may depend on any `packages/*`. `packages/editor` and `packages/ui` may depend on `packages/core`. `packages/db` may depend on `packages/core`. `packages/core` depends on no internal package. No package depends on an app. No cycles.
+`apps/extension` may depend on `packages/*`. `packages/markdown` depends on no internal package other than `@quire/config` for tooling. No package depends on an app. The helper shares no code with TypeScript; the only contract between them is the [Native messaging protocol](#native-messaging-protocol).
 
 ## Shared contracts
 
 ### Naming and brand
 
-- The product name is **Quire**. Package scope is `@quire/*`. All names (packages, app titles, metadata, identifiers) are set explicitly and never derived from the workspace folder or repository name.
-- The brand word spelled N-I-K-E is forbidden everywhere (see `AGENTS.md` Guardrail 4). The rule is enforced by agent guardrails; there is no CI check for it.
+- The product name is **Quire**. The package scope is `@quire/*`. The helper binary is `quire-helper` (`quire-helper.exe` on Windows). The native messaging host name is `com.quire.helper`.
+- All names are set explicitly and are never derived from the workspace folder or repository name.
+- The brand word spelled N-I-K-E is forbidden everywhere (see `AGENTS.md`). Agent guardrails enforce it; there is no CI check.
 
-### Identity and workspace scoping
+### Extension identity
 
-- All entity ids are UUIDv7 strings generated by the creator (client or server), so operations can reference records before the server acknowledges them.
-- Every workspace-owned row carries `workspace_id`. Every query and mutation filters by it. Cross-workspace reads are forbidden except through explicit publish or share grants.
-- `workspace_id` is the future shard key; no table may be joined across workspaces.
-- A user may belong to many workspaces. Membership roles: `owner`, `member`, `guest`.
+- The manifest carries a fixed public `key`, so the extension ID is always `hbddhigdogedopjjlihlkpehidopddac` when loaded unpacked.
+- The helper's allowed origin is `chrome-extension://hbddhigdogedopjjlihlkpehidopddac/`. The extension ID and the host name are defined once in each language (`apps/extension/src/shared/identity.ts` and `helper/src/identity.rs`), and both must change together.
+- A store-published build gets a store-assigned ID; adding it to the allowed origins is a release-time change to both files.
 
-### Block record
+### Native messaging protocol
 
-Everything a user authors is a block, including pages and database rows.
+**Intended.** The app page opens one port with `chrome.runtime.connectNative("com.quire.helper")`. The helper process lives as long as the port and exits when its standard input closes.
 
-| Field | Meaning |
+Framing: each message is a 32-bit unsigned length in little-endian byte order, followed by that many bytes of UTF-8 JSON. Standard output carries only framed messages; diagnostics go to standard error.
+
+Size limits:
+
+- Helper to extension: at most 1,048,576 bytes per message (a Chrome limit). The helper refuses to send a larger message and returns `TOO_LARGE` instead. Larger payloads (images) use chunked methods added with the slice that needs them.
+- Extension to helper: the helper rejects frames larger than 64 MiB and exits, because the stream position is lost.
+
+Envelope:
+
+| Kind | Shape |
 | --- | --- |
-| `id` | UUIDv7 |
-| `workspace_id` | Owning workspace |
-| `type` | Block type key (`page`, `paragraph`, `heading_1`, `to_do`, `database`, ...) |
-| `properties` | JSON object whose schema is fixed per `type` (Zod in `packages/core`) |
-| `content` | Ordered array of child block ids; the only source of child order |
-| `parent_id` / `parent_table` | Upward pointer (`block`, `workspace`, `teamspace`, or `data_source`); used for permission inheritance |
-| `revision` | Server-assigned integer, incremented on every accepted change |
-| `created_by`, `created_at`, `edited_by`, `edited_at` | Audit fields |
-| `alive` | `false` when in trash |
+| Request (extension to helper) | `{ "id": <positive integer>, "method": <string>, "params"?: <object> }` |
+| Success response | `{ "id": <same id>, "result": <any JSON> }` |
+| Error response | `{ "id": <same id or null>, "error": { "code": <string>, "message": <string> } }` |
+| Event (helper to extension) | `{ "event": <string>, "data": <any JSON> }` |
 
-Invariants: a block appears in exactly one parent's `content`; `parent_id` always matches that parent; nesting is structural, never visual.
+- Every request receives exactly one response. Responses may arrive in any order. The client matches them by `id`.
+- `id` is `null` only when the request could not be parsed far enough to read its `id`.
+- Error codes: `BAD_REQUEST`, `UNKNOWN_METHOD`, `PROTOCOL_MISMATCH`, `TOO_LARGE`, `OUTSIDE_ROOT`, `NOT_FOUND`, `STALE`, `IO`, `GIT`, `INTERNAL`. New codes are added here first.
+- Handshake: the first request is `hello` with `{ "protocol": <integer> }`. The helper answers `{ "helperVersion", "protocol", "os", "arch" }`, or `PROTOCOL_MISMATCH` when the major protocol differs. The current protocol is `1`. Any other method sent before a successful `hello` gets `BAD_REQUEST`.
+- Origin check: the helper exits with a non-zero status, without reading any input, unless its first argument is the allowed origin in [Extension identity](#extension-identity).
 
-### Page and database model
+### Helper registration
 
-- A page is a block of type `page`. A database is a block of type `database` that owns one or more **data sources**.
-- A data source holds a property schema; each row is a `page` block whose `parent_table` is `data_source` and whose property values live in `properties`.
-- A **view** belongs to a database block and targets exactly one data source; it stores layout type, visible properties, filters, sorts, grouping, and calculations. Changing a view never changes data or other views.
+**Intended.** `quire-helper install` copies the binary to a per-user location and registers host `com.quire.helper` for Chrome, Edge, Brave, and Chromium. `quire-helper uninstall` reverses it. Neither needs administrator rights.
 
-### Operation and transaction envelope
+| OS | Binary location | Registration |
+| --- | --- | --- |
+| Windows | `%LOCALAPPDATA%\Quire\Helper\quire-helper.exe` | Manifest beside the binary. The default value of `HKCU\Software\<browser key>\NativeMessagingHosts\com.quire.helper` holds the manifest path, for `Google\Chrome`, `Microsoft\Edge`, `BraveSoftware\Brave-Browser`, and `Chromium`. |
+| macOS | `~/Library/Application Support/Quire/Helper/quire-helper` | `com.quire.helper.json` in `NativeMessagingHosts/` under `~/Library/Application Support/` + `Google/Chrome`, `Microsoft Edge`, `BraveSoftware/Brave-Browser`, `Chromium` |
+| Linux | `$XDG_DATA_HOME/quire/helper/quire-helper` (default `~/.local/share`) | `com.quire.helper.json` in `NativeMessagingHosts/` under `$XDG_CONFIG_HOME` (default `~/.config`) + `google-chrome`, `microsoft-edge`, `BraveSoftware/Brave-Browser`, `chromium` |
 
-All writes, from UI or API, are expressed as operations grouped into transactions.
+Run with no arguments, the binary performs `install`, so a double-click works on Windows.
 
-- Operation: `{ recordTable, recordId, path, command, args }` where `command` is one of `set`, `update`, `listInsert`, `listRemove`, `listMove`, `create`, `archive`, `restore`.
-- Transaction: `{ id, workspaceId, clientId, userId, operations[], baseRevisions }`. A transaction is applied atomically or not at all.
-- Clients apply transactions optimistically, queue them, and send them to `apps/realtime` (or the tRPC fallback). The server is the sole ordering authority.
+### Notes folder and path safety
 
-### Revision and conflict semantics
+**Intended (slice 3).** The helper stores the chosen notes folder path in its own per-user config file, so the browser never prompts for folder access. Every path in a request is relative to that root and uses `/` separators. The helper rejects absolute paths, `..` segments, and any path whose resolved location (after following symbolic links) is outside the root, with `OUTSIDE_ROOT`.
 
-- The server applies transactions in receive order per workspace and increments each touched record's `revision`.
-- Property writes (`set`/`update`) are last-writer-wins per property key. Concurrent text edits to the same block keep the later write.
-- Structural operations (`listInsert`, `listRemove`, `listMove`, `create`, `archive`) are rejected if a referenced parent's `baseRevision` is stale; the client refetches and rebases.
-- After commit, the server publishes `{ recordId, revision }` notices; subscribed clients pull newer record values.
+### Page structure
 
-### Permission resolution
+**Intended (slice 4).**
 
-- Page-level grants: `full_access` > `can_edit` > `can_edit_content` (databases only) > `can_comment` > `can_view`.
-- Effective access = most permissive grant found walking `parent_id` from the record to the workspace, unioned with general access (`invited_only`, `workspace`, `anyone_with_link`) and workspace role.
-- Guests only see pages they were granted, plus descendants. Resolution is implemented once in `packages/core` and called by both `apps/web` and `apps/realtime`; no component re-implements it.
+- Every page is a folder. Its body is the folder's `README.md`. Sub-pages are child folders. The notes folder root is the Home page.
+- The title is the text of the first `# ` line. Without one, the folder name is the title.
+- A sub-page is linked from its parent as a line `[Title](child/README.md)`. Link order sets sidebar order. Child folders with no link follow in case-insensitive alphabetical order.
+- `assets/`, `.git/`, and folders whose names start with `.` are never pages.
+- A folder without `README.md` is a page with an empty body. Quire creates the file on the first edit.
 
-### Authentication and sessions
+### Block model and line mapping
 
-Better Auth with the Drizzle adapter: email one-time code, email and password, Google OAuth. Sessions are HTTP-only cookies issued by `apps/web`; `apps/realtime` validates the same session on WebSocket upgrade.
+**Intended (slice 5).**
 
-### Files and storage
+- A page body is an ordered list of blocks. Each block owns a contiguous range of source lines and keeps their original text.
+- One line is one block, except fenced code blocks, tables, and front matter, which are each one multi-line block.
+- Serializing an unedited block emits its original lines unchanged, including line endings. Only edited blocks are re-rendered from their model. The file's dominant line ending (`\n` or `\r\n`) is used for new lines.
+- The block-type set and its Markdown syntax are defined in [plan.md](plan.md#block-mapping) and implemented only in `packages/markdown`.
 
-Binary data never lives in Postgres. Uploads use presigned URLs to the S3-compatible store; Postgres stores a `file` record (key, size, mime type, owner block, workspace). Reads go through signed, expiring URLs checked against permission resolution.
+### File write-back and change watching
 
-### Background jobs
+**Intended (slice 6).** The app writes a whole `README.md` with `writeFile { path, content, baseHash }`. The helper refuses the write with `STALE` when the file's current SHA-256 differs from `baseHash`. Writes go to a temporary file in the same folder, followed by an atomic rename. The helper watches the whole tree and emits `filesChanged` events. It rescans after its own Git operations and when the watcher reports lost events.
 
-BullMQ on Redis. Jobs are idempotent, keyed by a deterministic job id, retried with exponential backoff, and write their result status to Postgres so the UI can observe completion.
+### Git sync
 
-### Error and recovery
+**Intended (slice 7).** The helper runs the user's `git` command and never stores credentials. After 5 seconds with no saves, it stages changed files and commits with the message `Quire: update <n> page(s)`. It fetches `origin`, rebases only when the rebase completes without conflict, and pushes. On conflict it aborts the rebase, stops auto-sync, and emits a conflict state. Local work is never discarded.
 
-- tRPC and WebSocket errors use a shared code set from `packages/core` (`UNAUTHENTICATED`, `FORBIDDEN`, `NOT_FOUND`, `CONFLICT`, `VALIDATION`, `RATE_LIMITED`, `INTERNAL`).
-- `CONFLICT` triggers a client refetch-and-rebase, never silent data loss for structural changes.
-- Rejected optimistic transactions are rolled back locally and surfaced to the user.
+### AI providers
+
+**Intended (slice 15).** A provider registry maps provider IDs to a label, an API host, and a lazy `load()` import. Each adapter implements `AiProvider` (`listModels`, `stream`). App code never imports a provider SDK directly. Provider hosts are `optional_host_permissions` requested on selection. The key is stored in `chrome.storage.local`. A CI check fails the build if a provider SDK appears in a startup chunk.
 
 ## Cross-cutting flows
 
-### Edit flow
+### Open and connect flow
 
-User input → editor emits operations → local apply → transaction queue → `apps/realtime` validates session and permission → Postgres commit → Redis publish → other clients pull new revisions.
-
-### Search indexing
-
-Committed transactions enqueue an index job; the worker updates a Postgres `tsvector` per page. Search results are filtered by permission resolution before return.
+Popup **Open Quire** focuses an existing app tab (found with `chrome.runtime.getContexts`) or creates one. The app page connects to the helper and sends `hello`. A missing host, a rejected origin, a protocol mismatch, or a disconnect each maps to a distinct app screen.
 
 ## Toolchain and CI
 
-- Node.js active LTS (pinned in `.nvmrc`), pnpm (pinned via `packageManager`), TypeScript strict mode.
-- Lockfiles are produced by CI, never hand-written.
-- GitHub Actions runs: install, lint, type-check, unit and integration tests (Vitest, with Postgres and Redis service containers, plus an S3-compatible container once file storage ships), build, and Playwright end-to-end tests.
-- No local runtime: code is working only when its CI run is green.
+- Node.js (pinned in `.nvmrc`), pnpm (pinned with `packageManager`), TypeScript strict mode, Vite.
+- Rust stable with `rustfmt` and `clippy`. Helper targets: `x86_64-pc-windows-msvc`, a universal macOS binary (`aarch64-apple-darwin` and `x86_64-apple-darwin`, merged with `lipo`), and `x86_64-unknown-linux-musl`.
+- Lockfiles (`pnpm-lock.yaml`, `helper/Cargo.lock`) are produced by CI and committed from CI artifacts, never hand-written.
+- GitHub Actions runs extension lint, type-check, unit tests, and build; helper format, lint, tests, and release builds on three operating systems; and Playwright end-to-end tests on the unpacked extension with the Linux helper. Nothing runs locally.
 
 ## Verification boundaries
 
 | Level | Establishes |
 | --- | --- |
-| Unit (Vitest, `packages/core`) | Schemas, operation apply, permission resolution, formula evaluation |
-| Integration (Vitest + service containers) | Drizzle queries, transaction commit and conflict handling, jobs |
-| Multi-client integration | Two WebSocket clients converge on the same revision |
-| End-to-end (Playwright) | User-visible slice acceptance criteria |
+| Unit (Vitest) | Protocol validators, helper client request matching, Markdown parse and serialize (slice 5 on) |
+| Unit (`cargo test`) | Framing, envelope handling, origin check, registration paths and manifests, path safety |
+| Install smoke (CI, each OS) | `install` writes the manifests or registry keys; `uninstall` removes them |
+| End-to-end (Playwright, Linux) | User-visible slice acceptance on the unpacked extension talking to the real helper |
 
 ## Blueprints
 

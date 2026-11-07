@@ -1,3 +1,6 @@
+/**
+ * Shared Vitest configuration factory for Quire workspaces.
+ */
 import { defineConfig, mergeConfig } from "vitest/config";
 
 /**

@@ -1,3 +1,6 @@
+/**
+ * Type declarations for the shared Vitest configuration factory.
+ */
 import type { ViteUserConfig } from "vitest/config";
 
 export declare function createVitestConfig(
