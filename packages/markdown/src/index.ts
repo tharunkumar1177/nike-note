@@ -14,9 +14,16 @@ export {
 } from "./blocks";
 export {
   blockAtLine,
+  blockGroup,
   blockLineCount,
   blockText,
   clearPrefix,
+  deleteBlock,
+  duplicateBlock,
+  moveBlock,
+  moveBlockBy,
+  unwrapCode,
+  type BlockGroup,
   indentItem,
   insertDivider,
   insertLines,

@@ -7,9 +7,15 @@ import { describe, expect, it } from "vitest";
 import { parseDocument } from "../src/blocks";
 import {
   blockAtLine,
+  blockGroup,
   blockLineCount,
   blockText,
   clearPrefix,
+  deleteBlock,
+  duplicateBlock,
+  moveBlock,
+  moveBlockBy,
+  unwrapCode,
   indentItem,
   insertDivider,
   insertLines,
@@ -256,6 +262,53 @@ describe("insertLinkLine", () => {
       source: `# T\nidea\n${link}\n`,
       caret: { line: 2, column: link.length },
     });
+  });
+});
+
+describe("arranging blocks", () => {
+  const source = "# T\n- a\n  - a1\n- b\ntext\n";
+  const document = parseDocument(source);
+
+  it("groups a list item with the items nested under it", () => {
+    expect(blockGroup(document, 1)).toEqual({ start: 1, end: 3 });
+    expect(blockGroup(document, 3)).toEqual({ start: 3, end: 4 });
+    expect(blockGroup(document, 4)).toEqual({ start: 4, end: 5 });
+  });
+
+  it("moves a block with its nested items, never above the title", () => {
+    expect(moveBlockBy(document, 1, 1)).toEqual({
+      source: "# T\n- b\n- a\n  - a1\ntext\n",
+      caret: { line: 2, column: 0 },
+    });
+    expect(moveBlockBy(document, 3, -1)?.source).toBe("# T\n- b\n- a\n  - a1\ntext\n");
+    expect(moveBlock(document, 4, 0)?.source).toBe("# T\ntext\n- a\n  - a1\n- b\n");
+    expect(moveBlockBy(document, 1, -1)).toBeNull();
+    expect(moveBlock(document, 0, 3)).toBeNull();
+    expect(moveBlock(document, 1, 2)).toBeNull();
+  });
+
+  it("ends a moved last line with the page's line ending", () => {
+    expect(moveBlock(parseDocument("# T\r\na\r\nb"), 2, 1)?.source).toBe("# T\r\nb\r\na\r\n");
+  });
+
+  it("duplicates and deletes a block with its nested items", () => {
+    expect(duplicateBlock(document, 1)).toEqual({
+      source: "# T\n- a\n  - a1\n- a\n  - a1\n- b\ntext\n",
+      caret: { line: 3, column: 0 },
+    });
+    expect(deleteBlock(document, 1)).toEqual({
+      source: "# T\n- b\ntext\n",
+      caret: { line: 0, column: 3 },
+    });
+  });
+
+  it("turns a code block back into lines of text", () => {
+    const code = parseDocument("# T\n```js\nx = 1\ny = 2\n```\nafter\n");
+    expect(unwrapCode(code, 1)).toEqual({
+      source: "# T\nx = 1\ny = 2\nafter\n",
+      caret: { line: 1, column: 0 },
+    });
+    expect(unwrapCode(code, 2)).toBeNull();
   });
 });
 

@@ -57,4 +57,4 @@ Verified in CI (helper unit tests for folder naming, unique names, and `createPa
 
 - The new page is always titled Untitled; renaming its folder to match a new title arrives with page operations (slice 12).
 - The menu opens below the line and can run past the bottom of the window on the last lines of a long page.
-- Turn into for multi-line blocks (code, tables) arrives with the block handle (slice 11).
+- The slash menu turns only one-line blocks; a code block is turned back into text from its block handle menu (see [block-handle](block-handle.md)), and tables cannot change type.

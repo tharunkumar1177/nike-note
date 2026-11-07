@@ -12,6 +12,8 @@ import {
   blockLineCount,
   blockText,
   clearPrefix,
+  deleteBlock,
+  duplicateBlock,
   formatsAt,
   indentItem,
   inlineText,
@@ -23,6 +25,8 @@ import {
   linkHref,
   listNumbers,
   mergeWithPrevious,
+  moveBlock,
+  moveBlockBy,
   offsetInBlock,
   pageLinkLine,
   parseDocument,
@@ -39,12 +43,15 @@ import {
   toggleMark,
   toggleTodo,
   turnInto,
+  unwrapCode,
   type Block,
+  type Edit,
   type LineParts,
   type MarkdownDocument,
   type Mark,
   type Selected,
   type SourcePosition,
+  type TurnIntoKind,
 } from "@quire/markdown";
 import {
   useId,
@@ -60,6 +67,7 @@ import {
 
 import { pageHash, type CreatedPage } from "../../shared/pages";
 import { filterSlashItems, type SlashItem } from "../../shared/slash";
+import { BlockHandle, type BlockAction } from "./BlockHandle";
 import { BlockView, BULLETS } from "./BlockView";
 import { caretPoint } from "./caretPoint";
 import { FORMAT_TOOLBAR, FormatToolbar } from "./FormatToolbar";
@@ -306,6 +314,69 @@ function nextSlash(
   return typedSlash ? { line, start: caret - 1, query: "", active: 0 } : null;
 }
 
+/** Block types that are list items, which the block menu can indent and outdent. */
+const LIST_TYPES: ReadonlySet<Block["type"]> = new Set(["bullet", "numbered", "todo"]);
+
+/** Every type a one-line block can be turned into from its menu. */
+const ALL_TURN_INTO: readonly TurnIntoKind[] = [
+  "text",
+  "h1",
+  "h2",
+  "h3",
+  "bullet",
+  "numbered",
+  "todo",
+  "quote",
+  "code",
+];
+
+/**
+ * The types block `block` can be turned into: any type for text, headings,
+ * quotes, and list items, plain text for code, and none for the rest.
+ */
+function turnIntoKinds(block: Block): readonly TurnIntoKind[] {
+  switch (block.type) {
+    case "text":
+    case "heading":
+    case "quote":
+    case "bullet":
+    case "numbered":
+    case "todo":
+      return ALL_TURN_INTO;
+    case "code":
+      return ["text"];
+    default:
+      return [];
+  }
+}
+
+/** The edit a block menu choice makes to block `index`, or null when it changes nothing. */
+function runAction(
+  document: MarkdownDocument,
+  index: number,
+  block: Block,
+  action: BlockAction,
+): Edit | null {
+  switch (action.kind) {
+    case "turnInto":
+      return block.type === "code"
+        ? unwrapCode(document, index)
+        : turnInto(document, index, blockText(block), 0, action.to);
+    case "duplicate":
+      return duplicateBlock(document, index);
+    case "delete":
+      return deleteBlock(document, index);
+    case "moveUp":
+      return moveBlockBy(document, index, -1);
+    case "moveDown":
+      return moveBlockBy(document, index, 1);
+    case "indent":
+      return indentItem(document, index, 1);
+    case "outdent":
+      return indentItem(document, index, -1);
+  }
+}
+
 /** Describe a failed request for an inline message. */
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -340,6 +411,7 @@ export function PageEditor({
   const [slash, setSlash] = useState<Slash | null>(null);
   const [pageError, setPageError] = useState<string | null>(null);
   const [toolbar, setToolbar] = useState<Toolbar | null>(null);
+  const [drag, setDrag] = useState<{ from: number; before: number | null } | null>(null);
   const menuId = useId();
   const blocks = markdown.blocks;
   const titleIndex = titleBlockIndex(blocks);
@@ -350,6 +422,7 @@ export function PageEditor({
   const numbers = listNumbers(blocks);
   const editing = focus?.kind === "body" ? blockAtLine(blocks, focus.line) : -1;
   const bodyCount = blocks.length - (titleIndex >= 0 ? 1 : 0);
+  const firstMovable = Math.max(blocks[0]?.type === "frontMatter" ? 1 : 0, titleIndex + 1);
   const lineCount = blocks.reduce((total, block) => total + blockLineCount(block), 0);
 
   /** Apply an edit and put the caret where it belongs afterwards. */
@@ -518,6 +591,29 @@ export function PageEditor({
     apply(source, { kind: "body", ...positionInText(block.line, next, column) });
   };
 
+  /** Run a block menu choice on block `index`. */
+  const act = (index: number, block: Block, action: BlockAction): void => {
+    const edit = runAction(markdown, index, block, action);
+    if (edit) onChange(edit.source);
+  };
+
+  /**
+   * Move (`step` -1 or 1) or duplicate (`step` 0) block `index`, which is
+   * being edited with its text box selection at `start`, and keep the caret
+   * at the same place in the moved block or the copy.
+   */
+  const arrangeEditing = (index: number, block: Block, offset: number, step: -1 | 0 | 1): void => {
+    const edit =
+      step === 0 ? duplicateBlock(markdown, index) : moveBlockBy(markdown, index, step);
+    if (!edit) return;
+    const at = positionInText(block.line, blockText(block), offset);
+    apply(edit.source, {
+      kind: "body",
+      line: edit.caret.line + at.line - block.line,
+      column: at.column,
+    });
+  };
+
   /**
    * Add a sub-page for `/page` typed into block `index`, whose text without
    * the command is `text`: create the page, put a link to it on that line
@@ -613,9 +709,17 @@ export function PageEditor({
       const collapsed = start === end;
       const prefix = parts?.prefix ?? "";
       const mark = parts ? shortcutMark(event) : null;
-      const linkKey =
-        (event.ctrlKey || event.metaKey) && !event.shiftKey && event.key.toLowerCase() === "k";
-      if (parts && mark) {
+      const command = (event.ctrlKey || event.metaKey) && !event.altKey;
+      const linkKey = command && !event.shiftKey && event.key.toLowerCase() === "k";
+      const moveKey =
+        command && event.shiftKey && (event.key === "ArrowUp" || event.key === "ArrowDown");
+      if (moveKey) {
+        event.preventDefault();
+        arrangeEditing(index, block, prefix.length + start, event.key === "ArrowUp" ? -1 : 1);
+      } else if (command && !event.shiftKey && event.key.toLowerCase() === "d") {
+        event.preventDefault();
+        arrangeEditing(index, block, prefix.length + start, 0);
+      } else if (parts && mark) {
         event.preventDefault();
         format(index, block, parts, start, end, mark);
       } else if (parts && linkKey && (!collapsed || linkAt(value, start, end) !== null)) {
@@ -706,7 +810,30 @@ export function PageEditor({
         </h1>
       )}
       {children}
-      <div className="blocks">
+      <div
+        className="blocks"
+        onDragOver={(event) => {
+          if (drag === null) return;
+          event.preventDefault();
+          event.dataTransfer.dropEffect = "move";
+          const slot = event.target instanceof Element ? event.target.closest("[data-index]") : null;
+          if (!(slot instanceof HTMLElement)) return;
+          const at = Number(slot.dataset.index);
+          const rect = slot.getBoundingClientRect();
+          const before = Math.max(
+            event.clientY < rect.top + rect.height / 2 ? at : at + 1,
+            firstMovable,
+          );
+          if (before !== drag.before) setDrag({ ...drag, before });
+        }}
+        onDrop={(event) => {
+          if (drag === null) return;
+          event.preventDefault();
+          const edit = drag.before === null ? null : moveBlock(markdown, drag.from, drag.before);
+          setDrag(null);
+          if (edit) onChange(edit.source);
+        }}
+      >
         {blocks.map((block, index) => {
           if (index === titleIndex) return null;
           const key = `${block.line}`;
@@ -778,8 +905,24 @@ export function PageEditor({
               </EditingBlock>
             );
           }
+          const dropBefore = drag?.before === index;
+          const dropAfter = drag?.before === blocks.length && index === blocks.length - 1;
           return (
-            <div key={key} className="block-slot" onMouseDown={activate(block)}>
+            <div
+              key={key}
+              className={`block-slot${dropBefore ? " block-slot--drop-before" : ""}${dropAfter ? " block-slot--drop-after" : ""}${drag?.from === index ? " block-slot--dragging" : ""}`}
+              data-index={index}
+              onMouseDown={activate(block)}
+            >
+              {block.type !== "frontMatter" && (
+                <BlockHandle
+                  turnInto={turnIntoKinds(block)}
+                  listItem={LIST_TYPES.has(block.type)}
+                  onAction={(action) => act(index, block, action)}
+                  onDragStart={() => setDrag({ from: index, before: null })}
+                  onDragEnd={() => setDrag(null)}
+                />
+              )}
               <BlockView
                 block={block}
                 number={numbers.get(index)}
