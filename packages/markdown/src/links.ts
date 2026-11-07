@@ -51,6 +51,21 @@ export function parsePageLinkLine(line: string): PageLinkLine | null {
 }
 
 /**
+ * The link line for direct child page `folder` titled `title`, in the form
+ * {@link parsePageLinkLine} reads back. Brackets leave the title and the
+ * folder is percent-encoded, parentheses included, so the line stays one link.
+ */
+export function pageLinkLine(title: string, folder: string): string {
+  const label =
+    title
+      .replace(/[[\]\r\n]+/g, " ")
+      .replace(/ {2,}/g, " ")
+      .trim() || folder;
+  const target = encodeURIComponent(folder).replace(/\(/g, "%28").replace(/\)/g, "%29");
+  return `[${label}](${target}/${README})`;
+}
+
+/**
  * True for links that leave Quire: web and mail addresses.
  */
 export function isExternalHref(href: string): boolean {

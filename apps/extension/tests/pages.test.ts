@@ -8,6 +8,7 @@ import {
   isAncestor,
   pageHash,
   pageTrail,
+  parseCreatedPage,
   parsePageTree,
   pathFromHash,
   type PageNode,
@@ -45,6 +46,16 @@ describe("parsePageTree", () => {
     let deep: PageNode = node("leaf", "Leaf");
     for (let depth = 0; depth < 70; depth += 1) deep = node("d", "D", [deep]);
     expect(() => parsePageTree({ root: deep })).toThrow(TypeError);
+  });
+});
+
+describe("parseCreatedPage", () => {
+  it("accepts a new page and rejects anything else", () => {
+    const page = { path: "Trips/Untitled", folder: "Untitled", title: "Untitled" };
+    expect(parseCreatedPage(page)).toEqual(page);
+    expect(() => parseCreatedPage({ ...page, folder: "" })).toThrow(TypeError);
+    expect(() => parseCreatedPage({ ...page, path: "Trips/Other" })).toThrow(TypeError);
+    expect(() => parseCreatedPage({ path: "Untitled" })).toThrow(TypeError);
   });
 });
 

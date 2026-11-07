@@ -7,7 +7,7 @@ import { inlineText, parseDocument, parseInline, titleBlockIndex } from "@quire/
 import { useEffect, useMemo, useSyncExternalStore } from "react";
 
 import { PageIcon } from "../shared/icons";
-import { pageHash, pageTrail, type PageNode } from "../shared/pages";
+import { pageHash, pageTrail, type CreatedPage, type PageNode } from "../shared/pages";
 import { PageEditor } from "./blocks/PageEditor";
 import type { PageEditorStore, PageEditorView } from "./pageEditorStore";
 
@@ -98,10 +98,12 @@ export function PageView({
   root,
   path,
   editor,
+  onCreatePage,
 }: {
   root: PageNode;
   path: string;
   editor: PageEditorStore;
+  onCreatePage: (parent: string, title: string) => Promise<CreatedPage>;
 }) {
   const view = useSyncExternalStore(editor.subscribe, editor.getSnapshot);
   const trail = pageTrail(root, path);
@@ -181,6 +183,8 @@ export function PageView({
             pagePath={path}
             childTitles={childTitles}
             onChange={(next) => editor.edit(next)}
+            onCreatePage={(childTitle) => onCreatePage(path, childTitle)}
+            onTransform={(change) => editor.transform(path, change)}
           >
             {view.save === "conflict" && <ConflictBanner editor={editor} />}
             {!view.exists && (

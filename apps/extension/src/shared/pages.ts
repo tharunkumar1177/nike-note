@@ -47,6 +47,30 @@ function parseNode(value: unknown, depth: number): PageNode {
   };
 }
 
+/** A page made by `createPage`: its path, folder name, and title. */
+export interface CreatedPage {
+  path: string;
+  folder: string;
+  title: string;
+}
+
+/**
+ * Validate the result of `createPage`.
+ */
+export function parseCreatedPage(value: unknown): CreatedPage {
+  if (
+    !isRecord(value) ||
+    typeof value.path !== "string" ||
+    typeof value.folder !== "string" ||
+    typeof value.title !== "string" ||
+    value.folder === "" ||
+    !value.path.endsWith(value.folder)
+  ) {
+    throw new TypeError("The helper sent an invalid new page.");
+  }
+  return { path: value.path, folder: value.folder, title: value.title };
+}
+
 /**
  * Validate the result of `pageTree`.
  */

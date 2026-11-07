@@ -9,6 +9,7 @@ mod git;
 mod host;
 mod identity;
 mod install;
+mod pageops;
 mod pages;
 mod paths;
 mod protocol;
