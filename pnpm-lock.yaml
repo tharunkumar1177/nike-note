@@ -175,6 +175,9 @@ importers:
 
   apps/extension:
     dependencies:
+      '@quire/markdown':
+        specifier: workspace:*
+        version: link:../../packages/markdown
       react:
         specifier: 19.3.1
         version: 19.3.1
@@ -236,6 +239,24 @@ importers:
       typescript-eslint:
         specifier: 8.72.1
         version: 8.72.1(eslint@10.14.0)(typescript@6.0.3)
+      vitest:
+        specifier: 5.1.0
+        version: 5.1.0(@types/node@26.6.6)(vite@8.3.6(@types/node@26.6.6))
+
+  packages/markdown:
+    devDependencies:
+      '@quire/config':
+        specifier: workspace:*
+        version: link:../config
+      '@types/node':
+        specifier: 26.6.6
+        version: 26.6.6
+      eslint:
+        specifier: 10.14.0
+        version: 10.14.0
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
       vitest:
         specifier: 5.1.0
         version: 5.1.0(@types/node@26.6.6)(vite@8.3.6(@types/node@26.6.6))

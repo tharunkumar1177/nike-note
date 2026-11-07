@@ -49,7 +49,7 @@ test("a page body renders as blocks with its heading as the title", async ({ ope
   await expect(app.getByRole("heading", { level: 1 })).toHaveText("Field notes");
   const blocks = app.locator(".blocks");
   await expect(blocks.getByText("Field notes")).toHaveCount(0);
-  await expect(blocks.getByRole("heading", { level: 2 })).toHaveText("Plan");
+  await expect(blocks.getByRole("heading", { level: 3 })).toHaveText("Plan");
   await expect(blocks.locator("strong")).toHaveText("bold");
   await expect(blocks.locator("em")).toHaveText("soft");
   await expect(blocks.locator(".inline-code")).toHaveText("code");

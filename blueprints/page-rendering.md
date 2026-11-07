@@ -23,6 +23,7 @@ Code, unit tests, and end-to-end tests are written for slice 5. Not yet verified
 - The parser never throws and never drops text. Anything it does not recognize is a text block that shows its source, so every file round-trips byte for byte. A seeded random test checks the round trip.
 - Inline parsing (`src/inline.ts`) handles escapes, code spans, `**bold**`, `*italic*` and `_italic_`, `~~strike~~`, `[links](url)`, `<autolinks>`, and bare `http(s)://` URLs. Emphasis nests at most 16 levels. Images stay as text until slice 13.
 - Page link blocks show the sub-page's current title from the page tree, falling back to the link text, so a renamed heading shows up without rewriting the parent.
+- The page title is the only `h1`. Body headings render one HTML level below their Markdown level (`##` as `h3`), capped at `h6`, while their styling follows the Markdown level.
 - Numbered items show a running count from the first item of each run, as Markdown renderers do, and keep their source number in the file.
 - The app renders with React elements only (no `innerHTML`), so Markdown cannot inject markup or script.
 - Body loading (`src/app/pageBodyStore.ts`): a response for a page that is no longer open is ignored. Reloading the open page keeps the old body on screen until the new one arrives. The body reloads with the tree when the tab becomes visible.
