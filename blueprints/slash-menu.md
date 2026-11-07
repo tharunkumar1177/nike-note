@@ -55,6 +55,6 @@ Verified in CI (helper unit tests for folder naming, unique names, and `createPa
 
 ## Remaining gaps and unknowns
 
-- The new page is always titled Untitled; renaming its folder to match a new title arrives with page operations (slice 12).
+- The new page is always titled Untitled; its folder follows the title once it is renamed (see [page-operations](page-operations.md)).
 - The menu opens below the line and can run past the bottom of the window on the last lines of a long page.
 - The slash menu turns only one-line blocks; a code block is turned back into text from its block handle menu (see [block-handle](block-handle.md)), and tables cannot change type.

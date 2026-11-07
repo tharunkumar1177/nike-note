@@ -46,7 +46,15 @@ interface Session {
   disk: PageBody | null;
   timer: ReturnType<typeof setTimeout> | null;
   inFlight: boolean;
+  /** The save in progress, settling when it has finished. */
+  flight: Promise<void> | null;
   recheck: boolean;
+}
+
+/** Where page `path` is after page `from` moved to `to`. */
+function moved(path: string, from: string, to: string): string {
+  if (path === from) return to;
+  return path.startsWith(`${from}/`) ? `${to}${path.slice(from.length)}` : path;
 }
 
 /** Describe a failed request for the user. */
@@ -145,6 +153,53 @@ export class PageEditorStore {
     for (const session of this.sessions.values()) {
       if (session.state === "pending") this.saveNow(session);
     }
+  }
+
+  /**
+   * Save every page with pending changes and wait until no save is running,
+   * so a page operation on disk starts from the text the user sees.
+   */
+  async settle(): Promise<void> {
+    for (let round = 0; round < 5; round += 1) {
+      const busy = [...this.sessions.values()].filter(
+        (session) => session.state === "pending" || session.inFlight,
+      );
+      if (busy.length === 0) return;
+      for (const session of busy) {
+        if (session.state === "pending") this.saveNow(session);
+      }
+      await Promise.all(busy.map((session) => session.flight));
+    }
+  }
+
+  /**
+   * Follow page `from` (a sub-page, never the root) and its sub-pages to
+   * their new paths under `to`, then re-read the open page, which the move
+   * may have rewritten.
+   */
+  async relocate(from: string, to: string): Promise<void> {
+    for (const session of [...this.sessions.values()]) {
+      const path = moved(session.path, from, to);
+      if (path === session.path) continue;
+      this.sessions.delete(session.path);
+      session.path = path;
+      this.sessions.set(path, session);
+    }
+    if (this.openPath !== null) this.openPath = moved(this.openPath, from, to);
+    this.publish();
+    await this.refresh(null);
+  }
+
+  /**
+   * Drop the text of deleted page `page` and its sub-pages.
+   */
+  forget(page: string): void {
+    for (const session of [...this.sessions.values()]) {
+      if (session.path !== page && !session.path.startsWith(`${page}/`)) continue;
+      this.clearTimer(session);
+      this.sessions.delete(session.path);
+    }
+    this.publish();
   }
 
   /** True while any page has changes that are not on disk yet. */
@@ -255,6 +310,7 @@ export class PageEditorStore {
           disk: null,
           timer: null,
           inFlight: false,
+          flight: null,
           recheck: false,
         });
       }
@@ -277,7 +333,7 @@ export class PageEditorStore {
     this.clearTimer(session);
     session.timer = setTimeout(() => {
       session.timer = null;
-      void this.save(session);
+      this.saveNow(session);
     }, delay);
   }
 
@@ -290,7 +346,7 @@ export class PageEditorStore {
   /** Start saving now instead of after the pause. */
   private saveNow(session: Session): void {
     this.clearTimer(session);
-    void this.save(session);
+    if (!session.inFlight) session.flight = this.save(session);
   }
 
   /**

@@ -79,12 +79,22 @@ fn read_limited(file: &Path) -> Result<Vec<u8>, ProtocolError> {
     fs::read(file).map_err(read_error)
 }
 
-/// Read a page body and its hash. A page folder without `README.md` has an
-/// empty body and no hash.
-pub fn read_page(root: &Path, page: &str) -> Result<Value, ProtocolError> {
+/// A page body as read from disk.
+pub struct Body {
+    /// The exact text, empty when the page has no `README.md`.
+    pub content: String,
+    /// The hash of the file, or None when the page has no `README.md`.
+    pub hash: Option<String>,
+}
+
+/// Read a page body and its hash.
+pub fn read_body(root: &Path, page: &str) -> Result<Body, ProtocolError> {
     let resolved = page_dir(root, page)?;
     let Some(file) = existing_file(&resolved, page)? else {
-        return Ok(json!({ "path": page, "exists": false, "content": "", "hash": null }));
+        return Ok(Body {
+            content: String::new(),
+            hash: None,
+        });
     };
     let bytes = read_limited(&file)?;
     let hash = sha256_hex(&bytes);
@@ -94,7 +104,22 @@ pub fn read_page(root: &Path, page: &str) -> Result<Value, ProtocolError> {
             format!("{README} in \"{page}\" is not UTF-8 text, so Quire cannot open it."),
         )
     })?;
-    Ok(json!({ "path": page, "exists": true, "content": content, "hash": hash }))
+    Ok(Body {
+        content,
+        hash: Some(hash),
+    })
+}
+
+/// Read a page body and its hash. A page folder without `README.md` has an
+/// empty body and no hash.
+pub fn read_page(root: &Path, page: &str) -> Result<Value, ProtocolError> {
+    let body = read_body(root, page)?;
+    Ok(json!({
+        "path": page,
+        "exists": body.hash.is_some(),
+        "content": body.content,
+        "hash": body.hash,
+    }))
 }
 
 /// Replace a page body when the file on disk still has `base_hash`, or does
@@ -133,7 +158,7 @@ pub fn write_page(
 
 /// Write `bytes` to a new temporary file beside `target`, flush it to disk, and
 /// rename it over `target`, so readers see either the old or the new file.
-fn replace_file(target: &Path, bytes: &[u8]) -> std::io::Result<()> {
+pub fn replace_file(target: &Path, bytes: &[u8]) -> std::io::Result<()> {
     let folder = target.parent().unwrap_or(Path::new("."));
     let temp = folder.join(format!(
         ".{README}.{}.{}.tmp",

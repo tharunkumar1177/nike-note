@@ -4,7 +4,7 @@
  * blueprints/page-rendering.md, and blueprints/page-editing.md).
  */
 import { inlineText, parseDocument, parseInline, titleBlockIndex } from "@quire/markdown";
-import { useEffect, useMemo, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 
 import { PageIcon } from "../shared/icons";
 import { pageHash, pageTrail, type CreatedPage, type PageNode } from "../shared/pages";
@@ -98,14 +98,22 @@ export function PageView({
   root,
   path,
   editor,
+  treeLoading,
   onCreatePage,
+  onRename,
 }: {
   root: PageNode;
   path: string;
   editor: PageEditorStore;
+  /** True while the page tree reloads, when a just-moved page may be missing from it. */
+  treeLoading: boolean;
   onCreatePage: (parent: string, title: string) => Promise<CreatedPage>;
+  onRename: (path: string, title: string) => Promise<void>;
 }) {
   const view = useSyncExternalStore(editor.subscribe, editor.getSnapshot);
+  const [renameError, setRenameError] = useState<{ path: string; message: string } | null>(
+    null,
+  );
   const trail = pageTrail(root, path);
   const page = trail.at(-1) ?? null;
   const exists = page !== null;
@@ -133,6 +141,16 @@ export function PageView({
     document.title = title ? `${title} – Quire` : "Quire";
   }, [title]);
 
+  /** Rename the page after its title was edited, reporting a failure below the title. */
+  const commitTitle = (next: string): void => {
+    setRenameError(null);
+    onRename(path, next).catch((error: unknown) => {
+      const message = error instanceof Error ? error.message : String(error);
+      setRenameError({ path, message });
+    });
+  };
+
+  if (!page && treeLoading) return <main className="page" aria-busy="true" />;
   if (!page) {
     return (
       <main className="page">
@@ -185,7 +203,13 @@ export function PageView({
             onChange={(next) => editor.edit(next)}
             onCreatePage={(childTitle) => onCreatePage(path, childTitle)}
             onTransform={(change) => editor.transform(path, change)}
+            onTitleCommit={commitTitle}
           >
+            {renameError?.path === path && (
+              <p className="page__inline-error" role="alert">
+                Quire couldn&apos;t rename the page folder: {renameError.message}
+              </p>
+            )}
             {view.save === "conflict" && <ConflictBanner editor={editor} />}
             {!view.exists && (
               <p className="page__lead">

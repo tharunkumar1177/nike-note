@@ -24,3 +24,11 @@ export function currentPage(): string {
 export function openPage(path: string): void {
   window.location.hash = pageHash(path);
 }
+
+/**
+ * Show page `path` in place of the current history entry, for a page that
+ * moved or was deleted.
+ */
+export function replacePage(path: string): void {
+  window.location.replace(pageHash(path));
+}
