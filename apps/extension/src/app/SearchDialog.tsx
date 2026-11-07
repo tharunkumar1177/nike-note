@@ -174,7 +174,7 @@ export function SearchDialog({
               role="option"
               aria-selected={index === activeIndex}
               onMouseDown={(event) => event.preventDefault()}
-              onMouseEnter={() => setActive(index)}
+              onMouseMove={() => setActive(index)}
               onClick={() => onOpen(hit.path)}
             >
               <span className="search-dialog__title">
