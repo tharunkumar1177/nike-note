@@ -3,13 +3,30 @@
  * editable title and body, and sub-page links (see blueprints/page-tree.md,
  * blueprints/page-rendering.md, and blueprints/page-editing.md).
  */
-import { inlineText, parseDocument, parseInline, titleBlockIndex } from "@quire/markdown";
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import {
+  assetImageLine,
+  inlineText,
+  parseDocument,
+  parseInline,
+  titleBlockIndex,
+  type Block,
+} from "@quire/markdown";
+import { useContext, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 
 import { PageIcon } from "../shared/icons";
 import { pageHash, pageTrail, type CreatedPage, type PageNode } from "../shared/pages";
+import { AssetContext } from "./assetStore";
 import { PageEditor } from "./blocks/PageEditor";
 import type { PageEditorStore, PageEditorView } from "./pageEditorStore";
+
+/** Folders of the sub-pages that `blocks` link, including links inside toggles. */
+function linkedFolders(blocks: readonly Block[]): string[] {
+  return blocks.flatMap((block) => {
+    if (block.type === "page") return [block.folder];
+    if (block.type === "toggle") return linkedFolders(parseDocument(block.body).blocks);
+    return [];
+  });
+}
 
 /**
  * Explain why the page could not be opened.
@@ -111,6 +128,7 @@ export function PageView({
   onRename: (path: string, title: string, from: string) => Promise<void>;
 }) {
   const view = useSyncExternalStore(editor.subscribe, editor.getSnapshot);
+  const assets = useContext(AssetContext);
   const [renameError, setRenameError] = useState<{ path: string; message: string } | null>(
     null,
   );
@@ -130,9 +148,7 @@ export function PageView({
     titleBlock?.type === "heading"
       ? inlineText(parseInline(titleBlock.text))
       : (page?.title ?? null);
-  const linked = new Set(
-    (markdown?.blocks ?? []).flatMap((block) => (block.type === "page" ? [block.folder] : [])),
-  );
+  const linked = new Set(linkedFolders(markdown?.blocks ?? []));
   const settled = source !== null || (current && view.error !== null);
   const unlinked = settled && page ? page.children.filter((child) => !linked.has(child.name)) : [];
   const childTitles = new Map((page?.children ?? []).map((child) => [child.name, child.title]));
@@ -207,6 +223,11 @@ export function PageView({
             onCreatePage={(childTitle) => onCreatePage(path, childTitle)}
             onTransform={(change) => editor.transform(path, change)}
             onTitleCommit={commitTitle}
+            onAddImage={
+              assets
+                ? async (file) => assetImageLine((await assets.save(path, file)).name)
+                : undefined
+            }
           >
             {renameError?.path === path && (
               <p className="page__inline-error" role="alert">

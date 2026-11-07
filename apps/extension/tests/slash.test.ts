@@ -31,6 +31,10 @@ describe("filterSlashItems", () => {
       "code",
       "divider",
       "text",
+      "table",
+      "callout",
+      "toggle",
+      "image",
       "page",
     ]) {
       expect(commands(name)[0]).toBe(name);

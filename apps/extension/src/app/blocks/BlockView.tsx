@@ -4,12 +4,13 @@
  * name) when it exists, so a renamed heading shows up without rewriting the
  * link line.
  */
-import { parseInline, type Block } from "@quire/markdown";
+import { listNumbers, parseDocument, parseInline, type Block } from "@quire/markdown";
 import type { CSSProperties, ReactNode } from "react";
 
 import { PageIcon } from "../../shared/icons";
 import { pageHash } from "../../shared/pages";
 import { InlineView } from "./InlineView";
+import { CalloutView, ImageView, TableView } from "./RichBlocks";
 
 /** Bullet glyphs by nesting depth, repeating. */
 export const BULLETS = ["•", "◦", "▪"];
@@ -44,7 +45,48 @@ function ListItem({
 }
 
 /**
- * Render one block formatted. `onToggle` checks or unchecks a to-do item.
+ * A toggle: its summary opens and closes its body, whose blocks render
+ * formatted and read-only. It starts open when the source says `open`.
+ */
+function ToggleView({
+  block,
+  pagePath,
+  childTitles,
+}: {
+  block: Extract<Block, { type: "toggle" }>;
+  pagePath: string;
+  childTitles: ReadonlyMap<string, string>;
+}) {
+  const inner = parseDocument(block.body).blocks;
+  const numbers = listNumbers(inner);
+  return (
+    <details className="block block--toggle" open={block.open}>
+      <summary className="block--toggle__summary">
+        {block.summary.trim() === "" ? (
+          "Toggle"
+        ) : (
+          <InlineView nodes={parseInline(block.summary)} pagePath={pagePath} />
+        )}
+      </summary>
+      <div className="block--toggle__body">
+        {inner.map((child, index) => (
+          <BlockView
+            key={child.line}
+            block={child}
+            number={numbers.get(index)}
+            pagePath={pagePath}
+            childTitles={childTitles}
+            onToggle={null}
+          />
+        ))}
+      </div>
+    </details>
+  );
+}
+
+/**
+ * Render one block formatted. `onToggle` checks or unchecks a to-do item;
+ * without it, to-do boxes are read-only.
  */
 export function BlockView({
   block,
@@ -57,7 +99,7 @@ export function BlockView({
   number: number | undefined;
   pagePath: string;
   childTitles: ReadonlyMap<string, string>;
-  onToggle: () => void;
+  onToggle: (() => void) | null;
 }) {
   switch (block.type) {
     case "text":
@@ -111,7 +153,8 @@ export function BlockView({
               type="checkbox"
               className="block__checkbox"
               checked={block.checked}
-              onChange={onToggle}
+              disabled={onToggle === null}
+              onChange={onToggle ?? undefined}
               aria-label={block.checked ? "Done" : "Not done"}
             />
           }
@@ -151,10 +194,12 @@ export function BlockView({
         </details>
       );
     case "table":
-      return (
-        <pre className="block block--source" aria-label="Table source">
-          <code>{block.source}</code>
-        </pre>
-      );
+      return <TableView block={block} pagePath={pagePath} />;
+    case "image":
+      return <ImageView block={block} pagePath={pagePath} />;
+    case "callout":
+      return <CalloutView block={block} pagePath={pagePath} />;
+    case "toggle":
+      return <ToggleView block={block} pagePath={pagePath} childTitles={childTitles} />;
   }
 }

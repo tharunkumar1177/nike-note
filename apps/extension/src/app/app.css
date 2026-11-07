@@ -1363,6 +1363,117 @@ h1.page__title:focus-visible {
   border-radius: var(--q-radius);
 }
 
+.block--image {
+  margin: var(--q-space-2) 0;
+}
+
+.block--image img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--q-radius-sm);
+}
+
+.block--image .block__caption {
+  padding: var(--q-space-1) 0 0;
+}
+
+.block--image__note,
+.block--image__loading {
+  margin: 0;
+  padding: var(--q-space-3) var(--q-space-4);
+  border-radius: var(--q-radius);
+  background: var(--q-bg-subtle);
+  color: var(--q-text-muted);
+  font-size: var(--q-text-sm);
+}
+
+.block--image__retry {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--q-accent);
+  font: inherit;
+  cursor: pointer;
+}
+
+.block--callout {
+  --callout: var(--q-accent);
+  margin: var(--q-space-1) 0;
+  padding: var(--q-space-2) var(--q-space-4);
+  border-left: 3px solid var(--callout);
+  border-radius: var(--q-radius-sm);
+  background: color-mix(in srgb, var(--callout) 9%, transparent);
+}
+
+.block--callout-tip {
+  --callout: var(--q-success);
+}
+
+.block--callout-important {
+  --callout: #9065b0;
+}
+
+.block--callout-warning {
+  --callout: var(--q-warning);
+}
+
+.block--callout-caution {
+  --callout: var(--q-danger);
+}
+
+.block--callout__label {
+  margin: 0 0 var(--q-space-1);
+  color: var(--callout);
+  font-size: var(--q-text-sm);
+  font-weight: 600;
+}
+
+.block--callout__text {
+  margin: 0;
+}
+
+.block--toggle {
+  margin: 2px 0;
+}
+
+.block--toggle__summary {
+  padding: 2px 0;
+  cursor: pointer;
+}
+
+.block--toggle__summary::marker {
+  color: var(--q-text-muted);
+}
+
+.block--toggle__body {
+  padding-left: 1.4em;
+}
+
+.block--table {
+  margin: var(--q-space-2) 0;
+  overflow-x: auto;
+}
+
+.block--table table {
+  border-collapse: collapse;
+  font-size: var(--q-text-sm);
+}
+
+.block--table th,
+.block--table td {
+  min-width: 6em;
+  padding: var(--q-space-1) var(--q-space-2);
+  border: 1px solid var(--q-border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.block--table th {
+  background: var(--q-bg-subtle);
+  font-weight: 600;
+}
+
 .block--properties {
   color: var(--q-text-muted);
   font-size: var(--q-text-sm);

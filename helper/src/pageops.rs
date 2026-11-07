@@ -49,7 +49,7 @@ fn clean_title(title: &str) -> String {
 /// some OS become spaces, runs of spaces collapse, leading dots and trailing
 /// dots or spaces are dropped, and the name is at most 60 characters. Reserved
 /// names and `assets` get " page" added.
-fn folder_name(title: &str) -> String {
+pub fn folder_name(title: &str) -> String {
     let replaced: String = title
         .chars()
         .map(|c| {

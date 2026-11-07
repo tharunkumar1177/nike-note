@@ -1,6 +1,8 @@
 //! Quire Helper entry point: native messaging host mode when a browser launches
 //! it, and install, uninstall, version, and help commands otherwise.
 
+mod assets;
+mod base64;
 mod body;
 mod config;
 mod dirs;

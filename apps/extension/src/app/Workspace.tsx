@@ -9,6 +9,7 @@ import { parseFilesChanged } from "../shared/pageBody";
 import { parseCreatedPage, type CreatedPage } from "../shared/pages";
 import type { HelloResult } from "../shared/protocol";
 import type { WorkspaceState } from "../shared/workspace";
+import { AssetContext, AssetStore } from "./assetStore";
 import { PageEditorStore } from "./pageEditorStore";
 import { createPageOps } from "./pageOps";
 import { PageTreeNav } from "./PageTreeNav";
@@ -35,6 +36,7 @@ export function Workspace({
   const [pages] = useState(() => new PageTreeStore(store.helper));
   const [editor] = useState(() => new PageEditorStore(store.helper));
   const [ops] = useState(() => createPageOps(store.helper, pages, editor));
+  const [assets] = useState(() => new AssetStore(store.helper));
   const [sync] = useState(
     () =>
       new SyncStore(store.helper, () => {
@@ -81,6 +83,7 @@ export function Workspace({
       window.removeEventListener("beforeunload", onBeforeUnload);
     };
   }, [pages, editor, sync, store]);
+  useEffect(() => () => assets.dispose(), [assets]);
 
   /** Create a sub-page and wait until the page tree shows it. */
   const createPage = async (parent: string, title: string): Promise<CreatedPage> => {
@@ -127,14 +130,16 @@ export function Workspace({
         </div>
       </aside>
       {tree ? (
-        <PageView
-          root={tree.root}
-          path={selected}
-          editor={editor}
-          treeLoading={view.loading}
-          onCreatePage={createPage}
-          onRename={(path, title, from) => ops.rename(path, title, from)}
-        />
+        <AssetContext value={assets}>
+          <PageView
+            root={tree.root}
+            path={selected}
+            editor={editor}
+            treeLoading={view.loading}
+            onCreatePage={createPage}
+            onRename={(path, title, from) => ops.rename(path, title, from)}
+          />
+        </AssetContext>
       ) : (
         <main className="page" aria-busy={view.loading} />
       )}
