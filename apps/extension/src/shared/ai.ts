@@ -199,24 +199,37 @@ export function cleanGenerated(text: string): string {
 
 /**
  * A readable message for a failed AI call. Provider errors often carry a
- * JSON body; its `error.message` is used when present.
+ * JSON body; its `error.message` is used when present. Streamed calls wrap
+ * the body's text in another such message, so nested bodies are unwrapped.
  */
 export function describeAiError(error: unknown): string {
   if (error instanceof Error && error.name === "AbortError") return "Stopped.";
-  const message = error instanceof Error ? error.message : String(error);
-  const start = message.indexOf("{");
-  if (start >= 0) {
-    try {
-      const body: unknown = JSON.parse(message.slice(start));
-      if (isRecord(body) && isRecord(body.error) && typeof body.error.message === "string") {
-        return body.error.message;
-      }
-    } catch {
-      return message;
-    }
+  let message = error instanceof Error ? error.message : String(error);
+  for (let depth = 0; depth < 3; depth += 1) {
+    const inner = jsonErrorMessage(message);
+    if (inner === null) break;
+    message = inner;
   }
   if (/failed to fetch|networkerror|load failed/i.test(message)) {
     return "The AI provider could not be reached. Check your connection and try again.";
   }
   return message;
+}
+
+/**
+ * The `error.message` of a JSON error body found in `text`, or null when the
+ * text holds no such body.
+ */
+function jsonErrorMessage(text: string): string | null {
+  const start = text.indexOf("{");
+  if (start < 0) return null;
+  try {
+    const body: unknown = JSON.parse(text.slice(start));
+    if (isRecord(body) && isRecord(body.error) && typeof body.error.message === "string") {
+      return body.error.message.trim();
+    }
+  } catch {
+    return null;
+  }
+  return null;
 }

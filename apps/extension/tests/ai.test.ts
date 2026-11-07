@@ -114,6 +114,16 @@ describe("describeAiError", () => {
     expect(describeAiError(error)).toBe("API key not valid. Please pass a valid API key.");
   });
 
+  it("unwraps a JSON body nested in a streamed error's message", () => {
+    const body = JSON.stringify(
+      { error: { code: 400, message: "API key not valid. Please pass a valid API key." } },
+      null,
+      2,
+    );
+    const error = new Error(JSON.stringify({ error: { message: `${body}\n`, code: 400 } }));
+    expect(describeAiError(error)).toBe("API key not valid. Please pass a valid API key.");
+  });
+
   it("explains network failures and stops", () => {
     expect(describeAiError(new TypeError("Failed to fetch"))).toContain("could not be reached");
     expect(describeAiError(new DOMException("The operation was aborted.", "AbortError"))).toBe(

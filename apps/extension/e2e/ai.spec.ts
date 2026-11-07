@@ -13,6 +13,9 @@ import { createNotes } from "./notes";
 /** A key the provider refuses. */
 const INVALID_KEY = "quire-e2e-invalid-key";
 
+/** The provider's refusal as the user should read it: plain text, not a JSON body. */
+const REFUSAL = /^[^{}]*API key[^{}]*$/i;
+
 /** Expression that reads the saved AI settings in the app page. */
 const READ_SETTINGS = 'chrome.storage.local.get("ai")';
 
@@ -31,7 +34,7 @@ test("summarizing before setup opens AI setup, which reports a refused key", asy
   await expect(check).toBeDisabled();
   await dialog.getByLabel("API key").fill(INVALID_KEY);
   await check.click();
-  await expect(dialog.getByRole("alert")).toContainText(/API key/i, { timeout: 30_000 });
+  await expect(dialog.getByRole("alert")).toHaveText(REFUSAL, { timeout: 30_000 });
   await expect(dialog.getByRole("button", { name: "Save" })).toHaveCount(0);
 
   await dialog.getByRole("button", { name: "Cancel" }).click();
@@ -56,7 +59,7 @@ test("Ask AI and /ai send the request with the saved key and show the refusal", 
   await expect(send).toBeDisabled();
   await ask.getByRole("textbox", { name: "Question" }).fill("When do we leave?");
   await send.click();
-  await expect(ask.getByRole("alert")).toContainText(/API key/i, { timeout: 30_000 });
+  await expect(ask.getByRole("alert")).toHaveText(REFUSAL, { timeout: 30_000 });
   await ask.getByRole("button", { name: "Done" }).click();
   await expect(ask).toBeHidden();
 
@@ -70,7 +73,7 @@ test("Ask AI and /ai send the request with the saved key and show the refusal", 
   const request = write.getByRole("textbox", { name: "What to write" });
   await request.fill("A packing list for a week in Kyoto");
   await request.press("Enter");
-  await expect(write.getByRole("alert")).toContainText(/API key/i, { timeout: 30_000 });
+  await expect(write.getByRole("alert")).toHaveText(REFUSAL, { timeout: 30_000 });
   await expect(write.getByRole("button", { name: "Insert" })).toBeDisabled();
   await write.getByRole("button", { name: "Cancel" }).click();
   await expect(write).toBeHidden();
@@ -90,7 +93,7 @@ test("a saved key is used for summaries and can be removed", async ({ openApp, s
   await app.getByRole("button", { name: "Summarize" }).click();
   const summary = app.getByRole("dialog", { name: "Summary of “Trip”" });
   await expect(summary).toContainText("gemini-2.5-flash");
-  await expect(summary.getByRole("alert")).toContainText(/API key/i, { timeout: 30_000 });
+  await expect(summary.getByRole("alert")).toHaveText(REFUSAL, { timeout: 30_000 });
   await expect(summary.getByRole("button", { name: "Try again" })).toBeVisible();
   await expect(summary.getByRole("button", { name: "Copy" })).toBeDisabled();
   await summary.getByRole("button", { name: "Done" }).click();
