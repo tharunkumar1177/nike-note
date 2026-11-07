@@ -109,7 +109,7 @@ The file holds `{ "notesRoot": <absolute path> }` and is replaced atomically. Th
 
 Two kinds of path cross the protocol:
 
-- **Setup paths** are absolute and appear only in the folder-choice methods (`listDirs`, `createDir`, `setRoot`). They let the app browse folders before a root exists. `listDirs` returns folder names only, never file names or contents, and hides names that start with `.` or `$`. `createDir` accepts a single folder name, not a path.
+- **Setup paths** are absolute and appear only in the folder-choice methods (`listDirs`, `createDir`, `setRoot`). They let the app browse folders before a root exists. `listDirs` returns folder names only, never file names or contents, and hides names that start with `.` or `$` and, on Windows, folders with the hidden or system attribute. `createDir` accepts a single folder name, not a path.
 - **Page paths**, used by every later method, are relative to the root and use `/` separators. The helper rejects absolute paths, `..` segments, and any path whose resolved location (after following symbolic links) is outside the root, with `OUTSIDE_ROOT`.
 
 Workspace methods answer with the workspace state `{ root, rootName, rootError, git }`. `rootError` is set when the remembered folder no longer exists. `git` is `null` without a root, otherwise `{ available, version, isRepo, branch, hasCommits, origin, upstream, identity }`. `isRepo` is true only when the root itself is the top level of a repository, so a folder inside another repository is not treated as set up.

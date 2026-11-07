@@ -31,7 +31,7 @@ Delivered by slices 1 and 2. Unit tests cover the manifest, the extension ID, th
 | `outdated` | `PROTOCOL_MISMATCH` | Update the helper, with both protocol numbers, and **Retry** |
 | `stopped` | Disconnect after a successful `hello`, or any other failure | "Quire Helper stopped" with the error detail, and **Retry** |
 | `unsupported` | `chrome.runtime.connectNative` is unavailable | "Open Quire from the browser toolbar" |
-| `connected` | `hello` succeeded | Workspace shell; the status bar shows the helper version |
+| `connected` | `hello` succeeded | Folder picker, Git setup, or the workspace (see [workspace-setup](workspace-setup.md)); the status bar shows the helper version and branch |
 
 - The app retries automatically when the tab becomes visible again while in `missing`, `forbidden`, `outdated`, or `stopped`.
 - Design: system UI font, neutral warm grays, light and dark themes through `prefers-color-scheme`, visible focus rings, and reduced motion respected. Tokens live in `src/shared/tokens.css`.
@@ -60,7 +60,7 @@ None
 
 - [x] The built `manifest.json` has the fixed key, `nativeMessaging`, the popup, and the icons.
 - [x] **Open Quire** opens `app.html`, and pressing it again focuses the same tab instead of opening a second one.
-- [x] With the helper registered, the app shows the connected shell with the helper version.
+- [x] With the helper registered, the app completes the handshake and moves on to the notes folder screens.
 - [x] Without the helper registered, the app shows the install screen.
 
 ## Remaining gaps and unknowns

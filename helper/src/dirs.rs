@@ -35,6 +35,26 @@ fn is_hidden(name: &str) -> bool {
     name.starts_with('.') || name.starts_with('$') || name == "System Volume Information"
 }
 
+/// True when Windows marks the folder hidden or system-owned, as it does for `AppData`.
+#[cfg(windows)]
+fn has_hidden_attribute(entry: &fs::DirEntry) -> bool {
+    use std::os::windows::fs::MetadataExt;
+    const FILE_ATTRIBUTE_HIDDEN: u32 = 0x2;
+    const FILE_ATTRIBUTE_SYSTEM: u32 = 0x4;
+    entry
+        .metadata()
+        .map(|metadata| {
+            metadata.file_attributes() & (FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM) != 0
+        })
+        .unwrap_or(false)
+}
+
+/// Other systems have no hidden attribute; dot names are handled by `is_hidden`.
+#[cfg(not(windows))]
+fn has_hidden_attribute(_entry: &fs::DirEntry) -> bool {
+    false
+}
+
 /// Require an absolute path argument.
 fn absolute(path: &str) -> Result<PathBuf, ProtocolError> {
     let path = PathBuf::from(path);
@@ -67,7 +87,7 @@ pub fn list_dirs(path: &str) -> Result<Value, ProtocolError> {
         .filter(|entry| entry.file_type().map(|kind| kind.is_dir()).unwrap_or(false))
         .filter_map(|entry| {
             let name = entry.file_name().into_string().ok()?;
-            if is_hidden(&name) {
+            if is_hidden(&name) || has_hidden_attribute(&entry) {
                 return None;
             }
             let full = entry.path();
@@ -165,6 +185,30 @@ mod tests {
         assert_eq!(listing["entries"][0]["isRepo"], json!(false));
         assert!(listing["parent"].is_string());
         assert!(!listing["roots"].as_array().unwrap().is_empty());
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn windows_hidden_folders_are_not_listed() {
+        let dir = TestDir::new("dirs-attrib");
+        let hidden = dir.path().join("AppData");
+        fs::create_dir(&hidden).unwrap();
+        fs::create_dir(dir.path().join("Documents")).unwrap();
+        let status = std::process::Command::new("attrib")
+            .arg("+h")
+            .arg(&hidden)
+            .status()
+            .unwrap();
+        assert!(status.success());
+
+        let listing = list_dirs(&dir.path().to_string_lossy()).unwrap();
+        let names: Vec<&str> = listing["entries"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|entry| entry["name"].as_str().unwrap())
+            .collect();
+        assert_eq!(names, vec!["Documents"]);
     }
 
     #[test]

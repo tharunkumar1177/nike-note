@@ -6,9 +6,9 @@ A first-time user picks or creates a notes folder and connects it to a Git remot
 
 ## Current verified status
 
-**Status:** Planned
+**Status:** Implemented
 
-Delivered by slice 3. Helper unit tests cover the config file, folder listing and creation, and the full Git sequence against a local bare remote. Extension unit tests cover the state parsers and stage derivation. `e2e/setup.spec.ts` covers the whole flow against a bare remote.
+Delivered by slice 3. Helper unit tests cover the config file, folder listing and creation (including Windows hidden attributes), and the full Git sequence against a local bare remote on all three operating systems. Extension unit tests cover the state parsers and stage derivation. `e2e/setup.spec.ts` covers the whole flow and its error paths against a bare remote on Linux. The flow was also checked by hand with the CI build in Chrome on Windows, where a global Git identity correctly skipped the identity step.
 
 ## Architecture dependencies
 
@@ -58,11 +58,11 @@ Helper methods (all after `hello`):
 
 ## Acceptance or verification criteria
 
-- [ ] With no remembered folder, the app shows the folder picker at the home folder.
-- [ ] A new folder created in the picker can be chosen and is remembered across reloads.
-- [ ] Git init, identity, origin, and first push complete from the checklist, and the remote has one commit with `README.md` by the entered author.
-- [ ] After setup, the workspace shows the folder name and the status bar shows the branch.
-- [ ] Invalid input (a folder name with `/`, an email without `@`) shows the helper's error and the step can be retried.
+- [x] With no remembered folder, the app shows the folder picker at the home folder.
+- [x] A new folder created in the picker can be chosen and is remembered across reloads.
+- [x] Git init, identity, origin, and first push complete from the checklist, and the remote has one commit with `README.md` by the entered author.
+- [x] After setup, the workspace shows the folder name and the status bar shows the branch.
+- [x] Invalid input (a folder name with `/`, an option-like author name) shows the helper's error and the step can be retried; a malformed email is stopped by the browser before it is sent.
 
 ## Remaining gaps and unknowns
 
