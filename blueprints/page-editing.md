@@ -6,9 +6,9 @@ The user edits a page in place and never has to save: changes reach `README.md` 
 
 ## Current verified status
 
-**Status:** Partial
+**Status:** Implemented
 
-Code, unit tests, and end-to-end tests are written for slice 6. Not yet verified by CI or by hand in Chrome.
+Verified in CI (helper tests on Windows, macOS, and Linux, including a live watch test; Markdown and app unit tests; end-to-end tests for every criterion below) and by hand in Chrome on Windows with the CI build: a CRLF page with a byte order mark kept both after list edits, an outside edit appeared on the open page, a forced conflict showed the banner and kept the chosen version, and a title edit renamed the page in the sidebar.
 
 ## Architecture dependencies
 
@@ -52,12 +52,12 @@ Code, unit tests, and end-to-end tests are written for slice 6. Not yet verified
 
 ## Acceptance or verification criteria
 
-- [ ] Editing a line saves the file with every other line unchanged, including the byte order mark and `\r\n` endings.
-- [ ] Enter continues lists; editing the title renames the page in the sidebar.
-- [ ] A change made outside Quire appears on the open page without reloading.
-- [ ] A change on disk that conflicts with unsaved edits is never overwritten without the user choosing to.
-- [ ] Writing on a page without `README.md` creates it.
-- [ ] Stale writes, oversized writes, and paths outside the notes folder are refused by the helper.
+- [x] Editing a line saves the file with every other line unchanged, including the byte order mark and `\r\n` endings.
+- [x] Enter continues lists; editing the title renames the page in the sidebar.
+- [x] A change made outside Quire appears on the open page without reloading.
+- [x] A change on disk that conflicts with unsaved edits is never overwritten without the user choosing to.
+- [x] Writing on a page without `README.md` creates it.
+- [x] Stale writes, oversized writes, and paths outside the notes folder are refused by the helper.
 
 ## Remaining gaps and unknowns
 
