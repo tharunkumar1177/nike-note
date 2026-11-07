@@ -10,6 +10,8 @@ import { parseCreatedPage, type CreatedPage } from "../shared/pages";
 import { detectOs } from "../shared/platform";
 import type { HelloResult } from "../shared/protocol";
 import type { WorkspaceState } from "../shared/workspace";
+import { AiSetupDialog } from "./ai/AiSetupDialog";
+import { AiSettingsStore } from "./ai/aiStore";
 import { AssetContext, AssetStore } from "./assetStore";
 import { PageEditorStore } from "./pageEditorStore";
 import { createPageOps } from "./pageOps";
@@ -53,6 +55,9 @@ export function Workspace({
   const [editor] = useState(() => new PageEditorStore(store.helper));
   const [ops] = useState(() => createPageOps(store.helper, pages, editor));
   const [assets] = useState(() => new AssetStore(store.helper));
+  const [ai] = useState(() => new AiSettingsStore());
+  const aiView = useSyncExternalStore(ai.subscribe, ai.getSnapshot);
+  const [aiSetup, setAiSetup] = useState(false);
   const [sync] = useState(
     () =>
       new SyncStore(store.helper, () => {
@@ -111,6 +116,12 @@ export function Workspace({
     };
   }, [pages, editor, sync, store]);
   useEffect(() => () => assets.dispose(), [assets]);
+  useEffect(() => {
+    ai.load().catch((error: unknown) => {
+      console.warn("Quire: AI settings could not be read", error);
+    });
+    return () => ai.dispose();
+  }, [ai]);
 
   /** Create a sub-page and wait until the page tree shows it. */
   const createPage = async (parent: string, title: string): Promise<CreatedPage> => {
@@ -164,6 +175,14 @@ export function Workspace({
           <button type="button" className="sidebar__action" onClick={() => store.setPicking(true)}>
             Change folder
           </button>
+          <button
+            type="button"
+            className="sidebar__action"
+            disabled={!aiView.loaded}
+            onClick={() => setAiSetup(true)}
+          >
+            {aiView.settings ? "AI settings" : "Set up AI"}
+          </button>
         </div>
       </aside>
       {tree ? (
@@ -172,6 +191,7 @@ export function Workspace({
             root={tree.root}
             path={selected}
             editor={editor}
+            ai={ai}
             treeLoading={view.loading}
             onCreatePage={createPage}
             onRename={(path, title, from) => ops.rename(path, title, from)}
@@ -186,6 +206,14 @@ export function Workspace({
         sync={syncView}
         onSyncNow={() => sync.syncNow()}
       />
+      {aiSetup && (
+        <AiSetupDialog
+          store={ai}
+          settings={aiView.settings}
+          onSaved={() => setAiSetup(false)}
+          onClose={() => setAiSetup(false)}
+        />
+      )}
       {searching && tree && (
         <SearchDialog
           helper={store.helper}
