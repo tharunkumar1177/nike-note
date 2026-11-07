@@ -12,12 +12,15 @@ import {
   blockLineCount,
   blockText,
   clearPrefix,
+  formatsAt,
   indentItem,
   inlineText,
   insertDivider,
   insertLines,
   insertLinkLine,
   isSingleLine,
+  linkAt,
+  linkHref,
   listNumbers,
   mergeWithPrevious,
   offsetInBlock,
@@ -25,17 +28,22 @@ import {
   parseDocument,
   parseInline,
   positionInText,
+  removeLink,
   replaceBlockText,
+  setLink,
   setTitle,
   splitBlock,
   splitLine,
   titleBlockIndex,
   titleText,
+  toggleMark,
   toggleTodo,
   turnInto,
   type Block,
   type LineParts,
   type MarkdownDocument,
+  type Mark,
+  type Selected,
   type SourcePosition,
 } from "@quire/markdown";
 import {
@@ -44,6 +52,7 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type FocusEvent,
   type KeyboardEvent,
   type MouseEvent,
   type ReactNode,
@@ -52,10 +61,56 @@ import {
 import { pageHash, type CreatedPage } from "../../shared/pages";
 import { filterSlashItems, type SlashItem } from "../../shared/slash";
 import { BlockView, BULLETS } from "./BlockView";
+import { caretPoint } from "./caretPoint";
+import { FORMAT_TOOLBAR, FormatToolbar } from "./FormatToolbar";
 import { SlashMenu, slashOptionId } from "./SlashMenu";
 
-/** Where the caret is: in the title, or at a source position in the body. */
-type Focus = { kind: "title"; offset: number } | ({ kind: "body" } & SourcePosition);
+/**
+ * Where the caret is: in the title, or at a source position in the body. A
+ * body `anchor` (a column on the same line) makes it a selection.
+ */
+type Focus =
+  | { kind: "title"; offset: number }
+  | ({ kind: "body"; anchor?: number } & SourcePosition);
+
+/**
+ * The formatting toolbar over a selection in the block on source line `line`:
+ * the selection in the block's text (after its marker), where it floats
+ * relative to the block, and whether the link address form is open.
+ */
+interface Toolbar {
+  line: number;
+  start: number;
+  end: number;
+  left: number;
+  top: number;
+  linking: boolean;
+}
+
+/** Where the toolbar goes for the selection in `box`, relative to the block being edited. */
+function toolbarAt(box: HTMLTextAreaElement, line: number, linking: boolean): Toolbar {
+  const { selectionStart: start, selectionEnd: end } = box;
+  const point = caretPoint(box, start);
+  const host = box.closest(".block--editing") ?? box;
+  const boxRect = box.getBoundingClientRect();
+  const hostRect = host.getBoundingClientRect();
+  return {
+    line,
+    start,
+    end,
+    left: boxRect.left - hostRect.left + point.left,
+    top: boxRect.top - hostRect.top + point.top,
+    linking,
+  };
+}
+
+/** The style a formatting shortcut toggles, or null for other keys. */
+function shortcutMark(event: KeyboardEvent<HTMLTextAreaElement>): Mark | null {
+  if (!(event.ctrlKey || event.metaKey) || event.altKey) return null;
+  const key = event.key.toLowerCase();
+  if (event.shiftKey) return key === "x" || key === "s" ? "strike" : null;
+  return key === "b" ? "bold" : key === "i" ? "italic" : key === "e" ? "code" : null;
+}
 
 /**
  * An open slash menu: the source line of its block, where the `/` is in the
@@ -74,21 +129,28 @@ const INTERACTIVE = "a, button, input, summary";
 
 /**
  * A text box that grows with its content, takes focus when it appears, and
- * moves the caret to `caret` whenever that changes.
+ * selects from `anchor` to `caret` (or puts the caret at `caret`) whenever
+ * those or `request` change.
  */
 function SourceBox({
   value,
   caret,
+  anchor,
+  request,
   label,
   className,
   placeholder,
   menu,
   onChange,
   onKeyDown,
+  onSelect,
   onBlur,
 }: {
   value: string;
   caret: number;
+  anchor?: number;
+  /** A new value focuses the box and sets its selection again. */
+  request?: unknown;
   label: string;
   className: string;
   placeholder?: string;
@@ -96,17 +158,20 @@ function SourceBox({
   menu?: { id: string; active: string | undefined } | null;
   onChange: (value: string, caret: number) => void;
   onKeyDown: (event: KeyboardEvent<HTMLTextAreaElement>) => void;
-  onBlur: () => void;
+  onSelect?: (box: HTMLTextAreaElement) => void;
+  onBlur: (event: FocusEvent<HTMLTextAreaElement>) => void;
 }) {
   const box = useRef<HTMLTextAreaElement>(null);
   useLayoutEffect(() => {
     const element = box.current;
     if (!element) return;
     if (document.activeElement !== element) element.focus();
-    if (element.selectionStart !== caret || element.selectionEnd !== caret) {
-      element.setSelectionRange(caret, caret);
+    const start = Math.min(anchor ?? caret, caret);
+    const end = Math.max(anchor ?? caret, caret);
+    if (element.selectionStart !== start || element.selectionEnd !== end) {
+      element.setSelectionRange(start, end);
     }
-  }, [caret]);
+  }, [caret, anchor, request]);
   return (
     <textarea
       ref={box}
@@ -122,6 +187,7 @@ function SourceBox({
         onChange(event.currentTarget.value, event.currentTarget.selectionStart)
       }
       onKeyDown={onKeyDown}
+      onSelect={(event) => onSelect?.(event.currentTarget)}
       onBlur={onBlur}
     />
   );
@@ -268,6 +334,7 @@ export function PageEditor({
   const [focus, setFocus] = useState<Focus | null>(null);
   const [slash, setSlash] = useState<Slash | null>(null);
   const [pageError, setPageError] = useState<string | null>(null);
+  const [toolbar, setToolbar] = useState<Toolbar | null>(null);
   const menuId = useId();
   const blocks = markdown.blocks;
   const titleIndex = titleBlockIndex(blocks);
@@ -284,12 +351,100 @@ export function PageEditor({
   const apply = (source: string, caret: Focus | null): void => {
     onChange(source);
     setFocus(caret);
+    setToolbar(null);
   };
 
-  /** Close the text box `mine` unless the caret has already moved elsewhere. */
-  const release = (mine: Focus) => () => {
+  /**
+   * Close the text box `mine` unless the caret has already moved elsewhere or
+   * focus went to the formatting toolbar.
+   */
+  const release = (mine: Focus) => (event?: FocusEvent<HTMLElement>) => {
+    const next = event?.relatedTarget;
+    if (next instanceof Element && next.closest(`.${FORMAT_TOOLBAR}`)) return;
     setSlash(null);
+    setToolbar(null);
     setFocus((current) => (current === mine ? null : current));
+  };
+
+  /**
+   * Show the toolbar for a selection in block `block`'s text box, or hide it
+   * for a caret. Multi-line blocks and the open slash menu get no toolbar.
+   */
+  const select = (block: Block, parts: LineParts | null) => (box: HTMLTextAreaElement) => {
+    if (parts === null || box.selectionStart === box.selectionEnd || slash !== null) {
+      if (toolbar !== null && !toolbar.linking) setToolbar(null);
+      return;
+    }
+    const next = toolbarAt(box, block.line, false);
+    const same =
+      toolbar !== null &&
+      !toolbar.linking &&
+      (["line", "start", "end", "left", "top"] as const).every((key) => toolbar[key] === next[key]);
+    if (!same) setToolbar(next);
+  };
+
+  /**
+   * Replace block `index`'s text (after marker `parts`) with `result` and
+   * select what it marks as selected.
+   */
+  const applySelected = (index: number, block: Block, parts: LineParts, result: Selected): void => {
+    const shift = parts.prefix.length;
+    apply(replaceBlockText(markdown, index, parts.prefix + result.text), {
+      kind: "body",
+      line: block.line,
+      column: shift + result.end,
+      anchor: shift + result.start,
+    });
+    setToolbar((current) =>
+      current && result.start !== result.end
+        ? { ...current, start: result.start, end: result.end, linking: false }
+        : null,
+    );
+  };
+
+  /** Turn `mark` on or off for the selection from `start` to `end` in block `index`. */
+  const format = (
+    index: number,
+    block: Block,
+    parts: LineParts,
+    start: number,
+    end: number,
+    mark: Mark,
+  ): void => {
+    applySelected(index, block, parts, toggleMark(parts.content, start, end, mark));
+  };
+
+  /**
+   * Finish the link form: link the toolbar's selection to `address`, or
+   * remove the link when the address is empty.
+   */
+  const applyLink = (
+    index: number,
+    block: Block,
+    parts: LineParts,
+    address: string | null,
+  ): void => {
+    if (!toolbar) return;
+    const href = address === null ? null : linkHref(address);
+    const { start, end } = toolbar;
+    const result =
+      href === null
+        ? removeLink(parts.content, start, end)
+        : setLink(parts.content, start, end, href);
+    applySelected(index, block, parts, result);
+  };
+
+  /** Close the link form and give the text box back its selection. */
+  const cancelLink = (block: Block, parts: LineParts): void => {
+    if (!toolbar) return;
+    const shift = parts.prefix.length;
+    setToolbar({ ...toolbar, linking: false });
+    setFocus({
+      kind: "body",
+      line: block.line,
+      column: shift + toolbar.end,
+      anchor: shift + toolbar.start,
+    });
   };
 
   /** The block one step before or after `index`, skipping the title, or -1. */
@@ -452,7 +607,16 @@ export function PageEditor({
       const { selectionStart: start, selectionEnd: end, value } = event.currentTarget;
       const collapsed = start === end;
       const prefix = parts?.prefix ?? "";
-      if (event.key === "Enter" && (event.ctrlKey || event.metaKey) && parts?.kind === "todo") {
+      const mark = parts ? shortcutMark(event) : null;
+      const linkKey =
+        (event.ctrlKey || event.metaKey) && !event.shiftKey && event.key.toLowerCase() === "k";
+      if (parts && mark) {
+        event.preventDefault();
+        format(index, block, parts, start, end, mark);
+      } else if (parts && linkKey && (!collapsed || linkAt(value, start, end) !== null)) {
+        event.preventDefault();
+        setToolbar(toolbarAt(event.currentTarget, block.line, true));
+      } else if (event.key === "Enter" && (event.ctrlKey || event.metaKey) && parts?.kind === "todo") {
         event.preventDefault();
         onChange(toggleTodo(markdown, index));
       } else if (event.key === "Enter" && !event.shiftKey && isSingleLine(block)) {
@@ -498,6 +662,7 @@ export function PageEditor({
         setFocus({ kind: "body", line: next.line, column: prefixLength(next) + column });
       } else if (event.key === "Escape") {
         event.preventDefault();
+        setToolbar(null);
         setFocus(null);
       }
     };
@@ -548,6 +713,11 @@ export function PageEditor({
             const items = menu ? filterSlashItems(menu.query) : [];
             const activeIndex = Math.max(Math.min(menu?.active ?? 0, items.length - 1), 0);
             const active = items[activeIndex];
+            const anchor =
+              focus.anchor === undefined
+                ? undefined
+                : Math.max(offsetInBlock(block, { line: focus.line, column: focus.anchor }) - shift, 0);
+            const bar = parts && !menu && toolbar?.line === block.line ? toolbar : null;
             return (
               <EditingBlock
                 key={key}
@@ -560,6 +730,8 @@ export function PageEditor({
                   className="block__source"
                   value={parts ? parts.content : text}
                   caret={Math.max(offsetInBlock(block, focus) - shift, 0)}
+                  anchor={anchor}
+                  request={focus}
                   label="Edit block"
                   placeholder={placeholderFor(parts)}
                   menu={
@@ -569,8 +741,26 @@ export function PageEditor({
                   }
                   onChange={(value, caret) => typeInto(index, block, parts, value, caret)}
                   onKeyDown={onBlockKey(index, block, parts, items)}
+                  onSelect={select(block, parts)}
                   onBlur={release(focus)}
                 />
+                {bar && parts && (
+                  <FormatToolbar
+                    left={bar.left}
+                    top={bar.top}
+                    formats={formatsAt(parts.content, bar.start, bar.end)}
+                    linking={bar.linking}
+                    onMark={(mark) => format(index, block, parts, bar.start, bar.end, mark)}
+                    onStartLink={() => setToolbar({ ...bar, linking: true })}
+                    onLink={(address) => link(index, block, parts, address)}
+                    onUnlink={() => link(index, block, parts, null)}
+                    onCancelLink={() => cancelLink(block, parts)}
+                    onLeave={() => {
+                      setToolbar(null);
+                      setFocus(null);
+                    }}
+                  />
+                )}
                 {menu && parts && items.length > 0 && (
                   <SlashMenu
                     id={menuId}

@@ -778,6 +778,107 @@ h1.page__title:focus-visible {
   font-size: var(--q-text-xs);
 }
 
+.format-toolbar {
+  position: absolute;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 32px;
+  padding: 0 var(--q-space-1);
+  border-radius: var(--q-radius);
+  background: var(--q-bg);
+  box-shadow: var(--q-shadow);
+  color: var(--q-text);
+  font-family: var(--q-font-sans);
+  font-size: var(--q-text-sm);
+  font-weight: 400;
+  font-style: normal;
+  line-height: 1;
+  text-decoration: none;
+  white-space: nowrap;
+  transform: translateY(calc(-100% - var(--q-space-2)));
+}
+
+.format-toolbar__button,
+.format-toolbar__text-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 26px;
+  padding: 0 var(--q-space-2);
+  border: none;
+  border-radius: var(--q-radius-sm);
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.format-toolbar__button:hover:not(:disabled),
+.format-toolbar__text-button:hover:not(:disabled) {
+  background: var(--q-bg-hover);
+}
+
+.format-toolbar__button[aria-pressed="true"],
+.format-toolbar__text-button[aria-pressed="true"] {
+  color: var(--q-accent);
+}
+
+.format-toolbar__button:disabled,
+.format-toolbar__text-button:disabled {
+  color: var(--q-text-faint);
+  cursor: default;
+}
+
+.format-toolbar__button--bold {
+  font-weight: 700;
+}
+
+.format-toolbar__button--italic {
+  font-style: italic;
+  font-family: Georgia, serif;
+}
+
+.format-toolbar__button--strike {
+  text-decoration: line-through;
+}
+
+.format-toolbar__button--code {
+  font-family: var(--q-font-mono);
+  font-size: var(--q-text-xs);
+}
+
+.format-toolbar__divider {
+  width: 1px;
+  height: 18px;
+  margin: 0 2px;
+  background: var(--q-border);
+}
+
+.format-toolbar__link {
+  display: flex;
+  align-items: center;
+  gap: var(--q-space-1);
+}
+
+.format-toolbar__input {
+  width: 240px;
+  height: 24px;
+  padding: 0 var(--q-space-2);
+  border: 1px solid var(--q-border);
+  border-radius: var(--q-radius-sm);
+  background: var(--q-bg);
+  color: var(--q-text);
+  font: inherit;
+}
+
+.format-toolbar__input:focus {
+  border-color: var(--q-accent);
+  outline: none;
+}
+
 .page__inline-error {
   margin: var(--q-space-2) 0;
   padding: var(--q-space-2) var(--q-space-3);
