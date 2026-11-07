@@ -52,9 +52,13 @@ function LinkForm({
     input.current?.select();
   }, []);
 
-  /** Escape returns to the text without changing the link. */
+  /** Enter applies the address and Escape returns to the text without changing the link. */
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>): void => {
-    if (event.key === "Escape") {
+    if (event.nativeEvent.isComposing) return;
+    if (event.key === "Enter") {
+      event.preventDefault();
+      onSubmit(address);
+    } else if (event.key === "Escape") {
       event.preventDefault();
       onCancel();
     }
