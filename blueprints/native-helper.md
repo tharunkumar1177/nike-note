@@ -6,9 +6,9 @@ The `quire-helper` Rust binary: it runs as the native messaging host for the app
 
 ## Current verified status
 
-**Status:** Planned
+**Status:** Partial
 
-Slices 1 and 2 deliver the host loop, the `hello` handshake, and `install` and `uninstall`.
+Implemented (slices 1 and 2): the host loop, the origin check, the `hello` handshake, and `install` and `uninstall`, verified by `cargo test` on three operating systems and by `helper/scripts/smoke.py` in CI. A downloaded Windows build was also installed and connected to Chrome 156 by hand. Planned: notes-folder access, watching, search, and Git (slices 3 onward).
 
 ## Architecture dependencies
 
@@ -45,10 +45,10 @@ None
 
 ## Acceptance or verification criteria
 
-- [ ] `hello` with protocol 1 returns the helper version, protocol, OS, and architecture.
-- [ ] `hello` with another protocol returns `PROTOCOL_MISMATCH`; other methods before `hello` return `BAD_REQUEST`; unknown methods return `UNKNOWN_METHOD`.
-- [ ] A disallowed origin argument makes the helper exit non-zero without reading input.
-- [ ] `install` then `uninstall` writes and removes the manifests (macOS, Linux) or registry keys (Windows) in CI.
+- [x] `hello` with protocol 1 returns the helper version, protocol, OS, and architecture.
+- [x] `hello` with another protocol returns `PROTOCOL_MISMATCH`; other methods before `hello` return `BAD_REQUEST`; unknown methods return `UNKNOWN_METHOD`.
+- [x] A disallowed origin argument makes the helper exit non-zero without reading input.
+- [x] `install` then `uninstall` writes and removes the manifests (macOS, Linux) or registry keys (Windows) in CI.
 
 ## Remaining gaps and unknowns
 

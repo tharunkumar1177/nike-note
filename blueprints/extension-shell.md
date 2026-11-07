@@ -6,9 +6,9 @@ The Manifest V3 extension frame: the manifest, the popup's **Open Quire** button
 
 ## Current verified status
 
-**Status:** Planned
+**Status:** Implemented
 
-Slices 1 and 2 deliver it.
+Delivered by slices 1 and 2. Unit tests cover the manifest, the extension ID, the icons, protocol validation, and request matching. `e2e/shell.spec.ts` covers Open Quire, the handshake, and the install screen against the real Linux helper. The `forbidden`, `outdated`, and `stopped` screens are covered only by unit-tested classification, not by e2e.
 
 ## Architecture dependencies
 
@@ -58,10 +58,10 @@ None
 
 ## Acceptance or verification criteria
 
-- [ ] The built `manifest.json` has the fixed key, `nativeMessaging`, the popup, and the icons.
-- [ ] **Open Quire** opens `app.html`, and pressing it again focuses the same tab instead of opening a second one.
-- [ ] With the helper registered, the app shows the connected shell with the helper version.
-- [ ] Without the helper registered, the app shows the install screen.
+- [x] The built `manifest.json` has the fixed key, `nativeMessaging`, the popup, and the icons.
+- [x] **Open Quire** opens `app.html`, and pressing it again focuses the same tab instead of opening a second one.
+- [x] With the helper registered, the app shows the connected shell with the helper version.
+- [x] Without the helper registered, the app shows the install screen.
 
 ## Remaining gaps and unknowns
 

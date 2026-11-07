@@ -6,9 +6,9 @@ The repository scaffold and the GitHub Actions workflow that checks, tests, and 
 
 ## Current verified status
 
-**Status:** Planned
+**Status:** Implemented
 
-Owned by ROADMAP slice 1. The cloud-era workflow is replaced.
+Delivered by ROADMAP slice 1. Every job in `.github/workflows/ci.yml` passes on branch `slice/01-extension-skeleton`, including the three-OS helper matrix, the install smoke test, and the Playwright e2e job. Both lockfiles are committed from CI artifacts.
 
 ## Architecture dependencies
 
@@ -48,11 +48,11 @@ None
 
 ## Acceptance or verification criteria
 
-- [ ] A push to a branch triggers the workflow.
-- [ ] Extension lint, type-check, unit tests, and build pass.
-- [ ] The helper passes fmt, clippy, tests, and release builds on Windows, macOS, and Linux.
-- [ ] The e2e job loads the unpacked extension and completes the `hello` handshake with the Linux helper.
-- [ ] Artifacts `quire-extension`, `quire-helper-windows`, `quire-helper-macos`, and `quire-helper-linux` are uploaded.
+- [x] A push to a branch triggers the workflow.
+- [x] Extension lint, type-check, unit tests, and build pass.
+- [x] The helper passes fmt, clippy, tests, and release builds on Windows, macOS, and Linux.
+- [x] The e2e job loads the unpacked extension and completes the `hello` handshake with the Linux helper.
+- [x] Artifacts `quire-extension`, `quire-helper-windows`, `quire-helper-macos`, and `quire-helper-linux` are uploaded.
 
 ## Remaining gaps and unknowns
 
