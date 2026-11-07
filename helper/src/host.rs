@@ -111,7 +111,8 @@ impl Session {
             }),
             "renamePage" => string(params, "path").and_then(|path| {
                 let title = string(params, "title")?;
-                pageops::rename_page(&self.workspace.root()?, &path, &title)
+                let from = params.get("from").and_then(Value::as_str);
+                pageops::rename_page(&self.workspace.root()?, &path, &title, from)
             }),
             "movePage" => string(params, "path").and_then(|path| {
                 let parent = string(params, "parent")?;

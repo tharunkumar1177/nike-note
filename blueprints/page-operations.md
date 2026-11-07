@@ -22,7 +22,7 @@ Pages are added, renamed, moved, and deleted from the sidebar, like Notion. Each
 - Relinking scans every page body (the same exclusions and limits as the page tree) and rewrites relative inline links and reference definitions whose target lies inside the moved folder, and the moved page's own outward links. Fenced code, code spans, front matter, external links, fragment-only links, and absolute paths are left alone; a `#` or `?` suffix is kept; the byte order mark and line endings are kept.
 - Delete is permanent: it asks for confirmation, names the number of sub-pages, says that synced versions stay in the Git history, removes the folder with everything in it, and removes the parent's link lines.
 - Before any operation the app saves every pending edit and waits for saves in flight. After it, open editing sessions move to the new paths, the open page's URL is replaced (not pushed), and a deleted open page goes to its parent.
-- A new page from the sidebar is titled Untitled and linked from the parent in the same request, then opened. Its title can be typed at once; the folder follows when the title loses focus.
+- A new page from the sidebar is titled Untitled and linked from the parent in the same request, then opened. Its title can be typed at once; the folder follows when the title loses focus. Autosave has written the title by then, so the editor sends the title from before the first keystroke as `from`.
 - The menu moves with the arrow keys, Home, and End and closes on Escape or Tab, returning focus to the row. Errors show in the sidebar with a Dismiss button.
 
 ## Related blueprints

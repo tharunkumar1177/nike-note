@@ -108,7 +108,7 @@ export function PageView({
   /** True while the page tree reloads, when a just-moved page may be missing from it. */
   treeLoading: boolean;
   onCreatePage: (parent: string, title: string) => Promise<CreatedPage>;
-  onRename: (path: string, title: string) => Promise<void>;
+  onRename: (path: string, title: string, from: string) => Promise<void>;
 }) {
   const view = useSyncExternalStore(editor.subscribe, editor.getSnapshot);
   const [renameError, setRenameError] = useState<{ path: string; message: string } | null>(
@@ -141,10 +141,13 @@ export function PageView({
     document.title = title ? `${title} – Quire` : "Quire";
   }, [title]);
 
-  /** Rename the page after its title was edited, reporting a failure below the title. */
-  const commitTitle = (next: string): void => {
+  /**
+   * Rename the page after its title was edited from `from` to `next`,
+   * reporting a failure below the title.
+   */
+  const commitTitle = (next: string, from: string): void => {
     setRenameError(null);
-    onRename(path, next).catch((error: unknown) => {
+    onRename(path, next, from).catch((error: unknown) => {
       const message = error instanceof Error ? error.message : String(error);
       setRenameError({ path, message });
     });

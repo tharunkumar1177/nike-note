@@ -138,10 +138,17 @@ pub fn create_page(
 
 /// Rename page `page` to `title`. The title line of its body is replaced (or
 /// added), and while the folder name still follows the old title, the folder
-/// is renamed after the new one. The parent's link lines get the new title
-/// and folder, and links elsewhere follow a renamed folder. Returns the page
-/// path, folder name, and title after the rename.
-pub fn rename_page(root: &Path, page: &str, title: &str) -> Result<Value, ProtocolError> {
+/// is renamed after the new one. `from` is the title the user started editing
+/// from, for a title already saved before the rename; the folder also counts
+/// as following when it follows `from`. The parent's link lines get the new
+/// title and folder, and links elsewhere follow a renamed folder. Returns the
+/// page path, folder name, and title after the rename.
+pub fn rename_page(
+    root: &Path,
+    page: &str,
+    title: &str,
+    from: Option<&str>,
+) -> Result<Value, ProtocolError> {
     let title = clean_title(title);
     let body = read_body(root, page)?;
     let (parent, folder) = split_path(page);
@@ -157,7 +164,9 @@ pub fn rename_page(root: &Path, page: &str, title: &str) -> Result<Value, Protoc
 
     let source = own_folder(root, page, "renamed")?;
     let mut name = folder.to_string();
-    if follows_title(folder, &old_title) && !follows_title(folder, &title) {
+    let followed = follows_title(folder, &old_title)
+        || from.is_some_and(|from| follows_title(folder, &clean_title(from)));
+    if followed && !follows_title(folder, &title) {
         let parent_dir = page_dir(root, parent)?.dir;
         name = unique_name(&parent_dir, &folder_name(&title), Some(folder))?;
         validate_folder_name(&name)?;
@@ -552,7 +561,7 @@ mod tests {
             "# Sub\n[back](../../README.md)\n",
         );
 
-        let renamed = rename_page(root, "Untitled 2", "Trip: Japan").unwrap();
+        let renamed = rename_page(root, "Untitled 2", "Trip: Japan", None).unwrap();
         assert_eq!(
             renamed,
             json!({ "path": "Trip Japan", "folder": "Trip Japan", "title": "Trip: Japan" })
@@ -571,11 +580,16 @@ mod tests {
         );
 
         write(root, "docs/README.md", "# Guide\n");
-        let kept = rename_page(root, "docs", "Documentation").unwrap();
+        let kept = rename_page(root, "docs", "Documentation", None).unwrap();
         assert_eq!(kept["path"], json!("docs"));
         assert_eq!(read(root, "docs/README.md"), "# Documentation\n");
 
-        assert_eq!(rename_page(root, "", "Notes").unwrap()["path"], json!(""));
+        write(root, "Untitled/README.md", "# Ideas\n");
+        let saved = rename_page(root, "Untitled", "Ideas", Some("Untitled")).unwrap();
+        assert_eq!(saved["path"], json!("Ideas"));
+        assert_eq!(read(root, "Ideas/README.md"), "# Ideas\n");
+
+        assert_eq!(rename_page(root, "", "Notes", None).unwrap()["path"], json!(""));
         let home = read(root, "README.md");
         assert!(home.starts_with("# Notes\n[Trip: Japan]"));
     }

@@ -133,7 +133,7 @@ export function Workspace({
           editor={editor}
           treeLoading={view.loading}
           onCreatePage={createPage}
-          onRename={(path, title) => ops.rename(path, title)}
+          onRename={(path, title, from) => ops.rename(path, title, from)}
         />
       ) : (
         <main className="page" aria-busy={view.loading} />

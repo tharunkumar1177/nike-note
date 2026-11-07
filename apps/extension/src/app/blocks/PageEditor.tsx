@@ -316,17 +316,19 @@ function nextSlash(
 }
 
 /**
- * Report a title typed in this editor (`edited` is set by typing) once, when
- * the editor has lost focus or closes. An emptied title is not reported.
+ * Report a title typed in this editor once, when the editor has lost focus or
+ * closes. `edited` holds the title before the first keystroke, or null when
+ * nothing was typed. An emptied or unchanged title is not reported.
  */
 function commitTitle(
-  latest: { current: { title: string; onTitleCommit?: (title: string) => void } },
-  edited: { current: boolean },
+  latest: { current: { title: string; onTitleCommit?: (title: string, from: string) => void } },
+  edited: { current: string | null },
 ): void {
-  if (!edited.current) return;
-  edited.current = false;
+  const from = edited.current;
+  if (from === null) return;
+  edited.current = null;
   const title = latest.current.title.trim();
-  if (title !== "") latest.current.onTitleCommit?.(title);
+  if (title !== "" && title !== from.trim()) latest.current.onTitleCommit?.(title, from);
 }
 
 /** Block types that are list items, which the block menu can indent and outdent. */
@@ -421,8 +423,8 @@ export function PageEditor({
   onChange: (source: string) => void;
   onCreatePage: (title: string) => Promise<CreatedPage>;
   onTransform: (change: (source: string) => string) => boolean;
-  /** Called with the new title when focus leaves a title that was edited. */
-  onTitleCommit?: (title: string) => void;
+  /** Called with the new and the earlier title when focus leaves a title that was edited. */
+  onTitleCommit?: (title: string, from: string) => void;
   children?: ReactNode;
 }) {
   const [focus, setFocus] = useState<Focus | null>(null);
@@ -444,7 +446,7 @@ export function PageEditor({
   const lineCount = blocks.reduce((total, block) => total + blockLineCount(block), 0);
   const idle = focus === null;
   const latestTitle = useRef({ title, onTitleCommit });
-  const titleEdited = useRef(false);
+  const titleEdited = useRef<string | null>(null);
   useLayoutEffect(() => {
     latestTitle.current = { title, onTitleCommit };
   });
@@ -822,7 +824,7 @@ export function PageEditor({
           label="Page title"
           placeholder={fallbackTitle}
           onChange={(value, caret) => {
-            titleEdited.current = true;
+            titleEdited.current ??= title;
             apply(setTitle(markdown, value), { kind: "title", offset: caret });
           }}
           onKeyDown={onTitleKey}

@@ -23,8 +23,11 @@ const NEW_PAGE_TITLE = "Untitled";
 export interface PageOps {
   /** Add a linked sub-page of `parent` and open it. */
   create(parent: string): Promise<CreatedPage>;
-  /** Give page `path` a new title, renaming its folder when it follows the title. */
-  rename(path: string, title: string): Promise<void>;
+  /**
+   * Give page `path` a new title, renaming its folder when it follows the
+   * title, or follows `from`, the title before an edit that may already be saved.
+   */
+  rename(path: string, title: string, from?: string): Promise<void>;
   /** Move page `path` into page `parent`. */
   move(path: string, parent: string): Promise<void>;
   /** Delete page `path` and its sub-pages. */
@@ -65,9 +68,10 @@ export function createPageOps(
       return created;
     },
 
-    async rename(path, title) {
+    async rename(path, title, from) {
       await editor.settle();
-      const renamed = await helper.request("renamePage", { path, title }, parseChangedPage);
+      const params = from === undefined ? { path, title } : { path, title, from };
+      const renamed = await helper.request("renamePage", params, parseChangedPage);
       await follow(path, renamed.path);
     },
 
