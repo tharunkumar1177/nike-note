@@ -7,9 +7,9 @@ import type { TemplateKind, TurnIntoKind } from "@quire/markdown";
 
 /**
  * What a slash command does: turn the line into a block type, add a block
- * from a template, add an image, or add a sub-page.
+ * from a template, add an image, add a sub-page, or write with AI.
  */
-export type SlashCommand = TurnIntoKind | TemplateKind | "image" | "page";
+export type SlashCommand = TurnIntoKind | TemplateKind | "image" | "page" | "ai";
 
 /** One entry of the slash menu. */
 export interface SlashItem {
@@ -87,6 +87,12 @@ export const SLASH_ITEMS: readonly SlashItem[] = [
     label: "Page",
     hint: "A sub-page inside this page",
     keywords: ["page", "subpage", "sub-page", "new"],
+  },
+  {
+    command: "ai",
+    label: "Write with AI",
+    hint: "Describe what to add, such as a plan or a list",
+    keywords: ["ai", "write", "generate", "assistant", "draft"],
   },
 ];
 

@@ -3,6 +3,8 @@
  * `chrome.storage.local`, and one streaming generation that can be stopped.
  * Both are external stores for `useSyncExternalStore`.
  */
+import { useEffect, useSyncExternalStore } from "react";
+
 import { describeAiError, parseAiSettings, type AiPrompt, type AiSettings } from "../../shared/ai";
 import { providerInfo } from "./providers";
 
@@ -141,4 +143,18 @@ export class AiRun {
     this.view = view;
     for (const listener of this.listeners) listener();
   }
+}
+
+/** Subscription used while there is no generation. */
+const NO_SUBSCRIPTION = (): (() => void) => () => undefined;
+/** Snapshot used while there is no generation. */
+const NO_RUN = (): null => null;
+
+/**
+ * Follow generation `run`, or nothing while it is null, and stop it when it
+ * is replaced or the component unmounts.
+ */
+export function useAiRun(run: AiRun | null): AiRunView | null {
+  useEffect(() => () => run?.stop(), [run]);
+  return useSyncExternalStore(run?.subscribe ?? NO_SUBSCRIPTION, run?.getSnapshot ?? NO_RUN);
 }
