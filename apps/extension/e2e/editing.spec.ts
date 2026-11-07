@@ -39,7 +39,7 @@ test("Enter continues a list and the title renames the page", async ({ openApp }
   const app = await openApp();
   await app.getByText("Pack", { exact: true }).click();
   await app.getByRole("textbox", { name: "Edit block" }).press("Enter");
-  await expect(app.getByRole("textbox", { name: "Edit block" })).toHaveValue("- ");
+  await expect(app.getByRole("textbox", { name: "Edit block" })).toHaveValue("");
   await app.keyboard.type("Fly");
 
   await app.getByRole("heading", { level: 1 }).click();

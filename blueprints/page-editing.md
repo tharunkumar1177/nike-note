@@ -19,8 +19,8 @@ Verified in CI (helper tests on Windows, macOS, and Linux, including a live watc
 
 ## Local rules and implications
 
-- Editing model (`src/app/blocks/PageEditor.tsx`): the block holding the caret shows its Markdown source in a growing text box; other blocks render formatted. The caret is tracked as a source line and column, so it stays put when an edit changes block boundaries. Slice 8 replaces visible markers with Notion-style shortcuts.
-- Keys: Enter splits a one-line block and continues bullet, numbered, and to-do lists; Enter on an empty item moves it one level out, then ends the list. Backspace at the start joins the line to the one before (never into the title or a multi-line block). Up and Down at the first or last line move between blocks and the title. Enter inside code, tables, and front matter inserts a newline.
+- Editing model (`src/app/blocks/PageEditor.tsx`): the block holding the caret is edited in a growing text box; other blocks render formatted. One-line blocks show their text without the Markdown marker, which is drawn instead; multi-line blocks (code, tables, front matter) show their source. The caret is tracked as a source line and column, so it stays put when an edit changes block boundaries. Markers, shortcuts, and block keys are in [block-keys](block-keys.md).
+- Keys: Enter splits a one-line block and continues bullet, numbered, and to-do lists; Enter on an empty item moves it one level out, then ends the list. Backspace at the start of a block without a marker joins the line to the one before (never into the title or a multi-line block). Up and Down at the first or last line move between blocks and the title. Enter inside code, tables, and front matter inserts a newline.
 - Typing an opening code fence into a one-line block adds the closing fence, so the rest of the page does not turn into code while typing.
 - The title is the first `# ` line. Editing it rewrites that line; clearing it removes the line, so the folder name shows again; a page without one gets a new first line after any front matter.
 - Clicking a to-do checkbox toggles only the `[ ]` or `[x]` in its line.

@@ -9,6 +9,9 @@ import {
   blockAtLine,
   blockLineCount,
   blockText,
+  clearPrefix,
+  indentItem,
+  insertDivider,
   insertLines,
   mergeWithPrevious,
   offsetInBlock,
@@ -115,6 +118,65 @@ describe("splitBlock", () => {
   it("does not treat a divider as a list item", () => {
     const document = parseDocument("---\n");
     expect(splitBlock(document, 0, "---", 3).source).toBe("---\n\n");
+  });
+
+  it("opens a line above a heading at its start and ends an empty heading", () => {
+    const document = parseDocument("# T\n## Plans\n> \n");
+    expect(splitBlock(document, 1, "## Plans", 3)).toEqual({
+      source: "# T\n\n## Plans\n> \n",
+      caret: { line: 2, column: 3 },
+    });
+    expect(splitBlock(document, 1, "## Plans", 8)).toEqual({
+      source: "# T\n## Plans\n\n> \n",
+      caret: { line: 2, column: 0 },
+    });
+    expect(splitBlock(document, 2, "> ", 2)).toEqual({
+      source: "# T\n## Plans\n\n",
+      caret: { line: 2, column: 0 },
+    });
+  });
+});
+
+describe("clearPrefix", () => {
+  it("turns a list item or heading into plain text", () => {
+    const document = parseDocument("  - [x] Done\r\n### Notes\r\n");
+    expect(clearPrefix(document, 0)).toEqual({
+      source: "Done\r\n### Notes\r\n",
+      caret: { line: 0, column: 0 },
+    });
+    expect(clearPrefix(document, 1).source).toBe("  - [x] Done\r\nNotes\r\n");
+  });
+});
+
+describe("indentItem", () => {
+  it("nests an item under the one before and moves it back out", () => {
+    const source = "- one\n- two\n1. three\n4. four\n";
+    const document = parseDocument(source);
+    const nested = indentItem(document, 1, 1);
+    expect(nested).toEqual({
+      source: "- one\n  - two\n1. three\n4. four\n",
+      caret: { line: 1, column: 4 },
+    });
+    expect(indentItem(parseDocument(nested?.source ?? ""), 1, 1)).toBeNull();
+    expect(indentItem(parseDocument(nested?.source ?? ""), 1, -1)?.source).toBe(source);
+    expect(indentItem(document, 3, 1)?.source).toBe("- one\n- two\n1. three\n   4. four\n");
+  });
+
+  it("leaves first items, top-level outdents, and other blocks alone", () => {
+    const document = parseDocument("# T\n- one\nplain\n");
+    expect(indentItem(document, 1, 1)).toBeNull();
+    expect(indentItem(document, 1, -1)).toBeNull();
+    expect(indentItem(document, 2, 1)).toBeNull();
+  });
+});
+
+describe("insertDivider", () => {
+  it("makes the line a divider and opens a line after it", () => {
+    const document = parseDocument("# T\r\n---\r\nnext\r\n");
+    expect(insertDivider(document, 1)).toEqual({
+      source: "# T\r\n---\r\n\r\nnext\r\n",
+      caret: { line: 2, column: 0 },
+    });
   });
 });
 
