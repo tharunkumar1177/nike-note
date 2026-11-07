@@ -389,6 +389,143 @@ export function mergeWithPrevious(document: MarkdownDocument, index: number): Ed
   return { source: build(document, raws), caret: end };
 }
 
+/** Blocks `start` to `end` (exclusive) that move, copy, and delete together. */
+export interface BlockGroup {
+  start: number;
+  end: number;
+}
+
+/**
+ * Block `index` and what belongs to it: a list item takes the items nested
+ * under it; every other block stands alone.
+ */
+export function blockGroup(document: MarkdownDocument, index: number): BlockGroup {
+  const blocks = document.blocks;
+  const block = blocks[index];
+  if (!block || !isSingleLine(block)) return { start: index, end: index + 1 };
+  const parts = splitLine(blockText(block));
+  if (!LIST_KINDS.has(parts.kind)) return { start: index, end: index + 1 };
+  const width = indentWidth(parts.indent);
+  let end = index + 1;
+  for (let next = blocks[end]; next && isSingleLine(next); next = blocks[end]) {
+    const nested = splitLine(blockText(next));
+    if (!LIST_KINDS.has(nested.kind) || indentWidth(nested.indent) <= width) break;
+    end += 1;
+  }
+  return { start: index, end };
+}
+
+/** The first block index a block may be moved to: after front matter and the title. */
+function firstMovable(document: MarkdownDocument): number {
+  const title = titleBlockIndex(document.blocks);
+  const front = document.blocks[0]?.type === "frontMatter" ? 1 : 0;
+  return Math.max(front, title + 1);
+}
+
+/** Source line of block `index` in a list of block sources. */
+function lineOf(raws: readonly string[], index: number): number {
+  let line = 0;
+  for (const raw of raws.slice(0, index)) line += raw.split("\n").length - 1;
+  return line;
+}
+
+/** Block sources where every block ends with a line ending. */
+function endedRaws(document: MarkdownDocument): string[] {
+  return document.blocks.map((block) =>
+    endingOf(block.raw) === "" ? block.raw + document.eol : block.raw,
+  );
+}
+
+/**
+ * Move block `index` and the items nested under it so they come before the
+ * block now at `before` (the block count moves them to the end). Nothing
+ * moves above the title or front matter. Returns null when nothing would
+ * change, or for the title and front matter themselves. The caret goes to
+ * the start of the moved block.
+ */
+export function moveBlock(document: MarkdownDocument, index: number, before: number): Edit | null {
+  const first = firstMovable(document);
+  if (index < first || index >= document.blocks.length) return null;
+  const group = blockGroup(document, index);
+  const target = Math.min(Math.max(before, first), document.blocks.length);
+  if (target >= group.start && target <= group.end) return null;
+  const raws = endedRaws(document);
+  const moved = raws.splice(group.start, group.end - group.start);
+  const at = target > group.start ? target - moved.length : target;
+  raws.splice(at, 0, ...moved);
+  return { source: build(document, raws), caret: { line: lineOf(raws, at), column: 0 } };
+}
+
+/**
+ * Move block `index` (with its nested items) one step up or down: above the
+ * block before it, or below the next block and its nested items.
+ */
+export function moveBlockBy(document: MarkdownDocument, index: number, step: 1 | -1): Edit | null {
+  const group = blockGroup(document, index);
+  if (step > 0) {
+    if (group.end >= document.blocks.length) return null;
+    return moveBlock(document, index, blockGroup(document, group.end).end);
+  }
+  const level = levelOf(document, index);
+  for (let at = group.start - 1; at >= 0; at -= 1) {
+    if (blockGroup(document, at).end >= group.start && levelOf(document, at) <= level) {
+      return moveBlock(document, index, at);
+    }
+  }
+  return null;
+}
+
+/** How far block `index` is nested: a list item's indentation width, 0 for other blocks. */
+function levelOf(document: MarkdownDocument, index: number): number {
+  const block = document.blocks[index];
+  if (!block || !isSingleLine(block)) return 0;
+  const parts = splitLine(blockText(block));
+  return LIST_KINDS.has(parts.kind) ? indentWidth(parts.indent) : 0;
+}
+
+/**
+ * Copy block `index` (with its nested items) right after itself. The caret
+ * goes to the start of the copy.
+ */
+export function duplicateBlock(document: MarkdownDocument, index: number): Edit | null {
+  if (!document.blocks[index] || document.blocks[index]?.type === "frontMatter") return null;
+  const group = blockGroup(document, index);
+  const raws = endedRaws(document);
+  raws.splice(group.end, 0, ...raws.slice(group.start, group.end));
+  return { source: build(document, raws), caret: { line: lineOf(raws, group.end), column: 0 } };
+}
+
+/**
+ * Delete block `index` and the items nested under it. The caret goes to the
+ * end of the block before them, or the start of the page.
+ */
+export function deleteBlock(document: MarkdownDocument, index: number): Edit | null {
+  if (!document.blocks[index]) return null;
+  const group = blockGroup(document, index);
+  const raws = document.blocks.map((block) => block.raw);
+  raws.splice(group.start, group.end - group.start);
+  const previous = document.blocks[group.start - 1];
+  const caret = previous
+    ? positionInText(previous.line, blockText(previous), blockText(previous).length)
+    : { line: 0, column: 0 };
+  return { source: build(document, raws), caret };
+}
+
+/**
+ * Turn fenced code block `index` back into plain lines of text, dropping its
+ * fences. Returns null for other blocks.
+ */
+export function unwrapCode(document: MarkdownDocument, index: number): Edit | null {
+  const block = document.blocks[index];
+  if (!block || block.type !== "code") return null;
+  const rows = blockText(block).split("\n").slice(1);
+  if (block.closed) rows.pop();
+  return {
+    source: replaceBlockText(document, index, rows.join("\n")),
+    caret: { line: block.line, column: 0 },
+  };
+}
+
 /** Check or uncheck the to-do item at block `index`. */
 export function toggleTodo(document: MarkdownDocument, index: number): string {
   const raws = document.blocks.map((block) => block.raw);
