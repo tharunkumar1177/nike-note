@@ -131,7 +131,12 @@ impl Session {
         let path = string(params, "path")?;
         let content = string(params, "content")?;
         let base_hash = optional_string(params, "baseHash")?;
-        body::write_page(&self.workspace.root()?, &path, &content, base_hash.as_deref())
+        body::write_page(
+            &self.workspace.root()?,
+            &path,
+            &content,
+            base_hash.as_deref(),
+        )
     }
 
     /// Watch the notes folder and report changes as `filesChanged` events,
