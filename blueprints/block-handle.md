@@ -6,9 +6,9 @@ Hovering a block shows a six-dot handle in the left margin, like Notion. Draggin
 
 ## Current verified status
 
-**Status:** Planned
+**Status:** Implemented
 
-Not yet verified.
+Verified in CI (Markdown unit tests for block groups, moves, the title boundary, line endings, duplicate, delete, and unwrapping code; end-to-end tests for every criterion below) and by hand in Chrome on Windows with the CI build: on a CRLF page, the menu turned a line into Heading 2 and moved a list item up past a nested item, End and Escape moved focus as described, a real mouse drag put the last block under the title with the drop line shown, and Ctrl+Shift+Up and Ctrl+D carried a nested item along and kept typing in place, with CRLF endings kept throughout.
 
 ## Architecture dependencies
 
@@ -45,10 +45,10 @@ Not yet verified.
 
 ## Acceptance or verification criteria
 
-- [ ] The menu turns a line into Heading 2, duplicates it, moves a block up, and deletes a block chosen with End and Enter; Escape returns focus to the handle.
-- [ ] Moving a list item up carries its nested items with it, and Indent nests an item.
-- [ ] Dragging a block's handle onto the top half of another block moves it before that block.
-- [ ] Ctrl+Shift+Up and Ctrl+Shift+Down move the block being edited and Ctrl+D duplicates it, with typing going on at the same place.
+- [x] The menu turns a line into Heading 2, duplicates it, moves a block up, and deletes a block chosen with End and Enter; Escape returns focus to the handle.
+- [x] Moving a list item up carries its nested items with it, and Indent nests an item.
+- [x] Dragging a block's handle onto the top half of another block moves it before that block.
+- [x] Ctrl+Shift+Up and Ctrl+Shift+Down move the block being edited and Ctrl+D duplicates it, with typing going on at the same place.
 
 ## Remaining gaps and unknowns
 
