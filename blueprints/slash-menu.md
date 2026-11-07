@@ -6,7 +6,9 @@ Typing `/` in a line opens a menu of block types, like Notion: the text typed af
 
 ## Current verified status
 
-**Status:** Planned
+**Status:** Implemented
+
+Verified in CI (helper unit tests for folder naming, unique names, and `createPage` on Windows, macOS, and Linux; Markdown and app unit tests for turn-into, link lines, and command matching; end-to-end tests for every criterion below) and by hand in Chrome on Windows with the CI build: on a CRLF page, `/h3`, `/to` with Tab, the arrow keys (wrapping both ways), Escape, and `/pag` with Enter produced a heading, a to-do that kept its words, an untouched `/`, and a linked **Untitled** sub-page that opened at once, with CRLF endings kept.
 
 ## Architecture dependencies
 
@@ -44,12 +46,12 @@ Typing `/` in a line opens a menu of block types, like Notion: the text typed af
 
 ## Acceptance or verification criteria
 
-- [ ] Typing `/` on an empty line lists all 14 commands; typing `h2` highlights Heading 2 first, and Enter makes the line a level-2 heading saved as `## `.
-- [ ] Every roadmap command (`/h1` to `/h6`, `/quote`, `/bullet`, `/numbered`, `/todo`, `/code`, `/divider`, `/text`, `/page`) is the first match for its name.
-- [ ] Choosing an item keeps the words already on the line; the arrow keys move the highlight, Tab chooses, and a click chooses without losing focus.
-- [ ] Escape, a space, and a query with no match close the menu and keep the typed text.
-- [ ] `/page` creates a folder with `README.md` titled Untitled, writes `[Untitled](Untitled/README.md)` on the line, and opens the new page.
-- [ ] Folder names from titles are valid on Windows, macOS, and Linux and never collide with an existing folder, regardless of case.
+- [x] Typing `/` on an empty line lists all 14 commands; typing `h2` highlights Heading 2 first, and Enter makes the line a level-2 heading saved as `## `.
+- [x] Every roadmap command (`/h1` to `/h6`, `/quote`, `/bullet`, `/numbered`, `/todo`, `/code`, `/divider`, `/text`, `/page`) is the first match for its name.
+- [x] Choosing an item keeps the words already on the line; the arrow keys move the highlight, Tab chooses, and a click chooses without losing focus.
+- [x] Escape, a space, and a query with no match close the menu and keep the typed text.
+- [x] `/page` creates a folder with `README.md` titled Untitled, writes `[Untitled](Untitled/README.md)` on the line, and opens the new page.
+- [x] Folder names from titles are valid on Windows, macOS, and Linux and never collide with an existing folder, regardless of case.
 
 ## Remaining gaps and unknowns
 

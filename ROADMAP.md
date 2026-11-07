@@ -40,7 +40,7 @@ Pick the first unchecked slice. Route it through [the blueprint manifest](bluepr
 ### Notion-style editing
 
 - [x] 8. Block keyboard behavior and Markdown shortcuts while typing
-- [ ] 9. Slash menu: `/h1` to `/h6`, `/quote`, `/bullet`, `/numbered`, `/todo`, `/code`, `/divider`, `/text`, `/page`
+- [x] 9. Slash menu: `/h1` to `/h6`, `/quote`, `/bullet`, `/numbered`, `/todo`, `/code`, `/divider`, `/text`, `/page`
 - [ ] 10. Inline formatting with a selection toolbar
 - [ ] 11. Block handle: drag, turn into, duplicate, delete, indent and outdent
 - [ ] 12. Page operations: create a sub-page (folder, README, and link line), rename, move, delete
