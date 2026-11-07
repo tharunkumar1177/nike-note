@@ -16,6 +16,7 @@ mod pages;
 mod paths;
 mod protocol;
 mod relink;
+mod search;
 mod sync;
 #[cfg(test)]
 mod testdir;

@@ -4,9 +4,10 @@
  */
 import { useEffect, useState, useSyncExternalStore } from "react";
 
-import { FolderIcon } from "../shared/icons";
+import { FolderIcon, SearchIcon } from "../shared/icons";
 import { parseFilesChanged } from "../shared/pageBody";
 import { parseCreatedPage, type CreatedPage } from "../shared/pages";
+import { detectOs } from "../shared/platform";
 import type { HelloResult } from "../shared/protocol";
 import type { WorkspaceState } from "../shared/workspace";
 import { AssetContext, AssetStore } from "./assetStore";
@@ -15,11 +16,26 @@ import { createPageOps } from "./pageOps";
 import { PageTreeNav } from "./PageTreeNav";
 import { PageTreeStore } from "./pageTreeStore";
 import { PageView } from "./PageView";
-import { currentPage, subscribeRoute } from "./route";
+import { currentPage, openPage, subscribeRoute } from "./route";
+import { SearchDialog } from "./SearchDialog";
 import { StatusBar } from "./StatusBar";
 import { SyncNotice } from "./SyncNotice";
 import { SyncStore } from "./syncStore";
 import type { WorkspaceStore } from "./workspaceStore";
+
+/** The search shortcut's label for this computer. */
+const SEARCH_KEYS = detectOs(navigator.userAgent) === "macos" ? "⌘K" : "Ctrl+K";
+
+/**
+ * True for Ctrl+K or Ctrl+P (Command on macOS) that nothing else handled
+ * and that was not pressed inside an open dialog.
+ */
+function isSearchShortcut(event: KeyboardEvent): boolean {
+  const key = event.key.toLowerCase();
+  if (event.defaultPrevented || event.altKey || event.shiftKey) return false;
+  if (!(event.ctrlKey || event.metaKey) || (key !== "k" && key !== "p")) return false;
+  return !(event.target instanceof Element && event.target.closest("dialog"));
+}
 
 /**
  * Render the workspace for a notes folder that is ready to sync.
@@ -47,6 +63,17 @@ export function Workspace({
   const view = useSyncExternalStore(pages.subscribe, pages.getSnapshot);
   const syncView = useSyncExternalStore(sync.subscribe, sync.getSnapshot);
   const selected = useSyncExternalStore(subscribeRoute, currentPage);
+  const [searching, setSearching] = useState(false);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (!isSearchShortcut(event)) return;
+      event.preventDefault();
+      setSearching(true);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   useEffect(() => {
     void pages.load();
@@ -106,6 +133,16 @@ export function Workspace({
             {workspace.rootName}
           </span>
         </div>
+        <button
+          type="button"
+          className="sidebar__search"
+          aria-keyshortcuts="Control+K Meta+K"
+          onClick={() => setSearching(true)}
+        >
+          <SearchIcon />
+          <span>Search</span>
+          <kbd className="sidebar__keys">{SEARCH_KEYS}</kbd>
+        </button>
         <div className="sidebar__pages">
           {tree && <PageTreeNav root={tree.root} selected={selected} ops={ops} />}
           {tree?.truncated && (
@@ -149,6 +186,17 @@ export function Workspace({
         sync={syncView}
         onSyncNow={() => sync.syncNow()}
       />
+      {searching && tree && (
+        <SearchDialog
+          helper={store.helper}
+          root={tree.root}
+          onOpen={(path) => {
+            setSearching(false);
+            openPage(path);
+          }}
+          onClose={() => setSearching(false)}
+        />
+      )}
     </div>
   );
 }
