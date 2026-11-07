@@ -48,20 +48,26 @@ jobs:
           path: pnpm-lock.yaml
           if-no-files-found: error
 
-  # Fails until the regenerated pnpm-lock.yaml from the "lockfile" artifact is committed,
-  # so main never depends on a lockfile that only existed inside CI.
+  # Fails until regenerated lockfiles from the "lockfile" and "cargo-lockfile"
+  # artifacts are committed, so main never depends on a lockfile that only existed inside CI.
   lockfile:
     needs: install
     runs-on: ubuntu-latest
     steps:
-      - name: Require the committed lockfile to be current
+      - uses: actions/checkout@v7
+      - name: Require the committed pnpm-lock.yaml to be current
         if: needs.install.outputs.lockfile-changed == 'true'
         run: |
           echo "::error file=pnpm-lock.yaml::pnpm-lock.yaml is out of date. Commit the lockfile artifact from this run."
           exit 1
-      - name: Lockfile is current
-        if: needs.install.outputs.lockfile-changed != 'true'
-        run: echo "pnpm-lock.yaml matches package.json files."
+      - name: Require the committed Cargo.lock to be current
+        working-directory: helper
+        run: |
+          rustup toolchain install
+          if ! cargo metadata --locked --format-version 1 > /dev/null; then
+            echo "::error file=helper/Cargo.lock::helper/Cargo.lock is out of date. Commit the cargo-lockfile artifact from this run."
+            exit 1
+          fi
 
   lint:
     needs: install
@@ -169,10 +175,10 @@ jobs:
           workspaces: helper
       - name: Choose lockfile mode
         run: |
-          if [ -f Cargo.lock ]; then
+          if [ -f Cargo.lock ] && cargo metadata --locked --format-version 1 > /dev/null; then
             echo "CARGO_LOCK_FLAG=--locked" >> "$GITHUB_ENV"
           else
-            cargo generate-lockfile
+            cargo metadata --format-version 1 > /dev/null
             echo "CARGO_LOCK_FLAG=" >> "$GITHUB_ENV"
           fi
       - name: Format

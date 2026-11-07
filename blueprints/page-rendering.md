@@ -2,14 +2,13 @@
 
 ## Outcome or responsibility
 
-Opening a page shows its `README.md` body as read-only blocks, laid out the way Notion lays out a page: the first `# ` heading becomes the page title, every other line becomes a block with inline formatting, sub-page link lines become page blocks, and links are safe to click. Covers the helper's `readPage`, the shared page path check, the `@quire/markdown` package, and the app's body store and block views.
+Opening a page shows its `README.md` body as formatted blocks, laid out the way Notion lays out a page: the first `# ` heading becomes the page title, every other line becomes a block with inline formatting, sub-page link lines become page blocks, and links are safe to click. Covers the helper's `readPage`, the shared page path check, the `@quire/markdown` parser, and the app's block views. Editing is covered by [page-editing](page-editing.md).
 
 ## Current verified status
 
 **Status:** Implemented
 
-Delivered by slice 5. Markdown unit tests (including a seeded random round trip) and helper unit tests for path safety and page reads pass on all three operating systems; `e2e/rendering.spec.ts` covers every block type, link safety, sub-page links, and the size limit on Linux. The CI build was checked by hand in Chrome on Windows with a CRLF file that starts with a byte order mark. Pages are read-only until slice 6.
-
+Delivered by slice 5. Markdown unit tests (including a seeded random round trip) and helper unit tests for path safety and page reads pass on all three operating systems; `e2e/rendering.spec.ts` covers every block type, link safety, sub-page links, and the size limit on Linux. The CI build was checked by hand in Chrome on Windows with a CRLF file that starts with a byte order mark.
 ## Architecture dependencies
 
 - [Block model and line mapping](../architecture.md#block-model-and-line-mapping): `readPage`, block boundaries, byte-exact round trips, list nesting, the title block, and link handling.
@@ -26,7 +25,7 @@ Delivered by slice 5. Markdown unit tests (including a seeded random round trip)
 - The page title is the only `h1`. Body headings render one HTML level below their Markdown level (`##` as `h3`), capped at `h6`, while their styling follows the Markdown level.
 - Numbered items show a running count from the first item of each run, as Markdown renderers do, and keep their source number in the file.
 - The app renders with React elements only (no `innerHTML`), so Markdown cannot inject markup or script.
-- Body loading (`src/app/pageBodyStore.ts`): a response for a page that is no longer open is ignored. Reloading the open page keeps the old body on screen until the new one arrives. The body reloads with the tree when the tab becomes visible.
+- Body loading and freshness are owned by the editor store; see [page-editing](page-editing.md). A response for a page that is no longer open is ignored, and the tree title is shown while a page loads.
 - Tables and front matter show their source (front matter collapsed under **Properties**) until slice 13 adds table editing.
 - The **Sub-pages** list shows only child pages that the body does not already link, after the body has loaded.
 
@@ -45,9 +44,9 @@ Delivered by slice 5. Markdown unit tests (including a seeded random round trip)
 
 - `packages/markdown/src/{lines,links,blocks,inline,index}.ts`, with `packages/markdown/tests/`
 - `helper/src/paths.rs`: page path check, with unit tests
-- `helper/src/pages.rs`: `read_page`, with unit tests
-- `apps/extension/src/shared/pageBody.ts`, `apps/extension/src/app/pageBodyStore.ts`
-- `apps/extension/src/app/blocks/{BlockList,InlineView}.tsx`, `apps/extension/src/app/PageView.tsx`
+- `helper/src/body.rs`: `read_page`, with unit tests
+- `apps/extension/src/shared/pageBody.ts`
+- `apps/extension/src/app/blocks/{BlockView,InlineView}.tsx`, `apps/extension/src/app/PageView.tsx`
 - `apps/extension/e2e/rendering.spec.ts`
 
 ## Acceptance or verification criteria

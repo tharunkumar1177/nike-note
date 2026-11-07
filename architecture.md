@@ -129,7 +129,7 @@ Workspace methods answer with the workspace state `{ root, rootName, rootError, 
 - `readPage { path }` returns `{ path, exists, content }`: the exact text of the page's `README.md`, including any byte order mark and its line endings. A folder without `README.md` gives `exists: false` and empty content. Bodies larger than 512 KiB get `TOO_LARGE`, so the JSON reply stays under the 1 MiB limit; bodies that are not UTF-8 get `IO`.
 - A page body is an ordered list of blocks. Each block owns a contiguous range of source lines and keeps their original text (`raw`, with line endings).
 - One line is one block, except fenced code blocks, tables, and front matter, which are each one multi-line block. An unclosed fence runs to the end of the file. Front matter is recognized only on the first line.
-- Serializing joins every block's `raw` after the byte order mark, so an unedited document round-trips byte for byte. Edited blocks (slice 6) are re-rendered from their model with the file's dominant line ending (`\n` or `\r\n`).
+- Serializing joins every block's `raw` after the byte order mark, so an unedited document round-trips byte for byte. An edit replaces only the source lines of the blocks it touches, keeping their line ending; new lines use the file's dominant line ending (`\n` or `\r\n`). After every edit the whole text is parsed again, so typing Markdown syntax into a line changes its block type.
 - List nesting is relative: an item indented more than the item above nests one level deeper, up to 8 levels. A line of `---`, `***`, or `___` is always a divider; setext headings are not supported.
 - The page's title block is the first `# ` heading (the [Page structure](#page-structure) title rule). The app shows it as the page title and not again in the body.
 - The block-type set and its Markdown syntax are defined in [plan.md](plan.md#block-mapping) and implemented only in `packages/markdown`. The helper keeps its own line scanner for titles and link lines; both must accept the same link-line forms.
@@ -137,7 +137,12 @@ Workspace methods answer with the workspace state `{ root, rootName, rootError, 
 
 ### File write-back and change watching
 
-**Intended (slice 6).** The app writes a whole `README.md` with `writeFile { path, content, baseHash }`. The helper refuses the write with `STALE` when the file's current SHA-256 differs from `baseHash`. Writes go to a temporary file in the same folder, followed by an atomic rename. The helper watches the whole tree and emits `filesChanged` events. It rescans after its own Git operations and when the watcher reports lost events.
+- `readPage` also returns `hash`, the lowercase hex SHA-256 of the file's bytes (`null` without a `README.md`).
+- The app writes a whole `README.md` with `writePage { path, content, baseHash }` and gets `{ path, hash }`. `baseHash` is the hash the app last read or wrote, or `null` to create the file. The helper refuses the write with `STALE` when the file's current hash differs, and with `TOO_LARGE` over 512 KiB.
+- Writes go to a dot-named temporary file in the same folder, are flushed to disk, and are renamed over the old file, keeping its permissions. A symbolic link to a file inside the notes folder is written through; one pointing outside is refused with `OUTSIDE_ROOT`.
+- `watch` starts a recursive watch of the notes folder for this connection (replacing any earlier one; `setRoot` stops it). The helper then sends `{ "event": "filesChanged", "data": { "pages": [<page path>...], "rescan": <bool> } }` after changes settle (150 ms of quiet, at most 1 s of delay). `pages` lists pages whose `README.md` changed. Changes under dot folders (`.git`), `assets` folders, and dot files are ignored. `rescan` is true when the watcher lost events or more than 500 pages changed, and then `pages` is empty. Any event may also mean the page tree changed.
+- The app saves 700 ms after the last edit, and at once when the user switches pages or hides the tab. It never replaces unsaved text with a newer file; that is a conflict, and the user chooses which version to keep. Its own writes come back as events whose hash matches what it wrote, and are ignored.
+- If the watch cannot start, the app falls back to reloading when the tab becomes visible.
 
 ### Git sync
 
@@ -168,8 +173,8 @@ Popup **Open Quire** focuses an existing app tab (found with `chrome.runtime.get
 
 | Level | Establishes |
 | --- | --- |
-| Unit (Vitest) | Protocol validators, helper client request matching, Markdown block and inline parsing, byte-exact round trips, link rules |
-| Unit (`cargo test`) | Framing, envelope handling, origin check, registration paths and manifests, page path safety, page reads |
+| Unit (Vitest) | Protocol validators, helper client request matching, Markdown block and inline parsing, byte-exact round trips, source edits, link rules |
+| Unit (`cargo test`) | Framing, envelope handling, origin check, registration paths and manifests, page path safety, page reads and guarded writes, change classification and a live watch |
 | Install smoke (CI, each OS) | `install` writes the manifests or registry keys; `uninstall` removes them |
 | End-to-end (Playwright, Linux) | User-visible slice acceptance on the unpacked extension talking to the real helper |
 

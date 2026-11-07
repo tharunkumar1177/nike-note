@@ -5,9 +5,10 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 
 import { FolderIcon } from "../shared/icons";
+import { parseFilesChanged } from "../shared/pageBody";
 import type { HelloResult } from "../shared/protocol";
 import type { WorkspaceState } from "../shared/workspace";
-import { PageBodyStore } from "./pageBodyStore";
+import { PageEditorStore } from "./pageEditorStore";
 import { PageTreeNav } from "./PageTreeNav";
 import { PageTreeStore } from "./pageTreeStore";
 import { PageView } from "./PageView";
@@ -28,20 +29,41 @@ export function Workspace({
   store: WorkspaceStore;
 }) {
   const [pages] = useState(() => new PageTreeStore(store.helper));
-  const [bodies] = useState(() => new PageBodyStore(store.helper));
+  const [editor] = useState(() => new PageEditorStore(store.helper));
   const view = useSyncExternalStore(pages.subscribe, pages.getSnapshot);
   const selected = useSyncExternalStore(subscribeRoute, currentPage);
 
   useEffect(() => {
     void pages.load();
-    const reloadWhenVisible = (): void => {
-      if (document.visibilityState !== "visible") return;
+    const stopEvents = store.helper.onEvent((event, data) => {
+      if (event !== "filesChanged") return;
       void pages.load();
-      void bodies.reload();
+      void editor.refresh(parseFilesChanged(data)?.pages ?? null);
+    });
+    store.helper.request("watch", {}, () => undefined).catch((error: unknown) => {
+      console.warn("Quire: changes made outside Quire show up when the tab is shown again", error);
+    });
+    const onVisibility = (): void => {
+      if (document.visibilityState === "hidden") {
+        editor.flushAll();
+        return;
+      }
+      void pages.load();
+      void editor.refresh(null);
     };
-    document.addEventListener("visibilitychange", reloadWhenVisible);
-    return () => document.removeEventListener("visibilitychange", reloadWhenVisible);
-  }, [pages, bodies]);
+    const onBeforeUnload = (event: BeforeUnloadEvent): void => {
+      if (!editor.hasUnsaved()) return;
+      editor.flushAll();
+      event.preventDefault();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => {
+      stopEvents();
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("beforeunload", onBeforeUnload);
+    };
+  }, [pages, editor, store]);
 
   const tree = view.tree;
   return (
@@ -76,7 +98,7 @@ export function Workspace({
         </div>
       </aside>
       {tree ? (
-        <PageView root={tree.root} path={selected} bodies={bodies} />
+        <PageView root={tree.root} path={selected} editor={editor} />
       ) : (
         <main className="page" aria-busy={view.loading} />
       )}

@@ -8,6 +8,7 @@ use std::thread;
 
 use serde_json::{Map, Value, json};
 
+use crate::body;
 use crate::config;
 use crate::dirs;
 use crate::framing::{ReadError, read_frame, write_frame};
@@ -16,6 +17,7 @@ use crate::identity::{ALLOWED_ORIGIN, EXTENSION_ID, PROTOCOL_VERSION};
 use crate::install::TargetOs;
 use crate::pages;
 use crate::protocol::{ErrorCode, Outgoing, ProtocolError, Request, encode, parse_request};
+use crate::watch::{self, PageWatch};
 use crate::workspace::{Workspace, status_for};
 
 /// Outcome of dispatching one request.
@@ -31,6 +33,7 @@ pub struct Session {
     greeted: bool,
     workspace: Workspace,
     out: Sender<Outgoing>,
+    watch: Option<PageWatch>,
 }
 
 impl Session {
@@ -40,6 +43,7 @@ impl Session {
             greeted: false,
             workspace,
             out,
+            watch: None,
         }
     }
 
@@ -89,7 +93,9 @@ impl Session {
                 .root()
                 .and_then(|root| pages::page_tree(&root)),
             "readPage" => string(params, "path")
-                .and_then(|path| pages::read_page(&self.workspace.root()?, &path)),
+                .and_then(|path| body::read_page(&self.workspace.root()?, &path)),
+            "writePage" => self.write_page(params),
+            "watch" => self.start_watch(),
             "gitInit" => self.with_root(git::init),
             "gitSetIdentity" => string(params, "name").and_then(|name| {
                 let email = string(params, "email")?;
@@ -114,7 +120,38 @@ impl Session {
                 format!("Unknown method \"{other}\"."),
             )),
         };
+        if request.method == "setRoot" && result.is_ok() {
+            self.watch = None;
+        }
         Dispatch::Reply(result)
+    }
+
+    /// Save a page body only over the version the app read (`writePage`).
+    fn write_page(&self, params: &Map<String, Value>) -> Result<Value, ProtocolError> {
+        let path = string(params, "path")?;
+        let content = string(params, "content")?;
+        let base_hash = optional_string(params, "baseHash")?;
+        body::write_page(
+            &self.workspace.root()?,
+            &path,
+            &content,
+            base_hash.as_deref(),
+        )
+    }
+
+    /// Watch the notes folder and report changes as `filesChanged` events,
+    /// replacing any earlier watch (`watch`).
+    fn start_watch(&mut self) -> Result<Value, ProtocolError> {
+        let root = self.workspace.root()?;
+        self.watch = None;
+        let watch = watch::start(&root, self.out.clone()).map_err(|error| {
+            ProtocolError::new(
+                ErrorCode::Io,
+                format!("Cannot watch {}: {error}", root.display()),
+            )
+        })?;
+        self.watch = Some(watch);
+        Ok(json!({ "watching": true }))
     }
 
     /// Run a step against the notes folder and answer with the new workspace state.
@@ -283,6 +320,7 @@ mod tests {
         while let Ok(frame) = read_frame(&mut cursor) {
             replies.push(serde_json::from_slice(&frame).unwrap());
         }
+        replies.retain(|reply| reply.get("event").is_none());
         replies.sort_by_key(|reply| reply["id"].as_u64().unwrap_or(0));
         replies
     }
@@ -398,6 +436,29 @@ mod tests {
         assert_eq!(replies[6]["result"]["git"]["isRepo"], json!(true));
         assert_eq!(replies[7]["error"]["code"], json!("BAD_REQUEST"));
         assert!(config::read_root(&settings).is_some());
+    }
+
+    #[test]
+    fn pages_are_written_only_over_the_version_read() {
+        let dir = TestDir::new("host-write");
+        let mut workspace = Workspace::load(None);
+        workspace.set_root(&dir.path().to_string_lossy()).unwrap();
+        let replies = exchange_with(
+            workspace,
+            &[
+                hello_request(1),
+                json!({ "id": 2, "method": "writePage", "params": { "path": "", "content": "# Home\n" } }),
+                json!({ "id": 3, "method": "writePage", "params": { "path": "", "content": "# Again\n" } }),
+                json!({ "id": 4, "method": "readPage", "params": { "path": "" } }),
+                json!({ "id": 5, "method": "watch" }),
+                json!({ "id": 6, "method": "writePage", "params": { "path": "" } }),
+            ],
+        );
+        assert_eq!(replies[1]["result"]["hash"], replies[3]["result"]["hash"]);
+        assert_eq!(replies[2]["error"]["code"], json!("STALE"));
+        assert_eq!(replies[3]["result"]["content"], json!("# Home\n"));
+        assert_eq!(replies[4]["result"]["watching"], json!(true));
+        assert_eq!(replies[5]["error"]["code"], json!("BAD_REQUEST"));
     }
 
     #[test]

@@ -12,6 +12,24 @@ export {
   type HeadingLevel,
   type MarkdownDocument,
 } from "./blocks";
+export {
+  blockAtLine,
+  blockLineCount,
+  blockText,
+  insertLines,
+  isSingleLine,
+  mergeWithPrevious,
+  offsetInBlock,
+  positionInText,
+  removeBlock,
+  replaceBlockText,
+  setTitle,
+  splitBlock,
+  titleText,
+  toggleTodo,
+  type Edit,
+  type SourcePosition,
+} from "./edit";
 export { inlineText, parseInline, type Inline } from "./inline";
 export {
   README,
