@@ -53,6 +53,7 @@ System overview diagram: [assets/diagrams/system-overview.mmd](assets/diagrams/s
 
 ### Extension identity
 
+- Permissions are `nativeMessaging` and `storage` only; there are no host permissions.
 - The manifest carries a fixed public `key`, so the extension ID is always `hbddhigdogedopjjlihlkpehidopddac` when loaded unpacked.
 - The helper's allowed origin is `chrome-extension://hbddhigdogedopjjlihlkpehidopddac/`. The extension ID and the host name are defined once in each language (`apps/extension/src/shared/identity.ts` and `helper/src/identity.rs`), and both must change together.
 - A store-published build gets a store-assigned ID; adding it to the allowed origins is a release-time change to both files.
@@ -183,7 +184,10 @@ The app syncs once when the workspace opens, 5 seconds after file changes settle
 
 ### AI providers
 
-**Intended (slice 15).** A provider registry maps provider IDs to a label, an API host, and a lazy `load()` import. Each adapter implements `AiProvider` (`listModels`, `stream`). App code never imports a provider SDK directly. Provider hosts are `optional_host_permissions` requested on selection. The key is stored in `chrome.storage.local`. A CI check fails the build if a provider SDK appears in a startup chunk.
+- A provider registry (`apps/extension/src/app/ai/providers.ts`) maps each provider ID to a label, the page where keys are created, and a lazy `load()` that dynamically imports its adapter. Each adapter implements `AiProvider`: `listModels(key, signal)` and `stream({ key, model, system, prompt, signal })`, which yields text as it arrives. App code reaches a provider only through the registry and never imports a provider SDK directly. Gemini (`@google/genai`) is the only provider.
+- The app page calls the provider's API directly with the user's key. The Gemini API answers cross-origin requests from the extension's origin, so no host permission is requested. The helper is not involved, and nothing else leaves the computer.
+- Settings `{ provider, model, key }` are stored under `ai` in `chrome.storage.local` (the `storage` permission), never in the notes folder or the helper's config. Every open Quire tab follows changes.
+- The build fails when a provider SDK module is in an entry chunk or in a chunk an entry imports statically (`startupLeaks` in the build plugin), so SDKs load only when an AI action first runs.
 
 ## Cross-cutting flows
 
@@ -202,7 +206,7 @@ Popup **Open Quire** focuses an existing app tab (found with `chrome.runtime.get
 
 | Level | Establishes |
 | --- | --- |
-| Unit (Vitest) | Protocol validators, helper client request matching, Markdown block and inline parsing, byte-exact round trips, source edits, link rules, sync and search results, search highlighting |
+| Unit (Vitest) | Protocol validators, helper client request matching, Markdown block and inline parsing, byte-exact round trips, source edits, link rules, sync and search results, search highlighting, AI settings, model choice, prompts, and error messages, the startup-chunk check |
 | Unit (`cargo test`) | Framing, envelope handling, origin check, registration paths and manifests, page path safety, page reads and guarded writes, change classification and a live watch, sync against a local bare remote and a second clone, search matching, ranking, snippets, and supersession |
 | Install smoke (CI, each OS) | `install` writes the manifests or registry keys; `uninstall` removes them |
 | End-to-end (Playwright, Linux) | User-visible slice acceptance on the unpacked extension talking to the real helper |
