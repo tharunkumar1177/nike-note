@@ -1,6 +1,6 @@
 /**
- * Workspace for a set-up notes folder: page tree sidebar, the open page, and
- * the status bar. One instance per notes folder.
+ * Workspace for a set-up notes folder: page tree sidebar, the open page,
+ * auto-sync, and the status bar. One instance per notes folder.
  */
 import { useEffect, useState, useSyncExternalStore } from "react";
 
@@ -14,6 +14,8 @@ import { PageTreeStore } from "./pageTreeStore";
 import { PageView } from "./PageView";
 import { currentPage, subscribeRoute } from "./route";
 import { StatusBar } from "./StatusBar";
+import { SyncNotice } from "./SyncNotice";
+import { SyncStore } from "./syncStore";
 import type { WorkspaceStore } from "./workspaceStore";
 
 /**
@@ -30,15 +32,25 @@ export function Workspace({
 }) {
   const [pages] = useState(() => new PageTreeStore(store.helper));
   const [editor] = useState(() => new PageEditorStore(store.helper));
+  const [sync] = useState(
+    () =>
+      new SyncStore(store.helper, () => {
+        void pages.load();
+        void editor.refresh(null);
+      }),
+  );
   const view = useSyncExternalStore(pages.subscribe, pages.getSnapshot);
+  const syncView = useSyncExternalStore(sync.subscribe, sync.getSnapshot);
   const selected = useSyncExternalStore(subscribeRoute, currentPage);
 
   useEffect(() => {
     void pages.load();
+    sync.start();
     const stopEvents = store.helper.onEvent((event, data) => {
       if (event !== "filesChanged") return;
       void pages.load();
       void editor.refresh(parseFilesChanged(data)?.pages ?? null);
+      sync.changed();
     });
     store.helper.request("watch", {}, () => undefined).catch((error: unknown) => {
       console.warn("Quire: changes made outside Quire show up when the tab is shown again", error);
@@ -46,6 +58,7 @@ export function Workspace({
     const onVisibility = (): void => {
       if (document.visibilityState === "hidden") {
         editor.flushAll();
+        sync.hidden();
         return;
       }
       void pages.load();
@@ -60,10 +73,11 @@ export function Workspace({
     window.addEventListener("beforeunload", onBeforeUnload);
     return () => {
       stopEvents();
+      sync.dispose();
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("beforeunload", onBeforeUnload);
     };
-  }, [pages, editor, store]);
+  }, [pages, editor, sync, store]);
 
   const tree = view.tree;
   return (
@@ -91,6 +105,7 @@ export function Workspace({
             </div>
           )}
         </div>
+        <SyncNotice sync={syncView} onSyncNow={() => sync.syncNow()} />
         <div className="sidebar__footer">
           <button type="button" className="sidebar__action" onClick={() => store.setPicking(true)}>
             Change folder
@@ -102,7 +117,12 @@ export function Workspace({
       ) : (
         <main className="page" aria-busy={view.loading} />
       )}
-      <StatusBar hello={hello} workspace={workspace} />
+      <StatusBar
+        hello={hello}
+        workspace={workspace}
+        sync={syncView}
+        onSyncNow={() => sync.syncNow()}
+      />
     </div>
   );
 }

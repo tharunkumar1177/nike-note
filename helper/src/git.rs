@@ -31,7 +31,7 @@ fn git_command(dir: &Path) -> Command {
 }
 
 /// Run git and capture its output.
-fn run(dir: &Path, args: &[&str]) -> Result<Output, ProtocolError> {
+pub(crate) fn run(dir: &Path, args: &[&str]) -> Result<Output, ProtocolError> {
     git_command(dir)
         .args(args)
         .output()
@@ -45,25 +45,30 @@ fn run(dir: &Path, args: &[&str]) -> Result<Output, ProtocolError> {
 }
 
 /// Run git and return trimmed standard output, or a `GIT` error with its message.
-fn run_ok(dir: &Path, args: &[&str]) -> Result<String, ProtocolError> {
+pub(crate) fn run_ok(dir: &Path, args: &[&str]) -> Result<String, ProtocolError> {
     let output = run(dir, args)?;
     if output.status.success() {
         return Ok(String::from_utf8_lossy(&output.stdout).trim().to_string());
     }
-    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-    let detail = if stderr.is_empty() {
-        String::from_utf8_lossy(&output.stdout).trim().to_string()
-    } else {
-        stderr
-    };
+    let command = args.first().unwrap_or(&"");
     Err(ProtocolError::new(
         ErrorCode::Git,
-        format!("git {} failed: {detail}", args.first().unwrap_or(&"")),
+        format!("git {command} failed: {}", detail(&output)),
     ))
 }
 
+/// Git's own explanation of a failed command: standard error, or standard output when empty.
+pub(crate) fn detail(output: &Output) -> String {
+    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+    if stderr.is_empty() {
+        String::from_utf8_lossy(&output.stdout).trim().to_string()
+    } else {
+        stderr
+    }
+}
+
 /// Run a read-only git query; any failure means "no value".
-fn query(dir: &Path, args: &[&str]) -> Option<String> {
+pub(crate) fn query(dir: &Path, args: &[&str]) -> Option<String> {
     run_ok(dir, args).ok().filter(|value| !value.is_empty())
 }
 
@@ -201,7 +206,7 @@ pub fn publish(root: &Path) -> Result<(), ProtocolError> {
 }
 
 /// Fail with a clear message when the folder is not a repository root.
-fn require_repo(root: &Path) -> Result<(), ProtocolError> {
+pub(crate) fn require_repo(root: &Path) -> Result<(), ProtocolError> {
     if is_repo_root(root) {
         Ok(())
     } else {

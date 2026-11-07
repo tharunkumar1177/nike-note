@@ -1029,3 +1029,56 @@ h1.page__title:focus-visible {
 .status-dot--error {
   background: var(--q-danger);
 }
+
+.status-dot--busy {
+  background: var(--q-text-faint);
+  animation: status-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes status-pulse {
+  50% {
+    opacity: 0.3;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .status-dot--busy {
+    animation: none;
+  }
+}
+
+.status-bar__action {
+  margin-left: calc(-1 * var(--q-space-3));
+  padding: 1px 6px;
+  border: none;
+  border-radius: var(--q-radius-sm);
+  background: none;
+  color: var(--q-text-muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.status-bar__action:hover {
+  background: var(--q-bg-hover);
+  color: var(--q-text);
+}
+
+.sync-notice {
+  margin: var(--q-space-2);
+  padding: var(--q-space-2);
+  border: 1px solid var(--q-warning);
+  border-radius: var(--q-radius-sm);
+  color: var(--q-text);
+  font-size: var(--q-text-sm);
+}
+
+.sync-notice p {
+  margin: 0 0 var(--q-space-1);
+}
+
+.sync-notice ul {
+  margin: 0 0 var(--q-space-2);
+  padding-left: var(--q-space-4);
+  color: var(--q-text-muted);
+  overflow-wrap: anywhere;
+}
