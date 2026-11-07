@@ -84,7 +84,10 @@ impl Session {
             "createDir" => string(params, "parent")
                 .and_then(|parent| dirs::create_dir(&parent, &string(params, "name")?)),
             "setRoot" => string(params, "path").and_then(|path| self.workspace.set_root(&path)),
-            "pageTree" => self.workspace.root().and_then(|root| pages::page_tree(&root)),
+            "pageTree" => self
+                .workspace
+                .root()
+                .and_then(|root| pages::page_tree(&root)),
             "gitInit" => self.with_root(git::init),
             "gitSetIdentity" => string(params, "name").and_then(|name| {
                 let email = string(params, "email")?;
