@@ -72,12 +72,19 @@ test("setup errors are shown and the step can be retried", async ({ openApp }) =
   await app.getByRole("button", { name: "Create" }).click();
   await app.getByRole("button", { name: "Use this folder" }).click();
   await app.getByRole("button", { name: "Turn on Git" }).click();
-  await app.getByRole("textbox", { name: "Name" }).fill("Ana Writer");
-  await app.getByRole("textbox", { name: "Email" }).fill("not-an-email");
+  const name = app.getByRole("textbox", { name: "Name" });
+  const email = app.getByRole("textbox", { name: "Email" });
+  await name.fill("Ana Writer");
+  await email.fill("not-an-email");
+  await app.getByRole("button", { name: "Save" }).click();
+  expect(await email.evaluate((input: HTMLInputElement) => input.validity.valid)).toBe(false);
+
+  await name.fill("-Ana");
+  await email.fill("ana@example.com");
   await app.getByRole("button", { name: "Save" }).click();
   await expect(app.getByRole("alert")).toBeVisible();
 
-  await app.getByRole("textbox", { name: "Email" }).fill("ana@example.com");
+  await name.fill("Ana Writer");
   await app.getByRole("button", { name: "Save" }).click();
   await expect(app.getByRole("textbox", { name: "Repository URL" })).toBeVisible();
   await expect(app.getByRole("alert")).toHaveCount(0);
