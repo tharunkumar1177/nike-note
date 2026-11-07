@@ -875,6 +875,10 @@ body,
   overflow-y: auto;
 }
 
+.ai-output:empty {
+  display: none;
+}
+
 .ai-output__waiting,
 .ai-output__note {
   margin: 0;
