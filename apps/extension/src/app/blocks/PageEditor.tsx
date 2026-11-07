@@ -162,6 +162,10 @@ function SourceBox({
   onBlur: (event: FocusEvent<HTMLTextAreaElement>) => void;
 }) {
   const box = useRef<HTMLTextAreaElement>(null);
+  const latestOnSelect = useRef(onSelect);
+  useLayoutEffect(() => {
+    latestOnSelect.current = onSelect;
+  });
   useLayoutEffect(() => {
     const element = box.current;
     if (!element) return;
@@ -171,6 +175,7 @@ function SourceBox({
     if (element.selectionStart !== start || element.selectionEnd !== end) {
       element.setSelectionRange(start, end);
     }
+    if (start !== end) latestOnSelect.current?.(element);
   }, [caret, anchor, request]);
   return (
     <textarea
@@ -395,9 +400,9 @@ export function PageEditor({
       column: shift + result.end,
       anchor: shift + result.start,
     });
-    setToolbar((current) =>
-      current && result.start !== result.end
-        ? { ...current, start: result.start, end: result.end, linking: false }
+    setToolbar(
+      toolbar && result.start !== result.end
+        ? { ...toolbar, start: result.start, end: result.end, linking: false }
         : null,
     );
   };
