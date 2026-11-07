@@ -589,7 +589,10 @@ mod tests {
         assert_eq!(saved["path"], json!("Ideas"));
         assert_eq!(read(root, "Ideas/README.md"), "# Ideas\n");
 
-        assert_eq!(rename_page(root, "", "Notes", None).unwrap()["path"], json!(""));
+        assert_eq!(
+            rename_page(root, "", "Notes", None).unwrap()["path"],
+            json!("")
+        );
         let home = read(root, "README.md");
         assert!(home.starts_with("# Notes\n[Trip: Japan]"));
     }
