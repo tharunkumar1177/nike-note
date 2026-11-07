@@ -1,0 +1,9 @@
+{
+  // ES2023 only: the parser uses no DOM APIs. Node types are for the test runner's typings.
+  "extends": "@quire/config/tsconfig/base.json",
+  "compilerOptions": {
+    "lib": ["ES2023"],
+    "types": ["node"]
+  },
+  "include": ["src/**/*.ts", "tests/**/*.ts", "vitest.config.ts"]
+}

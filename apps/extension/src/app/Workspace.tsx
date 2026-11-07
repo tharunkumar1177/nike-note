@@ -7,6 +7,7 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import { FolderIcon } from "../shared/icons";
 import type { HelloResult } from "../shared/protocol";
 import type { WorkspaceState } from "../shared/workspace";
+import { PageBodyStore } from "./pageBodyStore";
 import { PageTreeNav } from "./PageTreeNav";
 import { PageTreeStore } from "./pageTreeStore";
 import { PageView } from "./PageView";
@@ -27,17 +28,20 @@ export function Workspace({
   store: WorkspaceStore;
 }) {
   const [pages] = useState(() => new PageTreeStore(store.helper));
+  const [bodies] = useState(() => new PageBodyStore(store.helper));
   const view = useSyncExternalStore(pages.subscribe, pages.getSnapshot);
   const selected = useSyncExternalStore(subscribeRoute, currentPage);
 
   useEffect(() => {
     void pages.load();
     const reloadWhenVisible = (): void => {
-      if (document.visibilityState === "visible") void pages.load();
+      if (document.visibilityState !== "visible") return;
+      void pages.load();
+      void bodies.reload();
     };
     document.addEventListener("visibilitychange", reloadWhenVisible);
     return () => document.removeEventListener("visibilitychange", reloadWhenVisible);
-  }, [pages]);
+  }, [pages, bodies]);
 
   const tree = view.tree;
   return (
@@ -72,7 +76,7 @@ export function Workspace({
         </div>
       </aside>
       {tree ? (
-        <PageView root={tree.root} path={selected} />
+        <PageView root={tree.root} path={selected} bodies={bodies} />
       ) : (
         <main className="page" aria-busy={view.loading} />
       )}
