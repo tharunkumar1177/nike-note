@@ -19,10 +19,17 @@ function shapes(source: string): unknown[] {
 describe("image blocks", () => {
   it("reads a line that is only an image", () => {
     expect(shapes('![Map of Kyoto](assets/kyoto%20map.png "Day 1")\n')).toEqual([
-      { type: "image", alt: "Map of Kyoto", src: "assets/kyoto%20map.png", title: "Day 1" },
+      {
+        type: "image",
+        alt: "Map of Kyoto",
+        src: "assets/kyoto%20map.png",
+        title: "Day 1",
+        width: null,
+        align: "left",
+      },
     ]);
     expect(shapes("![a \\] b](<assets/a b.png>)")).toEqual([
-      { type: "image", alt: "a ] b", src: "assets/a b.png", title: "" },
+      { type: "image", alt: "a ] b", src: "assets/a b.png", title: "", width: null, align: "left" },
     ]);
     expect(shapes("![x](assets/f(1).png)")[0]).toMatchObject({ src: "assets/f(1).png" });
   });

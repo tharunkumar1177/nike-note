@@ -4,6 +4,7 @@
  * which are one block each. Every block keeps its exact source in `raw`, so
  * joining the blocks' `raw` reproduces the document unchanged.
  */
+import { parseImageLine, type ImageParts } from "./image";
 import { parsePageLinkLine } from "./links";
 import { dominantEol, indentWidth, splitLines, type SourceLine } from "./lines";
 
@@ -35,7 +36,7 @@ export type Block = BlockBase &
     | { type: "page"; title: string; folder: string }
     | { type: "frontMatter"; yaml: string }
     | { type: "table"; source: string }
-    | { type: "image"; alt: string; src: string; title: string }
+    | ({ type: "image" } & ImageParts)
     | { type: "callout"; kind: CalloutKind; text: string }
     | { type: "toggle"; open: boolean; summary: string; body: string }
   );
@@ -67,32 +68,11 @@ const NUMBERED = /^([ \t]*)(\d{1,9})[.)](?:[ \t]+(.*))?$/;
 const DIVIDER = /^ {0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$/;
 const FENCE = /^ {0,3}(`{3,}|~{3,})(.*)$/;
 const TABLE_DELIMITER = /^[ \t]*\|?[ \t]*:?-+:?[ \t]*(\|[ \t]*:?-+:?[ \t]*)*\|?[ \t]*$/;
-const IMAGE =
-  /^ {0,3}!\[((?:[^\\\]]|\\.)*)\]\([ \t]*(<[^<>\n]*>|(?:[^\s()\\]|\\.|\((?:[^\s()\\]|\\.)*\))+)(?:[ \t]+"((?:[^"\\]|\\.)*)")?[ \t]*\)[ \t]*$/;
 const CALLOUT = /^ {0,3}> ?\[!(note|tip|important|warning|caution)\][ \t]*$/i;
 const QUOTE_LINE = /^ {0,3}>/;
 const DETAILS_OPEN = /^ {0,3}<details(\s+open(?:=(?:""|"open"))?)?\s*>\s*$/i;
 const DETAILS_CLOSE = /^ {0,3}<\/details>\s*$/i;
 const SUMMARY = /^\s*<summary>(.*?)<\/summary>\s*$/i;
-
-/** Remove backslash escapes from a link destination or title. */
-function unescape(text: string): string {
-  return text.replace(/\\([!-/:-@[-`{-~])/g, "$1");
-}
-
-/** The image a line holds when the whole line is one `![alt](src "title")`. */
-function parseImage(text: string): LineBlock | null {
-  const image = IMAGE.exec(text);
-  if (!image) return null;
-  const target = image[2] ?? "";
-  const src = target.startsWith("<") ? target.slice(1, -1) : target;
-  return {
-    type: "image",
-    alt: unescape(image[1] ?? ""),
-    src: unescape(src),
-    title: unescape(image[3] ?? ""),
-  };
-}
 
 /**
  * The last line of the toggle that opens at line `start`: the matching
@@ -202,8 +182,8 @@ function parseLine(text: string, lists: ListDepth): LineBlock {
   }
   const quote = QUOTE.exec(text);
   if (quote) return { type: "quote", text: quote[1] ?? "" };
-  const image = parseImage(text);
-  if (image) return image;
+  const image = parseImageLine(text);
+  if (image) return { type: "image", ...image };
   const page = parsePageLinkLine(text);
   if (page) return { type: "page", ...page };
   return { type: "text", text };

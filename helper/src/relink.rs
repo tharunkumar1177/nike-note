@@ -1,7 +1,9 @@
 //! Relative links after a page folder moves (see architecture.md, Page
 //! structure): every `README.md` in the notes folder is scanned, and each
 //! relative link whose target moved, or whose own page moved, is rewritten so
-//! it still points at the same file. Links in code are left alone.
+//! it still points at the same file. Links in code are left alone. The `src`
+//! of an HTML `<img>` tag counts as a link, since sized and aligned images are
+//! written that way.
 
 use std::fmt::Write as _;
 use std::fs;
@@ -149,12 +151,22 @@ pub fn rewrite_links(
     changed.then_some(out)
 }
 
-/// One link destination inside a line: its byte range, and whether it is
-/// written in angle brackets (the range excludes them).
+/// How a link destination is written.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum Form {
+    /// A Markdown destination without angle brackets.
+    Bare,
+    /// A Markdown destination in angle brackets (the span excludes them).
+    Angle,
+    /// The quoted value of an HTML `src` attribute (the span excludes the quotes).
+    Html,
+}
+
+/// One link destination inside a line: its byte range and how it is written.
 struct Span {
     start: usize,
     end: usize,
-    angle: bool,
+    form: Form,
 }
 
 /// `line` with its relative link destinations rewritten, or None when none changes.
@@ -168,7 +180,7 @@ fn rewrite_line(
     let mut last = 0;
     for span in link_targets(line) {
         let raw = &line[span.start..span.end];
-        if let Some(next) = retarget(raw, span.angle, old_dir, new_dir, change) {
+        if let Some(next) = retarget(raw, span.form, old_dir, new_dir, change) {
             out.push_str(&line[last..span.start]);
             out.push_str(&next);
             last = span.end;
@@ -181,8 +193,8 @@ fn rewrite_line(
     Some(out)
 }
 
-/// The link destinations in `line`: those of inline links and images outside
-/// code spans, or of a link reference definition.
+/// The link destinations in `line`: those of inline links, images, and HTML
+/// image sources outside code spans, in order, or of a link reference definition.
 fn link_targets(line: &str) -> Vec<Span> {
     let indent = line.len() - line.trim_start_matches(' ').len();
     let definition = if indent <= 3 && line[indent..].starts_with('[') {
@@ -214,7 +226,109 @@ fn link_targets(line: &str) -> Vec<Span> {
             spans.push(span);
         }
     }
+    spans.extend(image_sources(line, &code));
+    spans.sort_by_key(|span| span.start);
+    let mut ordered: Vec<Span> = Vec::with_capacity(spans.len());
+    for span in spans {
+        if ordered.last().is_none_or(|last| span.start >= last.end) {
+            ordered.push(span);
+        }
+    }
+    ordered
+}
+
+/// The quoted `src` values of the `<img>` tags in `line` that start outside
+/// the code spans `code`.
+fn image_sources(line: &str, code: &[(usize, usize)]) -> Vec<Span> {
+    let bytes = line.as_bytes();
+    let mut spans = Vec::new();
+    let mut from = 0;
+    while let Some(found) = line[from..].to_ascii_lowercase().find("<img") {
+        let tag = from + found;
+        from = tag + 4;
+        let boundary = |b: u8| b.is_ascii_whitespace() || b == b'/' || b == b'>';
+        let ends_name = bytes.get(from).copied().is_none_or(boundary);
+        if !ends_name || code.iter().any(|&(start, end)| tag >= start && tag < end) {
+            continue;
+        }
+        let mut at = from;
+        while let Some(attribute) = next_attribute(bytes, at) {
+            at = attribute.next;
+            if attribute.name.eq_ignore_ascii_case(b"src") {
+                if let Some((start, end)) = attribute.value {
+                    spans.push(Span {
+                        start,
+                        end,
+                        form: Form::Html,
+                    });
+                }
+                break;
+            }
+        }
+        from = at.max(from);
+    }
     spans
+}
+
+/// One attribute of an HTML tag: its name, the byte range of its quoted
+/// value, if it has one, and where the next attribute may start.
+struct Attribute<'a> {
+    name: &'a [u8],
+    value: Option<(usize, usize)>,
+    next: usize,
+}
+
+/// The attribute starting at or after byte `at` of a tag in `bytes`, or None
+/// at the end of the tag or the line.
+fn next_attribute(bytes: &[u8], at: usize) -> Option<Attribute<'_>> {
+    let skip = |mut index: usize| {
+        while bytes.get(index).is_some_and(u8::is_ascii_whitespace) {
+            index += 1;
+        }
+        index
+    };
+    let start = skip(at);
+    let is_name =
+        |b: &u8| !b.is_ascii_whitespace() && !matches!(*b, b'=' | b'>' | b'/' | b'"' | b'\'');
+    let mut end = start;
+    while bytes.get(end).is_some_and(is_name) {
+        end += 1;
+    }
+    if end == start {
+        return None;
+    }
+    let name = &bytes[start..end];
+    let equals = skip(end);
+    if bytes.get(equals) != Some(&b'=') {
+        return Some(Attribute {
+            name,
+            value: None,
+            next: end,
+        });
+    }
+    let open = skip(equals + 1);
+    match bytes.get(open) {
+        Some(&quote) if quote == b'"' || quote == b'\'' => {
+            let close = bytes[open + 1..].iter().position(|&b| b == quote)? + open + 1;
+            Some(Attribute {
+                name,
+                value: Some((open + 1, close)),
+                next: close + 1,
+            })
+        }
+        _ => {
+            let stops = |b: &u8| b.is_ascii_whitespace() || *b == b'>';
+            let mut close = open;
+            while bytes.get(close).is_some_and(|b| !stops(b)) {
+                close += 1;
+            }
+            Some(Attribute {
+                name,
+                value: None,
+                next: close,
+            })
+        }
+    }
 }
 
 /// The link destination starting at byte `start` of `line`: `<...>`, or a run
@@ -229,7 +343,7 @@ fn destination(line: &str, start: usize) -> Option<Span> {
         return Some(Span {
             start: start + 1,
             end: start + 1 + end,
-            angle: true,
+            form: Form::Angle,
         });
     }
     let mut depth = 0usize;
@@ -261,7 +375,7 @@ fn destination(line: &str, start: usize) -> Option<Span> {
     Some(Span {
         start,
         end: start + end,
-        angle: false,
+        form: Form::Bare,
     })
 }
 
@@ -303,22 +417,31 @@ fn code_spans(line: &str) -> Vec<(usize, usize)> {
     spans
 }
 
-/// The new form of destination `raw` (written in angle brackets when `angle`)
-/// in a page that moved from `old_dir` to `new_dir`, or None when it still
-/// points at the right place or is not a relative link inside the notes folder.
+/// The new form of destination `raw`, written as `form`, in a page that moved
+/// from `old_dir` to `new_dir`, or None when it still points at the right
+/// place or is not a relative link inside the notes folder.
 fn retarget(
     raw: &str,
-    angle: bool,
+    form: Form,
     old_dir: &[String],
     new_dir: &[String],
     change: &Move,
 ) -> Option<String> {
-    if raw.is_empty() || raw.starts_with(['#', '?', '/', '\\']) || has_scheme(raw) {
+    let raw = if form == Form::Html {
+        decode_entities(raw)
+    } else {
+        raw.to_string()
+    };
+    if raw.is_empty() || raw.starts_with(['#', '?', '/', '\\']) || has_scheme(&raw) {
         return None;
     }
     let cut = raw.find(['#', '?']).unwrap_or(raw.len());
     let (path, suffix) = raw.split_at(cut);
-    let decoded = percent_decode(&unescape(path))?;
+    let decoded = if form == Form::Html {
+        percent_decode(path)?
+    } else {
+        percent_decode(&unescape(path))?
+    };
     let target = resolve(old_dir, &decoded)?;
     let before = relative(old_dir, &target);
     let after = relative(new_dir, &change.forward(&target));
@@ -326,7 +449,62 @@ fn retarget(
         return None;
     }
     let slash = if decoded.ends_with('/') { "/" } else { "" };
-    Some(format!("{}{slash}{suffix}", encode_path(&after, angle)))
+    let angle = form == Form::Angle;
+    let next = format!("{}{slash}{suffix}", encode_path(&after, angle));
+    Some(if form == Form::Html {
+        escape_attribute(&next)
+    } else {
+        next
+    })
+}
+
+/// `value` with the character references HTML attribute values commonly use
+/// decoded: `&amp;`, `&quot;`, `&#39;`, `&apos;`, `&lt;`, and `&gt;`.
+fn decode_entities(value: &str) -> String {
+    const ENTITIES: [(&str, char); 6] = [
+        ("&amp;", '&'),
+        ("&quot;", '"'),
+        ("&#39;", '\''),
+        ("&apos;", '\''),
+        ("&lt;", '<'),
+        ("&gt;", '>'),
+    ];
+    let mut out = String::with_capacity(value.len());
+    let mut rest = value;
+    while let Some(at) = rest.find('&') {
+        out.push_str(&rest[..at]);
+        rest = &rest[at..];
+        let mut entity = None;
+        for (name, c) in ENTITIES {
+            let head = rest.get(..name.len()).unwrap_or_default();
+            if head.eq_ignore_ascii_case(name) {
+                entity = Some((name, c));
+                break;
+            }
+        }
+        match entity {
+            Some((name, c)) => {
+                out.push(c);
+                rest = &rest[name.len()..];
+            }
+            None => {
+                out.push('&');
+                rest = &rest[1..];
+            }
+        }
+    }
+    out.push_str(rest);
+    out
+}
+
+/// `value` escaped for a quoted HTML attribute.
+fn escape_attribute(value: &str) -> String {
+    value
+        .replace('&', "&amp;")
+        .replace('"', "&quot;")
+        .replace('\'', "&#39;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
 }
 
 /// True when `raw` starts with a URL scheme such as `https:` or `mailto:`.
@@ -441,6 +619,26 @@ mod tests {
         let text = "`[x](Trips/Japan/README.md)` [w](https://a.b/Trips/Japan) [a](#top)\n\
                     ```\n[x](Trips/Japan/README.md)\n```\n[o](Trips/Korea/README.md) [u](../x)\n";
         assert_eq!(rewrite(text, "", "", "Trips/Japan", "Japan"), None);
+    }
+
+    #[test]
+    fn rewrites_the_source_of_html_images() {
+        let text = concat!(
+            "<p align=\"center\"><img src=\"Trips/R&amp;D/assets/a.png\" alt=\"Trips/R&amp;D\">",
+            "</p>\n<IMG ALT='x' SRC='Trips/R&amp;D/b.png#k'> ",
+            "`<img src=\"Trips/R&amp;D/c.png\">`\n",
+        );
+        let moved = concat!(
+            "<p align=\"center\"><img src=\"R&amp;D%202/assets/a.png\" alt=\"Trips/R&amp;D\">",
+            "</p>\n<IMG ALT='x' SRC='R&amp;D%202/b.png#k'> ",
+            "`<img src=\"Trips/R&amp;D/c.png\">`\n",
+        );
+        assert_eq!(
+            rewrite(text, "", "", "Trips/R&D", "R&D 2").as_deref(),
+            Some(moved)
+        );
+        let other = "<image src=\"Trips/R&amp;D/a.png\"> <img data-src=\"Trips/R&amp;D/a.png\">\n";
+        assert_eq!(rewrite(other, "", "", "Trips/R&D", "R&D 2"), None);
     }
 
     #[test]
