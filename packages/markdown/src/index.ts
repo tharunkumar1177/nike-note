@@ -37,6 +37,7 @@ export {
   positionInText,
   removeBlock,
   replaceBlockText,
+  setImage,
   setTitle,
   splitBlock,
   titleText,
@@ -58,6 +59,13 @@ export {
   type Mark,
   type Selected,
 } from "./format";
+export {
+  MAX_IMAGE_WIDTH,
+  imageLine,
+  parseImageLine,
+  type ImageAlign,
+  type ImageParts,
+} from "./image";
 export {
   inlineText,
   parseInline,

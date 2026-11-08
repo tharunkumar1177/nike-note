@@ -4,6 +4,7 @@
  * all other blocks keep their exact `raw`, line endings included.
  */
 import { parseDocument, titleBlockIndex, type Block, type MarkdownDocument } from "./blocks";
+import { imageLine, type ImageParts } from "./image";
 import { indentWidth } from "./lines";
 import { LIST_KINDS, nestedIndent, splitLine, type LineParts } from "./prefix";
 
@@ -367,6 +368,26 @@ export function insertLinkLine(document: MarkdownDocument, index: number, link: 
   const at = block ? index + 1 : document.blocks.length;
   const line = after ? after.line + blockLineCount(after) : 0;
   return { source: insertLines(document, at, link), caret: { line, column: link.length } };
+}
+
+/**
+ * Rewrite image block `index` with `changes`, or null when the block is not
+ * an image. A line that becomes HTML gets an empty line after it when the
+ * next line has text, since GitHub reads an HTML line up to the next empty
+ * line as HTML.
+ */
+export function setImage(
+  document: MarkdownDocument,
+  index: number,
+  changes: Partial<ImageParts>,
+): string | null {
+  const block = document.blocks[index];
+  if (block?.type !== "image") return null;
+  const { alt, src, title, width, align } = block;
+  const line = imageLine({ alt, src, title, width, align, ...changes });
+  const next = document.blocks[index + 1];
+  const separate = line.startsWith("<") && next !== undefined && blockText(next).trim() !== "";
+  return replaceBlockText(document, index, separate ? `${line}\n` : line);
 }
 
 /** Multi-line blocks the slash menu adds from a template. */

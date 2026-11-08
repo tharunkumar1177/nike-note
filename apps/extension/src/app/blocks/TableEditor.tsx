@@ -36,25 +36,15 @@ import {
 } from "react";
 
 import { InlineView } from "./InlineView";
+import { menuBelow, PopoverMenu, type MenuItem, type MenuPlace } from "./PopoverMenu";
 
 /** Where the caret goes when a cell starts being edited. */
 type Entry = "start" | "end";
 
-/** One entry of a row or column menu. */
-interface MenuItem {
-  label: string;
-  run: () => void;
-  disabled?: boolean;
-  danger?: boolean;
-  checked?: boolean;
-}
-
 /** The open row or column menu and where it is shown. */
-interface OpenMenu {
+interface OpenMenu extends MenuPlace {
   kind: "row" | "column";
   index: number;
-  top: number;
-  left: number;
 }
 
 /** The CSS text alignment for a column alignment. */
@@ -142,98 +132,6 @@ interface Selection {
   text: string;
   start: number;
   end: number;
-}
-
-/**
- * The menu of a row or column, shown in the top layer so a scrolled table
- * cannot clip it. It takes focus, moves with the arrow keys, and closes on
- * Escape, a click outside, or a choice.
- */
-function TableMenu({
-  menu,
-  label,
-  items,
-  onClose,
-}: {
-  menu: OpenMenu;
-  label: string;
-  items: readonly (MenuItem | "separator")[];
-  onClose: () => void;
-}) {
-  const element = useRef<HTMLDivElement>(null);
-  const latestClose = useRef(onClose);
-  useLayoutEffect(() => {
-    latestClose.current = onClose;
-  });
-  useLayoutEffect(() => {
-    const popover = element.current;
-    if (!popover) return;
-    popover.showPopover();
-    popover.querySelector<HTMLElement>('[role^="menuitem"]:not(:disabled)')?.focus();
-    const onToggle = (event: Event): void => {
-      if ((event as ToggleEvent).newState === "closed") latestClose.current();
-    };
-    popover.addEventListener("toggle", onToggle);
-    return () => {
-      popover.removeEventListener("toggle", onToggle);
-      if (popover.matches(":popover-open")) popover.hidePopover();
-    };
-  }, []);
-
-  /** Arrow keys, Home, and End move between the items that can be chosen. */
-  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
-    const buttons = [
-      ...(element.current?.querySelectorAll<HTMLElement>('[role^="menuitem"]:not(:disabled)') ??
-        []),
-    ];
-    const at = buttons.findIndex((button) => button === document.activeElement);
-    const next: Record<string, number> = {
-      ArrowDown: (at + 1) % buttons.length,
-      ArrowUp: (at - 1 + buttons.length) % buttons.length,
-      Home: 0,
-      End: buttons.length - 1,
-    };
-    const target = next[event.key];
-    if (target === undefined) return;
-    event.preventDefault();
-    buttons[target]?.focus();
-  };
-
-  return (
-    <div
-      ref={element}
-      popover="auto"
-      className="block-menu table-menu"
-      role="menu"
-      aria-label={label}
-      style={{ top: menu.top, left: menu.left }}
-      onKeyDown={onKeyDown}
-      onMouseDown={(event) => event.preventDefault()}
-    >
-      {items.map((item, at) =>
-        item === "separator" ? (
-          <div key={`separator-${at}`} className="table-menu__separator" role="separator" />
-        ) : (
-          <button
-            key={item.label}
-            type="button"
-            role={item.checked === undefined ? "menuitem" : "menuitemradio"}
-            aria-checked={item.checked}
-            tabIndex={-1}
-            disabled={item.disabled}
-            className={`block-menu__item${item.danger ? " block-menu__item--danger" : ""}`}
-            onClick={() => {
-              element.current?.hidePopover();
-              item.run();
-            }}
-          >
-            <span>{item.label}</span>
-            {item.checked && <span className="block-menu__keys">✓</span>}
-          </button>
-        ),
-      )}
-    </div>
-  );
 }
 
 /** Small grip drawn on row and column handles. */
@@ -386,8 +284,7 @@ export function TableEditor({
 
   /** Open the menu of row or column `index` under handle `button`. */
   const openMenu = (kind: OpenMenu["kind"], index: number, button: HTMLElement): void => {
-    const rect = button.getBoundingClientRect();
-    setMenu({ kind, index, top: rect.bottom + 4, left: rect.left });
+    setMenu({ kind, index, ...menuBelow(button) });
   };
 
   /** Focus left the cell: report it unless focus stayed in the table or its menu. */
@@ -575,9 +472,9 @@ export function TableEditor({
         </button>
       </div>
       {menu && (
-        <TableMenu
+        <PopoverMenu
           key={`${menu.kind}-${menu.index}`}
-          menu={menu}
+          place={menu}
           label={menu.kind === "column" ? `Column ${menu.index + 1}` : menu.index === 0 ? "Header row" : `Row ${menu.index}`}
           items={menuItems(menu)}
           onClose={() => {

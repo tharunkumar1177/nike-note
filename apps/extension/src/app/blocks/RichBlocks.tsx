@@ -11,13 +11,7 @@ import {
   type CalloutKind,
   type CellAlign,
 } from "@quire/markdown";
-import {
-  useContext,
-  useEffect,
-  useSyncExternalStore,
-  type CSSProperties,
-  type ReactNode,
-} from "react";
+import { useContext, useEffect, useSyncExternalStore, type CSSProperties } from "react";
 
 import { AssetContext, type AssetView } from "../assetStore";
 import { InlineView } from "./InlineView";
@@ -36,18 +30,22 @@ function subscribeNever(): () => void {
   return () => undefined;
 }
 
+/** An image block's picture: where it can be shown from, or why it cannot. */
+export type ImageSource =
+  | { status: "ready"; url: string; web: boolean }
+  | { status: "loading" }
+  | { status: "outside" }
+  | { status: "error"; message: string; retry: () => void };
+
 /**
- * An image block. Images in the notes folder load through the helper; web
- * images on `https` load directly without a referrer; anything else shows
- * an explanation instead.
+ * Where image `block` on page `pagePath` can be shown from. Images in the
+ * notes folder load through the helper; web images on `https` load directly;
+ * anything else is outside the notes folder.
  */
-export function ImageView({
-  block,
-  pagePath,
-}: {
-  block: Extract<Block, { type: "image" }>;
-  pagePath: string;
-}) {
+export function useImageSource(
+  block: Extract<Block, { type: "image" }>,
+  pagePath: string,
+): ImageSource {
   const assets = useContext(AssetContext);
   const web = /^https:\/\//i.test(block.src);
   const path = web ? null : resolveFileHref(pagePath, block.src);
@@ -59,37 +57,84 @@ export function ImageView({
     if (assets && path !== null) assets.request(path);
   }, [assets, path]);
 
-  const alt = block.alt;
-  let content: ReactNode;
-  if (web) {
-    content = <img src={block.src} alt={alt} referrerPolicy="no-referrer" loading="lazy" />;
-  } else if (path === null) {
-    content = (
-      <p className="block--image__note">
-        This image is outside the notes folder: <code>{block.src}</code>
-      </p>
-    );
-  } else if (view?.status === "ready") {
-    content = <img src={view.url} alt={alt} />;
-  } else if (view?.status === "error") {
-    content = (
-      <p className="block--image__note" role="alert">
-        Quire couldn&apos;t show <code>{block.src}</code>: {view.message}{" "}
-        <button type="button" className="block--image__retry" onClick={() => assets?.retry(path)}>
-          Try again
-        </button>
-      </p>
-    );
-  } else {
-    content = (
-      <p className="block--image__loading" role="status">
-        Loading image…
-      </p>
-    );
+  if (web) return { status: "ready", url: block.src, web: true };
+  if (path === null) return { status: "outside" };
+  if (view?.status === "ready") return { status: "ready", url: view.url, web: false };
+  if (view?.status === "error") {
+    return { status: "error", message: view.message, retry: () => assets?.retry(path) };
   }
+  return { status: "loading" };
+}
+
+/** The picture of image `block`, or a note saying why it is not shown. */
+export function ImageContent({
+  block,
+  source,
+  width,
+}: {
+  block: Extract<Block, { type: "image" }>;
+  source: ImageSource;
+  /** Shown width in CSS pixels; defaults to the block's own width. */
+  width?: number | null;
+}) {
+  const shown = width === undefined ? block.width : width;
+  const style = shown === null ? undefined : { width: shown };
+  switch (source.status) {
+    case "ready":
+      return source.web ? (
+        <img
+          src={source.url}
+          alt={block.alt}
+          style={style}
+          referrerPolicy="no-referrer"
+          loading="lazy"
+          draggable={false}
+        />
+      ) : (
+        <img src={source.url} alt={block.alt} style={style} draggable={false} />
+      );
+    case "outside":
+      return (
+        <p className="block--image__note">
+          This image is outside the notes folder: <code>{block.src}</code>
+        </p>
+      );
+    case "error":
+      return (
+        <p className="block--image__note" role="alert">
+          Quire couldn&apos;t show <code>{block.src}</code>: {source.message}{" "}
+          <button type="button" className="block--image__retry" onClick={source.retry}>
+            Try again
+          </button>
+        </p>
+      );
+    case "loading":
+      return (
+        <p className="block--image__loading" role="status">
+          Loading image…
+        </p>
+      );
+  }
+}
+
+/**
+ * An image block shown read-only, at its width and alignment, with its title
+ * as the caption.
+ */
+export function ImageView({
+  block,
+  pagePath,
+}: {
+  block: Extract<Block, { type: "image" }>;
+  pagePath: string;
+}) {
+  const source = useImageSource(block, pagePath);
   return (
-    <figure className="block block--image" title={block.title || undefined}>
-      {content}
+    <figure
+      className={`block block--image block--image-${block.align}`}
+      title={block.title || undefined}
+    >
+      <ImageContent block={block} source={source} />
       {block.title && <figcaption className="block__caption">{block.title}</figcaption>}
     </figure>
   );

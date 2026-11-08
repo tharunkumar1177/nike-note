@@ -131,3 +131,29 @@ export function CheckIcon() {
     </svg>
   );
 }
+
+/** The short middle line of each alignment icon. */
+const ALIGN_LINES = {
+  left: "M2.5 8h7",
+  center: "M4.5 8h7",
+  right: "M6.5 8h7",
+} as const;
+
+/** Three lines with the middle one pushed left, to the center, or right. */
+export function AlignIcon({ align }: { align: keyof typeof ALIGN_LINES }) {
+  return (
+    <svg {...iconProps}>
+      <path d={`M2.5 4h11${ALIGN_LINES[align]}M2.5 12h11`} />
+    </svg>
+  );
+}
+
+/** A picture with a line of text under it, for captions. */
+export function CaptionIcon() {
+  return (
+    <svg {...iconProps}>
+      <rect x="2.5" y="2.5" width="11" height="7.5" rx="1" />
+      <path d="M4.5 13h7" />
+    </svg>
+  );
+}

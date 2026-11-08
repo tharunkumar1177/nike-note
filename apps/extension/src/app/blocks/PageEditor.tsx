@@ -31,10 +31,12 @@ import {
   offsetInBlock,
   pageLinkLine,
   parseDocument,
+  parseImageLine,
   parseInline,
   positionInText,
   removeLink,
   replaceBlockText,
+  setImage,
   setLink,
   setTitle,
   splitBlock,
@@ -76,6 +78,7 @@ import { BlockHandle, type BlockAction } from "./BlockHandle";
 import { BlockView, BULLETS } from "./BlockView";
 import { caretPoint } from "./caretPoint";
 import { FORMAT_TOOLBAR, FormatToolbar } from "./FormatToolbar";
+import { ImageEditor } from "./ImageEditor";
 import { SlashMenu, slashOptionId } from "./SlashMenu";
 import { TableEditor } from "./TableEditor";
 
@@ -763,6 +766,50 @@ export function PageEditor({
   };
 
   /**
+   * Ask for a file to replace the image on source line `line` with: save it
+   * into the page's assets and point the image at it, keeping its size,
+   * alignment, and caption.
+   */
+  const replaceImage = (line: number): void => {
+    if (!onAddImage) return;
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = IMAGE_TYPES;
+    input.addEventListener("change", () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      setPageError(null);
+      onAddImage(file)
+        .then((added) => {
+          const image = parseImageLine(added);
+          if (!image) return;
+          onTransform((source) => {
+            const document = parseDocument(source);
+            const at = blockAtLine(document.blocks, line);
+            return setImage(document, at, { src: image.src, alt: image.alt }) ?? source;
+          });
+        })
+        .catch((error: unknown) =>
+          setPageError(`Quire couldn't replace the image: ${messageOf(error)}`),
+        );
+    });
+    input.click();
+  };
+
+  /**
+   * Delete image block `index` from the keyboard or its menu and put the
+   * caret at the end of the block before it, or in the title.
+   */
+  const removeImage = (index: number): void => {
+    const edit = deleteBlock(markdown, index);
+    if (!edit) return;
+    if (titleIndex >= 0 && index - 1 === titleIndex) {
+      apply(edit.source, { kind: "title", offset: title.length });
+    }
+    else apply(edit.source, index > firstMovable ? { kind: "body", ...edit.caret } : null);
+  };
+
+  /**
    * Run slash command `item` in block `index` (`parts` is its marker and
    * text): the `/` and the query typed after it are removed first.
    */
@@ -929,10 +976,10 @@ export function PageEditor({
     };
 
   /**
-   * Leave table `index` with the arrow keys: up to the end of the block
-   * before it (or the title), down to the start of the block after it.
+   * Leave table or image `index` with the arrow keys: up to the end of the
+   * block before it (or the title), down to the start of the block after it.
    */
-  const leaveTable = (index: number, step: -1 | 1): void => {
+  const leaveBlock = (index: number, step: -1 | 1): void => {
     const target = blocks[neighbor(index, step)];
     if (!target) {
       if (step === -1) setFocus({ kind: "title", offset: title.length });
@@ -1033,6 +1080,46 @@ export function PageEditor({
           const key = `${block.line}`;
           const dropAt = drag?.before ?? fileDrop;
           const slotClass = `block-slot${dropAt === index ? " block-slot--drop-before" : ""}${dropAt === blocks.length && index === blocks.length - 1 ? " block-slot--drop-after" : ""}${drag?.from === index ? " block-slot--dragging" : ""}`;
+          if (block.type === "image") {
+            const mine = focus;
+            const here: Focus = { kind: "body", line: block.line, column: 0 };
+            return (
+              <div key={key} className={slotClass} data-index={index}>
+                <BlockHandle
+                  turnInto={[]}
+                  listItem={false}
+                  onAction={(action) => act(index, block, action)}
+                  onDragStart={() => setDrag({ from: index, before: null })}
+                  onDragEnd={() => setDrag(null)}
+                />
+                <ImageEditor
+                  block={block}
+                  pagePath={pagePath}
+                  selected={index === editing && focus?.kind === "body"}
+                  onSelect={() => {
+                    setSlash(null);
+                    setToolbar(null);
+                    if (index !== editing) setFocus(here);
+                  }}
+                  onChange={(changes) => {
+                    const source = setImage(markdown, index, changes);
+                    if (source !== null) apply(source, here);
+                  }}
+                  onEnter={() =>
+                    apply(insertLines(markdown, index + 1, ""), {
+                      kind: "body",
+                      line: block.line + 1,
+                      column: 0,
+                    })
+                  }
+                  onDelete={() => removeImage(index)}
+                  onReplace={onAddImage ? () => replaceImage(block.line) : undefined}
+                  onExit={(step) => leaveBlock(index, step)}
+                  onLeave={() => setFocus((current) => (current === mine ? null : current))}
+                />
+              </div>
+            );
+          }
           if (block.type === "table") {
             const cell = index === editing && focus?.kind === "body" ? focusedCell(block, focus) : null;
             const mine = focus;
@@ -1060,7 +1147,7 @@ export function PageEditor({
                       next ? cellFocus(block.line, next) : null,
                     )
                   }
-                  onExit={(step) => leaveTable(index, step)}
+                  onExit={(step) => leaveBlock(index, step)}
                   onLeave={() => setFocus((current) => (current === mine ? null : current))}
                 />
               </div>

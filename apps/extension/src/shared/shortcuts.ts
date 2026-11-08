@@ -63,6 +63,14 @@ export const SHORTCUT_GROUPS: readonly ShortcutGroup[] = [
     ],
   },
   {
+    title: "Images",
+    shortcuts: [
+      { action: "New line below the selected image", keys: [["Enter"]] },
+      { action: "Delete the selected image", keys: [["Backspace"], ["Delete"]] },
+      { action: "Resize from a focused resize handle", keys: [["←"], ["→"]] },
+    ],
+  },
+  {
     title: "Text",
     shortcuts: [
       { action: "Bold", keys: [["Mod", "B"]] },
