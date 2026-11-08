@@ -77,7 +77,27 @@ export {
   type PageLinkLine,
 } from "./links";
 export { dominantEol, indentWidth, splitLines, type SourceLine } from "./lines";
-export { parseTable, splitRow, type CellAlign, type TableCells } from "./table";
+export {
+  alignColumn,
+  cellText,
+  deleteColumn,
+  deleteRow,
+  escapeCell,
+  formatDelimiter,
+  formatRow,
+  insertColumn,
+  insertRow,
+  moveColumn,
+  moveRow,
+  parseTable,
+  rowCount,
+  setCell,
+  splitRow,
+  tableSource,
+  type CellAlign,
+  type CellPosition,
+  type TableCells,
+} from "./table";
 export {
   LIST_KINDS,
   applyShortcut,

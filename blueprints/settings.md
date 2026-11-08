@@ -20,7 +20,7 @@ Verified in CI (Vitest for reading and validating settings, the root attributes,
 - The app page and the popup create an `AppearanceStore` before rendering, so a saved theme is applied before React draws anything. The app page passes its store to the settings dialog through `AppearanceContext`.
 - Theme, font, and width change immediately; there is no Save or Cancel. A save that the browser refuses still changes the open page.
 - The page font applies to the title and blocks, including the text being edited. Menus, toolbars, dialogs, the sidebar, and code keep their own fonts. Full width removes the 708-pixel limit on the text column and widens the side padding to 96 pixels on wide windows.
-- The shortcut reference lists each shortcut the app handles, grouped as General, Sidebar, Blocks, Text, and Markdown at the start of a line, with Ctrl, or ⌘, ⇧, and ⌥ on macOS. When a shortcut changes, its entry in `shortcuts.ts` changes with it.
+- The shortcut reference lists each shortcut the app handles, grouped as General, Sidebar, Blocks, Tables, Text, and Markdown at the start of a line, with Ctrl, or ⌘, ⇧, and ⌥ on macOS. When a shortcut changes, its entry in `shortcuts.ts` changes with it.
 - Ctrl+/ is ignored inside another open dialog and when something else already handled the key; `/` that needs Shift on the keyboard layout still counts.
 
 ## Related blueprints
@@ -31,7 +31,7 @@ Verified in CI (Vitest for reading and validating settings, the root attributes,
 
 ### Impact checks
 
-- [block-keys](block-keys.md), [inline-formatting](inline-formatting.md), [block-handle](block-handle.md), [page-operations](page-operations.md), [search](search.md): check the shortcut list when their keys change.
+- [block-keys](block-keys.md), [inline-formatting](inline-formatting.md), [block-handle](block-handle.md), [page-operations](page-operations.md), [search](search.md), [rich-blocks](rich-blocks.md): check the shortcut list when their keys change.
 
 ## Relevant implementation and tests
 

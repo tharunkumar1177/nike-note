@@ -55,6 +55,14 @@ export const SHORTCUT_GROUPS: readonly ShortcutGroup[] = [
     ],
   },
   {
+    title: "Tables",
+    shortcuts: [
+      { action: "Next or previous cell, adding a row after the last", keys: [["Tab"], ["Shift", "Tab"]] },
+      { action: "Cell below, adding a row at the bottom", keys: [["Enter"]] },
+      { action: "Move between cells", keys: [["↑"], ["↓"], ["←"], ["→"]] },
+    ],
+  },
+  {
     title: "Text",
     shortcuts: [
       { action: "Bold", keys: [["Mod", "B"]] },
