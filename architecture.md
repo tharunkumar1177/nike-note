@@ -190,6 +190,12 @@ The app syncs once when the workspace opens, 5 seconds after file changes settle
 - The build fails when a provider SDK module is in an entry chunk or in a chunk an entry imports statically (`startupLeaks` in the build plugin), so SDKs load only when an AI action first runs.
 - Generated text enters a page only when the user selects Insert, as whole Markdown lines through the page editor's normal edit and save path, so it obeys the same line mapping, hash check, and sync as typing. Prompts carry the page's title and Markdown, never other pages.
 
+### Appearance
+
+- Settings `{ theme, font, fullWidth }` (`apps/extension/src/shared/appearance.ts`) are stored under `quire.appearance` in the extension origin's `localStorage`, which is read synchronously before the first render; every field is validated on read and falls back to its default on its own. They never reach the notes folder or the helper.
+- The app page and the popup apply them as root element attributes (`data-theme`, `data-font`, `data-full-width`) that the stylesheets select on, and follow changes from other extension pages through `storage` events.
+- Every color token in `src/shared/tokens.css` is a `light-dark()` pair, so the system's scheme chooses unless `data-theme` forces `color-scheme`. Page text uses `--q-font-page`; menus, toolbars, and dialogs keep the UI font.
+
 ## Cross-cutting flows
 
 ### Open and connect flow
@@ -207,7 +213,7 @@ Popup **Open Quire** focuses an existing app tab (found with `chrome.runtime.get
 
 | Level | Establishes |
 | --- | --- |
-| Unit (Vitest) | Protocol validators, helper client request matching, Markdown block and inline parsing, byte-exact round trips, source edits, link rules, sync and search results, search highlighting, AI settings, model choice, prompts, and error messages, the startup-chunk check |
+| Unit (Vitest) | Protocol validators, helper client request matching, Markdown block and inline parsing, byte-exact round trips, source edits, link rules, sync and search results, search highlighting, AI settings, model choice, prompts, and error messages, the startup-chunk check, appearance settings, and the shortcut reference |
 | Unit (`cargo test`) | Framing, envelope handling, origin check, registration paths and manifests, page path safety, page reads and guarded writes, change classification and a live watch, sync against a local bare remote and a second clone, search matching, ranking, snippets, and supersession |
 | Install smoke (CI, each OS) | `install` writes the manifests or registry keys; `uninstall` removes them |
 | End-to-end (Playwright, Linux) | User-visible slice acceptance on the unpacked extension talking to the real helper |
