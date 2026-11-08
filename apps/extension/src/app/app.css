@@ -752,6 +752,12 @@ body,
   overflow-y: auto;
 }
 
+.settings__sections:focus-visible,
+.shortcuts__groups:focus-visible {
+  border-radius: var(--q-radius);
+  box-shadow: inset var(--q-focus);
+}
+
 .settings__section {
   display: flex;
   flex-direction: column;

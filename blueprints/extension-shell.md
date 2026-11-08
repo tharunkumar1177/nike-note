@@ -34,7 +34,7 @@ Delivered by slices 1 and 2. Unit tests cover the manifest, the extension ID, th
 | `connected` | `hello` succeeded | Folder picker, Git setup, or the workspace (see [workspace-setup](workspace-setup.md)); the status bar shows the helper version and branch |
 
 - The app retries automatically when the tab becomes visible again while in `missing`, `forbidden`, `outdated`, or `stopped`.
-- Design: system UI font, neutral warm grays, light and dark themes through `prefers-color-scheme`, visible focus rings, and reduced motion respected. Tokens live in `src/shared/tokens.css`.
+- Design: system UI font, neutral warm grays, light and dark themes that follow the system unless the user picks one in settings (see [settings](settings.md)), visible focus rings, and reduced motion respected. Tokens live in `src/shared/tokens.css`.
 
 ## Related blueprints
 
