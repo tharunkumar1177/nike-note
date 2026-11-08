@@ -1081,7 +1081,6 @@ export function PageEditor({
           const dropAt = drag?.before ?? fileDrop;
           const slotClass = `block-slot${dropAt === index ? " block-slot--drop-before" : ""}${dropAt === blocks.length && index === blocks.length - 1 ? " block-slot--drop-after" : ""}${drag?.from === index ? " block-slot--dragging" : ""}`;
           if (block.type === "image") {
-            const mine = focus;
             const here: Focus = { kind: "body", line: block.line, column: 0 };
             return (
               <div key={key} className={slotClass} data-index={index}>
@@ -1115,7 +1114,11 @@ export function PageEditor({
                   onDelete={() => removeImage(index)}
                   onReplace={onAddImage ? () => replaceImage(block.line) : undefined}
                   onExit={(step) => leaveBlock(index, step)}
-                  onLeave={() => setFocus((current) => (current === mine ? null : current))}
+                  onLeave={() =>
+                    setFocus((current) =>
+                      current?.kind === "body" && current.line === block.line ? null : current,
+                    )
+                  }
                 />
               </div>
             );
