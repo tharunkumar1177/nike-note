@@ -10,7 +10,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { encodePng } from "../src/build/png";
-import { expect, test } from "./fixtures";
+import { expect, test, type Sandbox } from "./fixtures";
 import { createNotes } from "./notes";
 
 /** A solid 400×200 PNG, wide enough to resize. */
@@ -23,7 +23,7 @@ function picture(): Buffer {
 }
 
 /** Make a notes folder whose home page is `page` and whose assets hold `map.png`. */
-async function notesWithMap(sandbox: string, page: string): Promise<string> {
+async function notesWithMap(sandbox: Sandbox, page: string): Promise<string> {
   const notes = await createNotes(sandbox, { "README.md": page });
   await mkdir(join(notes, "assets"), { recursive: true });
   await writeFile(join(notes, "assets", "map.png"), picture());
