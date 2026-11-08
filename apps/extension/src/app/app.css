@@ -1918,6 +1918,10 @@ h1.page__title:focus-visible {
   outline: none;
 }
 
+.image-editor:focus-visible {
+  box-shadow: none;
+}
+
 .block-slot:has(> .image-editor) {
   cursor: default;
 }

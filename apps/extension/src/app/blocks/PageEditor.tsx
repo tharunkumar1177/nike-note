@@ -797,6 +797,24 @@ export function PageEditor({
   };
 
   /**
+   * Start a new empty line below image block `index`. Under an image written
+   * as HTML, the new line goes after an empty line, adding one if needed,
+   * since GitHub reads HTML up to the next empty line.
+   */
+  const addLineBelowImage = (index: number, block: Block): void => {
+    const next = blocks[index + 1];
+    const html = blockText(block).trimStart().startsWith("<");
+    const emptyAfter = next !== undefined && blockText(next).trim() === "";
+    if (!html) {
+      apply(insertLines(markdown, index + 1, ""), { kind: "body", line: block.line + 1, column: 0 });
+    } else if (emptyAfter) {
+      apply(insertLines(markdown, index + 2, ""), { kind: "body", line: block.line + 2, column: 0 });
+    } else {
+      apply(insertLines(markdown, index + 1, "\n"), { kind: "body", line: block.line + 2, column: 0 });
+    }
+  };
+
+  /**
    * Delete image block `index` from the keyboard or its menu and put the
    * caret at the end of the block before it, or in the title.
    */
@@ -1104,13 +1122,7 @@ export function PageEditor({
                     const source = setImage(markdown, index, changes);
                     if (source !== null) apply(source, here);
                   }}
-                  onEnter={() =>
-                    apply(insertLines(markdown, index + 1, ""), {
-                      kind: "body",
-                      line: block.line + 1,
-                      column: 0,
-                    })
-                  }
+                  onEnter={() => addLineBelowImage(index, block)}
                   onDelete={() => removeImage(index)}
                   onReplace={onAddImage ? () => replaceImage(block.line) : undefined}
                   onExit={(step) => leaveBlock(index, step)}

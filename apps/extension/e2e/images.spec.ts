@@ -157,5 +157,15 @@ test("the image menu edits alt text and replaces the file", async ({ openApp, sa
     .toBe('# Trip\n\n<p align="right"><img src="assets/pin.png" alt="pin" width="120"></p>\n');
   expect(await readFile(join(notes, "assets", "pin.png"))).toEqual(picture());
   expect(await readFile(join(notes, "assets", "map.png"))).toEqual(picture());
-  await expect(app.getByRole("img", { name: "pin" })).toHaveCSS("width", "120px");
+  const pin = app.getByRole("img", { name: "pin" });
+  await expect(pin).toHaveCSS("width", "120px");
+
+  await pin.click();
+  await expect(app.getByRole("figure", { name: "Image: pin" })).toBeFocused();
+  await app.keyboard.press("Enter");
+  await expect(app.getByRole("textbox", { name: "Edit block" })).toBeFocused();
+  await app.keyboard.type("Below");
+  await expect
+    .poll(readme)
+    .toBe('# Trip\n\n<p align="right"><img src="assets/pin.png" alt="pin" width="120"></p>\n\nBelow\n');
 });
