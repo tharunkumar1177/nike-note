@@ -39,6 +39,7 @@ import {
   setTitle,
   splitBlock,
   splitLine,
+  tableSource,
   titleBlockIndex,
   titleText,
   toggleMark,
@@ -46,6 +47,7 @@ import {
   turnInto,
   unwrapCode,
   type Block,
+  type CellPosition,
   type Edit,
   type LineParts,
   type MarkdownDocument,
@@ -75,10 +77,23 @@ import { BlockView, BULLETS } from "./BlockView";
 import { caretPoint } from "./caretPoint";
 import { FORMAT_TOOLBAR, FormatToolbar } from "./FormatToolbar";
 import { SlashMenu, slashOptionId } from "./SlashMenu";
+import { TableEditor } from "./TableEditor";
+
+/** The cell of table `block` that `focus` (on one of its lines) points at. */
+function focusedCell(block: Block, focus: SourcePosition): CellPosition {
+  const offset = focus.line - block.line;
+  return { row: offset <= 1 ? 0 : offset - 1, column: Math.max(focus.column, 0) };
+}
+
+/** The caret position for cell `cell` of the table starting on source line `start`. */
+function cellFocus(start: number, cell: CellPosition): Focus {
+  return { kind: "body", line: start + (cell.row === 0 ? 0 : cell.row + 1), column: cell.column };
+}
 
 /**
  * Where the caret is: in the title, or at a source position in the body. A
- * body `anchor` (a column on the same line) makes it a selection.
+ * body `anchor` (a column on the same line) makes it a selection. In a table,
+ * `line` is the row's source line and `column` is the cell's index in it.
  */
 type Focus =
   | { kind: "title"; offset: number }
@@ -777,7 +792,13 @@ export function PageEditor({
     }
     if (command === "table" || command === "callout" || command === "toggle") {
       const inserted = insertTemplate(markdown, index, text, command);
-      if (inserted) apply(inserted.source, { kind: "body", ...inserted.caret });
+      if (!inserted) return;
+      apply(
+        inserted.source,
+        command === "table"
+          ? { kind: "body", line: inserted.caret.line, column: 0 }
+          : { kind: "body", ...inserted.caret },
+      );
       return;
     }
     const edit = turnInto(markdown, index, text, offset, command);
@@ -888,20 +909,45 @@ export function PageEditor({
           return;
         }
         const rows = blockText(previous).split("\n");
-        const column = prefixLength(previous) + start;
+        const column = previous.type === "table" ? 0 : prefixLength(previous) + start;
         setFocus({ kind: "body", line: previous.line + rows.length - 1, column });
       } else if (event.key === "ArrowDown" && collapsed && !value.slice(end).includes("\n")) {
         const next = blocks[neighbor(index, 1)];
         if (!next) return;
         event.preventDefault();
         const column = start - (value.lastIndexOf("\n", start - 1) + 1);
-        setFocus({ kind: "body", line: next.line, column: prefixLength(next) + column });
+        setFocus({
+          kind: "body",
+          line: next.line,
+          column: next.type === "table" ? 0 : prefixLength(next) + column,
+        });
       } else if (event.key === "Escape") {
         event.preventDefault();
         setToolbar(null);
         setFocus(null);
       }
     };
+
+  /**
+   * Leave table `index` with the arrow keys: up to the end of the block
+   * before it (or the title), down to the start of the block after it.
+   */
+  const leaveTable = (index: number, step: -1 | 1): void => {
+    const target = blocks[neighbor(index, step)];
+    if (!target) {
+      if (step === -1) setFocus({ kind: "title", offset: title.length });
+      return;
+    }
+    const text = blockText(target);
+    if (target.type === "table") {
+      const last = target.line + text.split("\n").length - 1;
+      setFocus({ kind: "body", line: step === -1 ? last : target.line, column: 0 });
+    } else if (step === 1) {
+      setFocus({ kind: "body", line: target.line, column: prefixLength(target) });
+    } else {
+      setFocus({ kind: "body", ...positionInText(target.line, text, text.length) });
+    }
+  };
 
   /** Start editing a formatted block at its end, unless a link or control was clicked. */
   const activate = (block: Block) => (event: MouseEvent<HTMLDivElement>) => {
@@ -985,6 +1031,41 @@ export function PageEditor({
         {blocks.map((block, index) => {
           if (index === titleIndex) return null;
           const key = `${block.line}`;
+          const dropAt = drag?.before ?? fileDrop;
+          const slotClass = `block-slot${dropAt === index ? " block-slot--drop-before" : ""}${dropAt === blocks.length && index === blocks.length - 1 ? " block-slot--drop-after" : ""}${drag?.from === index ? " block-slot--dragging" : ""}`;
+          if (block.type === "table") {
+            const cell = index === editing && focus?.kind === "body" ? focusedCell(block, focus) : null;
+            const mine = focus;
+            return (
+              <div key={key} className={slotClass} data-index={index}>
+                <BlockHandle
+                  turnInto={[]}
+                  listItem={false}
+                  onAction={(action) => act(index, block, action)}
+                  onDragStart={() => setDrag({ from: index, before: null })}
+                  onDragEnd={() => setDrag(null)}
+                />
+                <TableEditor
+                  block={block}
+                  pagePath={pagePath}
+                  cell={cell}
+                  onSelect={(next) => {
+                    setSlash(null);
+                    setToolbar(null);
+                    setFocus(cellFocus(block.line, next));
+                  }}
+                  onEdit={(table, next) =>
+                    apply(
+                      replaceBlockText(markdown, index, tableSource(block.source, table)),
+                      next ? cellFocus(block.line, next) : null,
+                    )
+                  }
+                  onExit={(step) => leaveTable(index, step)}
+                  onLeave={() => setFocus((current) => (current === mine ? null : current))}
+                />
+              </div>
+            );
+          }
           if (index === editing && focus?.kind === "body") {
             const text = blockText(block);
             const parts = isSingleLine(block) ? splitLine(text) : null;
@@ -1053,13 +1134,10 @@ export function PageEditor({
               </EditingBlock>
             );
           }
-          const dropAt = drag?.before ?? fileDrop;
-          const dropBefore = dropAt === index;
-          const dropAfter = dropAt === blocks.length && index === blocks.length - 1;
           return (
             <div
               key={key}
-              className={`block-slot${dropBefore ? " block-slot--drop-before" : ""}${dropAfter ? " block-slot--drop-after" : ""}${drag?.from === index ? " block-slot--dragging" : ""}`}
+              className={slotClass}
               data-index={index}
               onMouseDown={activate(block)}
             >

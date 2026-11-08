@@ -1969,6 +1969,142 @@ h1.page__title:focus-visible {
   font-weight: 600;
 }
 
+.table-editor {
+  margin-left: -14px;
+  padding: 10px 0 2px 14px;
+}
+
+.table-editor__grid {
+  display: inline-grid;
+  grid-template-columns: auto 18px;
+  grid-template-rows: auto 18px;
+}
+
+.table-editor table {
+  grid-area: 1 / 1;
+}
+
+.table-editor th,
+.table-editor td {
+  position: relative;
+  min-width: 120px;
+  cursor: text;
+}
+
+.table-editor .table-editor__cell--active {
+  box-shadow: inset 0 0 0 2px var(--q-accent);
+}
+
+.table-editor__input {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  line-height: inherit;
+  text-align: inherit;
+  resize: none;
+  field-sizing: content;
+  outline: none;
+}
+
+.table-editor__add {
+  padding: 0;
+  border: 0;
+  border-radius: var(--q-radius-sm);
+  background: none;
+  color: var(--q-text-faint);
+  font: inherit;
+  font-size: var(--q-text-md);
+  line-height: 1;
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity 120ms ease;
+}
+
+.table-editor__add--column {
+  grid-area: 1 / 2;
+  margin-left: 2px;
+}
+
+.table-editor__add--row {
+  grid-area: 2 / 1;
+  margin-top: 2px;
+}
+
+.table-editor:hover .table-editor__add,
+.table-editor--editing .table-editor__add,
+.table-editor__add:focus-visible {
+  opacity: 1;
+}
+
+.table-editor__add:hover {
+  background: var(--q-bg-hover);
+  color: var(--q-text-muted);
+}
+
+.table-editor__handle {
+  position: absolute;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--q-border);
+  border-radius: var(--q-radius-sm);
+  background: var(--q-bg);
+  box-shadow: 0 1px 2px light-dark(rgba(15, 15, 15, 0.1), rgba(0, 0, 0, 0.4));
+  color: var(--q-text-faint);
+  fill: currentColor;
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity 120ms ease;
+}
+
+.table-editor__handle--column {
+  top: -9px;
+  left: 50%;
+  width: 24px;
+  height: 14px;
+  transform: translateX(-50%);
+}
+
+.table-editor__handle--row {
+  top: 50%;
+  left: -9px;
+  width: 14px;
+  height: 24px;
+  transform: translateY(-50%);
+}
+
+.table-editor__handle--shown,
+.table-editor tr:hover .table-editor__handle--row,
+.table-editor__handle:focus-visible {
+  opacity: 1;
+}
+
+.table-editor__handle:hover {
+  background: var(--q-bg-hover);
+  color: var(--q-text-muted);
+}
+
+.block-menu.table-menu {
+  position: fixed;
+  inset: auto;
+  width: 200px;
+  margin: 0;
+  border: 0;
+}
+
+.table-menu__separator {
+  height: 1px;
+  margin: var(--q-space-1) 0;
+  background: var(--q-border);
+}
+
 .block--properties {
   color: var(--q-text-muted);
   font-size: var(--q-text-sm);
