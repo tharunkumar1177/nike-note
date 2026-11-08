@@ -470,7 +470,12 @@ export function TableEditor({
   const renderCell = (text: string, at: CellPosition) => {
     const Tag = at.row === 0 ? "th" : "td";
     const active = editing?.row === at.row && editing.column === at.column;
-    const showColumn = at.row === 0 && (hoverColumn === at.column || editing?.column === at.column);
+    const showColumn =
+      at.row === 0 &&
+      (hoverColumn === at.column ||
+        editing?.column === at.column ||
+        (menu?.kind === "column" && menu.index === at.column));
+    const showRow = editing?.row === at.row || (menu?.kind === "row" && menu.index === at.row);
     return (
       <Tag
         key={at.column}
@@ -495,7 +500,7 @@ export function TableEditor({
         {at.column === 0 && (
           <button
             type="button"
-            className={`table-editor__handle table-editor__handle--row${editing?.row === at.row ? " table-editor__handle--shown" : ""}`}
+            className={`table-editor__handle table-editor__handle--row${showRow ? " table-editor__handle--shown" : ""}`}
             aria-label={at.row === 0 ? "Header row actions" : `Row ${at.row} actions`}
             aria-haspopup="menu"
             onMouseDown={(event) => event.preventDefault()}

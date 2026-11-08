@@ -1972,12 +1972,15 @@ h1.page__title:focus-visible {
 .table-editor {
   margin-left: -14px;
   padding: 10px 0 2px 14px;
+  overflow-y: hidden;
 }
 
 .table-editor__grid {
   display: inline-grid;
   grid-template-columns: auto 18px;
   grid-template-rows: auto 18px;
+  gap: 2px;
+  vertical-align: top;
 }
 
 .table-editor table {
@@ -2027,12 +2030,10 @@ h1.page__title:focus-visible {
 
 .table-editor__add--column {
   grid-area: 1 / 2;
-  margin-left: 2px;
 }
 
 .table-editor__add--row {
   grid-area: 2 / 1;
-  margin-top: 2px;
 }
 
 .table-editor:hover .table-editor__add,
