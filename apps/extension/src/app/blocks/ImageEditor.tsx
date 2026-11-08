@@ -29,6 +29,9 @@ const MIN_WIDTH = 48;
 const KEY_STEP = 16;
 /** How far one Shift+arrow key press on a resize handle changes the width. */
 const KEY_STEP_LARGE = 64;
+/** Below this shown width or height the toolbar sits above the image instead of on it. */
+const COMPACT_WIDTH = 240;
+const COMPACT_HEIGHT = 96;
 
 /** The alignment buttons, in toolbar order. */
 const ALIGNS: readonly { align: ImageAlign; label: string }[] = [
@@ -202,7 +205,7 @@ export function ImageEditor({
   const [menu, setMenu] = useState<MenuPlace | null>(null);
   const [altForm, setAltForm] = useState<MenuPlace | null>(null);
   const [room, setRoom] = useState(MAX_IMAGE_WIDTH);
-  const [shown, setShown] = useState<number | null>(null);
+  const [shown, setShown] = useState<{ width: number; height: number } | null>(null);
   const ready = source.status === "ready";
   const width = dragWidth ?? block.width;
 
@@ -212,7 +215,8 @@ export function ImageEditor({
     if (!element || !picture) return;
     const observer = new ResizeObserver(() => {
       setRoom(Math.min(element.clientWidth, MAX_IMAGE_WIDTH));
-      setShown(Math.round(picture.getBoundingClientRect().width));
+      const rect = picture.getBoundingClientRect();
+      setShown({ width: Math.round(rect.width), height: Math.round(rect.height) });
     });
     observer.observe(element);
     observer.observe(picture);
@@ -335,7 +339,7 @@ export function ImageEditor({
       aria-label={`Resize image from the ${side} edge`}
       aria-valuemin={MIN_WIDTH}
       aria-valuemax={room}
-      aria-valuenow={width ?? shown ?? undefined}
+      aria-valuenow={width ?? shown?.width}
       aria-valuetext={width === null ? "Original size" : `${width} pixels wide`}
       tabIndex={0}
       onPointerDown={onResizeStart(side)}
@@ -371,6 +375,9 @@ export function ImageEditor({
     "image-editor",
     selected ? "image-editor--selected" : "",
     dragWidth !== null ? "image-editor--resizing" : "",
+    ready && shown !== null && (shown.width < COMPACT_WIDTH || shown.height < COMPACT_HEIGHT)
+      ? "image-editor--compact"
+      : "",
     menu !== null || altForm !== null || captioning ? "image-editor--active" : "",
   ];
 

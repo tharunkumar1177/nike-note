@@ -2031,6 +2031,12 @@ h1.page__title:focus-visible {
   opacity: 0;
 }
 
+.image-editor--compact .image-editor__toolbar {
+  top: auto;
+  right: 0;
+  bottom: calc(100% + 4px);
+}
+
 .image-editor__button {
   display: inline-flex;
   align-items: center;
