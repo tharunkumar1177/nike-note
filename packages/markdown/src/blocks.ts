@@ -1,12 +1,14 @@
 /**
  * Block model and line-based block parser (architecture.md#block-model-and-line-mapping).
- * One source line is one block, except front matter, fenced code, and tables,
- * which are one block each. Every block keeps its exact source in `raw`, so
- * joining the blocks' `raw` reproduces the document unchanged.
+ * One source line is one block, except front matter, fenced code, tables,
+ * equations, callouts, and toggles, which are one block each. Every block
+ * keeps its exact source in `raw`, so joining the blocks' `raw` reproduces the
+ * document unchanged.
  */
 import { parseImageLine, type ImageParts } from "./image";
 import { parsePageLinkLine } from "./links";
 import { dominantEol, indentWidth, splitLines, type SourceLine } from "./lines";
+import { dollarsEnd, isDollarsLine, parseMathLine, type MathParts } from "./math";
 
 /** Heading levels `#` to `######`. */
 export type HeadingLevel = 1 | 2 | 3 | 4 | 5 | 6;
@@ -37,6 +39,7 @@ export type Block = BlockBase &
     | { type: "frontMatter"; yaml: string }
     | { type: "table"; source: string }
     | ({ type: "image" } & ImageParts)
+    | ({ type: "math" } & MathParts)
     | { type: "callout"; kind: CalloutKind; text: string }
     | { type: "toggle"; open: boolean; summary: string; body: string }
   );
@@ -56,7 +59,7 @@ type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K>
 
 /** A single-line block before its source position is attached. */
 type LineBlock = DistributiveOmit<
-  Exclude<Block, { type: "code" | "frontMatter" | "table" | "callout" | "toggle" }>,
+  Exclude<Block, { type: "code" | "frontMatter" | "table" | "math" | "callout" | "toggle" }>,
   "raw" | "line"
 >;
 
@@ -228,19 +231,44 @@ export function parseDocument(source: string): MarkdownDocument {
       let end = index + 1;
       while (end < lines.length && !closesFence(lines[end]?.text ?? "", marker)) end += 1;
       const closed = end < lines.length;
+      const language = (fence[2] ?? "").trim().split(/\s+/)[0] ?? "";
+      const code = lines
+        .slice(start + 1, end)
+        .map((codeLine) => codeLine.text)
+        .join("\n");
+      const raw = rawOf(lines.slice(start, closed ? end + 1 : end));
+      blocks.push(
+        language.toLowerCase() === "math"
+          ? { type: "math", tex: code, form: "fence", raw, line: start }
+          : { type: "code", language, code, closed, raw, line: start },
+      );
+      lists.reset();
+      index = closed ? end + 1 : end;
+      continue;
+    }
+
+    const dollarsClose = isDollarsLine(line.text) ? dollarsEnd(lines, index) : -1;
+    if (dollarsClose > index) {
       blocks.push({
-        type: "code",
-        language: (fence[2] ?? "").trim().split(/\s+/)[0] ?? "",
-        code: lines
-          .slice(start + 1, end)
-          .map((codeLine) => codeLine.text)
+        type: "math",
+        tex: lines
+          .slice(start + 1, dollarsClose)
+          .map((mathLine) => mathLine.text)
           .join("\n"),
-        closed,
-        raw: rawOf(lines.slice(start, closed ? end + 1 : end)),
+        form: "dollars",
+        raw: rawOf(lines.slice(start, dollarsClose + 1)),
         line: start,
       });
       lists.reset();
-      index = closed ? end + 1 : end;
+      index = dollarsClose + 1;
+      continue;
+    }
+
+    const lineTex = parseMathLine(line.text);
+    if (lineTex !== null) {
+      blocks.push({ type: "math", tex: lineTex, form: "line", raw: rawOf([line]), line: start });
+      lists.reset();
+      index += 1;
       continue;
     }
 

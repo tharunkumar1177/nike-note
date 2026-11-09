@@ -38,6 +38,7 @@ import {
   replaceBlockText,
   setImage,
   setLink,
+  setMath,
   setTitle,
   splitBlock,
   splitLine,
@@ -54,6 +55,7 @@ import {
   type LineParts,
   type MarkdownDocument,
   type Mark,
+  type MathForm,
   type Selected,
   type SourcePosition,
   type TurnIntoKind,
@@ -79,6 +81,7 @@ import { BlockView, BULLETS } from "./BlockView";
 import { caretPoint } from "./caretPoint";
 import { FORMAT_TOOLBAR, FormatToolbar } from "./FormatToolbar";
 import { ImageEditor } from "./ImageEditor";
+import { MathEditor } from "./MathEditor";
 import { SlashMenu, slashOptionId } from "./SlashMenu";
 import { TableEditor } from "./TableEditor";
 
@@ -137,7 +140,7 @@ function toolbarAt(box: HTMLTextAreaElement, line: number, linking: boolean): To
 function shortcutMark(event: KeyboardEvent<HTMLTextAreaElement>): Mark | null {
   if (!(event.ctrlKey || event.metaKey) || event.altKey) return null;
   const key = event.key.toLowerCase();
-  if (event.shiftKey) return key === "x" || key === "s" ? "strike" : null;
+  if (event.shiftKey) return key === "x" || key === "s" ? "strike" : key === "e" ? "math" : null;
   return key === "b" ? "bold" : key === "i" ? "italic" : key === "e" ? "code" : null;
 }
 
@@ -471,6 +474,8 @@ export function PageEditor({
   const [toolbar, setToolbar] = useState<Toolbar | null>(null);
   const [drag, setDrag] = useState<{ from: number; before: number | null } | null>(null);
   const [fileDrop, setFileDrop] = useState<number | null>(null);
+  /** The equation whose TeX editor is open: its first source line and its form when opened. */
+  const [equation, setEquation] = useState<{ line: number; form: MathForm } | null>(null);
   const menuId = useId();
   const blocks = markdown.blocks;
   const titleIndex = titleBlockIndex(blocks);
@@ -657,6 +662,15 @@ export function PageEditor({
       apply(source, { kind: "title", offset: Math.max(column - 2, 0) });
       return;
     }
+    if (/^ {0,3}(```|~~~|\$\$)/.test(next)) {
+      const typed = parseDocument(source).blocks;
+      const created = typed[blockAtLine(typed, block.line)];
+      if (created?.type === "math") {
+        apply(source, { kind: "body", line: created.line, column: 0 });
+        setEquation({ line: created.line, form: created.form });
+        return;
+      }
+    }
     apply(source, { kind: "body", ...positionInText(block.line, next, column) });
   };
 
@@ -815,10 +829,10 @@ export function PageEditor({
   };
 
   /**
-   * Delete image block `index` from the keyboard or its menu and put the
-   * caret at the end of the block before it, or in the title.
+   * Delete image or equation block `index` from the keyboard or its menu and
+   * put the caret at the end of the block before it, or in the title.
    */
-  const removeImage = (index: number): void => {
+  const removeSelected = (index: number): void => {
     const edit = deleteBlock(markdown, index);
     if (!edit) return;
     if (titleIndex >= 0 && index - 1 === titleIndex) {
@@ -855,15 +869,22 @@ export function PageEditor({
       onAiWrite?.(block.line);
       return;
     }
-    if (command === "table" || command === "callout" || command === "toggle") {
+    if (
+      command === "table" ||
+      command === "callout" ||
+      command === "toggle" ||
+      command === "math"
+    ) {
       const inserted = insertTemplate(markdown, index, text, command);
       if (!inserted) return;
+      const whole = command === "table" || command === "math";
       apply(
         inserted.source,
-        command === "table"
+        whole
           ? { kind: "body", line: inserted.caret.line, column: 0 }
           : { kind: "body", ...inserted.caret },
       );
+      if (command === "math") setEquation({ line: inserted.caret.line, form: "dollars" });
       return;
     }
     const edit = turnInto(markdown, index, text, offset, command);
@@ -1123,7 +1144,7 @@ export function PageEditor({
                     if (source !== null) apply(source, here);
                   }}
                   onEnter={() => addLineBelowImage(index, block)}
-                  onDelete={() => removeImage(index)}
+                  onDelete={() => removeSelected(index)}
                   onReplace={onAddImage ? () => replaceImage(block.line) : undefined}
                   onExit={(step) => leaveBlock(index, step)}
                   onLeave={() =>
@@ -1131,6 +1152,61 @@ export function PageEditor({
                       current?.kind === "body" && current.line === block.line ? null : current,
                     )
                   }
+                />
+              </div>
+            );
+          }
+          if (block.type === "math") {
+            const here: Focus = { kind: "body", line: block.line, column: 0 };
+            const lines = blockLineCount(block);
+            return (
+              <div key={key} className={slotClass} data-index={index}>
+                <BlockHandle
+                  turnInto={[]}
+                  listItem={false}
+                  onAction={(action) => act(index, block, action)}
+                  onDragStart={() => setDrag({ from: index, before: null })}
+                  onDragEnd={() => setDrag(null)}
+                />
+                <MathEditor
+                  block={block}
+                  selected={index === editing && focus?.kind === "body"}
+                  open={equation?.line === block.line}
+                  onSelect={() => {
+                    setSlash(null);
+                    setToolbar(null);
+                    if (index !== editing) setFocus(here);
+                  }}
+                  onOpen={() => {
+                    if (index !== editing) setFocus(here);
+                    if (equation?.line !== block.line) {
+                      setEquation({ line: block.line, form: block.form });
+                    }
+                  }}
+                  onClose={() => setEquation((open) => (open?.line === block.line ? null : open))}
+                  onChange={(tex) => {
+                    const form = equation?.line === block.line ? equation.form : undefined;
+                    const source = setMath(markdown, index, tex, form);
+                    if (source !== null) apply(source, here);
+                  }}
+                  onDelete={() => {
+                    setEquation(null);
+                    removeSelected(index);
+                  }}
+                  onExit={(step) => {
+                    if (step === 1 && neighbor(index, 1) < 0) writeAtEnd();
+                    else leaveBlock(index, step);
+                  }}
+                  onLeave={() => {
+                    setEquation((open) => (open?.line === block.line ? null : open));
+                    setFocus((current) =>
+                      current?.kind === "body" &&
+                      current.line >= block.line &&
+                      current.line < block.line + lines
+                        ? null
+                        : current,
+                    );
+                  }}
                 />
               </div>
             );

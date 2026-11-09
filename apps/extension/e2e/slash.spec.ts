@@ -30,7 +30,7 @@ test("the slash menu filters as you type and turns the line into the chosen bloc
 
   await app.keyboard.type("/");
   await expect(menu).toBeVisible();
-  await expect(menu.getByRole("option")).toHaveCount(19);
+  await expect(menu.getByRole("option")).toHaveCount(20);
   await app.keyboard.type("h2");
   await expect(menu.getByRole("option").first()).toHaveText(/Heading 2/);
   await expect(menu.getByRole("option", { selected: true })).toHaveText(/Heading 2/);

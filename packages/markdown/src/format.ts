@@ -1,13 +1,16 @@
 /**
  * Inline formatting of one block's text: turning bold, italic, strikethrough,
- * code, and links on and off for a selection by adding or removing Markdown
- * delimiters. Every function returns the new text and where the selection
- * belongs in it, so the selected words stay selected.
+ * code, inline equations, and links on and off for a selection by adding or
+ * removing Markdown delimiters. Every function returns the new text and where
+ * the selection belongs in it, so the selected words stay selected.
  */
 import { scanInline, type InlineSpan, type SourceRange } from "./inline";
 
-/** A text style the formatting toolbar toggles. */
-export type Mark = "bold" | "italic" | "strike" | "code";
+/** A text style the formatting toolbar toggles. `math` is an inline equation. */
+export type Mark = "bold" | "italic" | "strike" | "code" | "math";
+
+/** Marks whose content is taken literally, where no other style applies. */
+const LITERAL: readonly Mark[] = ["code", "math"];
 
 /** Text with a selection from `start` to `end` (equal for a caret). */
 export interface Selected {
@@ -27,7 +30,7 @@ export interface LinkRange extends SourceRange {
 export interface Formats {
   marks: ReadonlySet<Mark>;
   link: LinkRange | null;
-  /** True inside inline code, where other styles do not apply. */
+  /** True inside inline code or an inline equation, where other styles do not apply. */
   inCode: boolean;
 }
 
@@ -109,13 +112,13 @@ function enclosing(
 export function formatsAt(text: string, start: number, end: number): Formats {
   const selection = narrow(text, start, end);
   const marks = new Set<Mark>();
-  for (const mark of ["bold", "italic", "strike", "code"] as const) {
+  for (const mark of ["bold", "italic", "strike", "code", "math"] as const) {
     if (enclosing(text, selection.start, selection.end, mark)) marks.add(mark);
   }
   return {
     marks,
     link: linkAt(text, start, end),
-    inCode: marks.has("code"),
+    inCode: LITERAL.some((mark) => marks.has(mark)),
   };
 }
 
@@ -136,7 +139,9 @@ function runAt(text: string, at: number, step: 1 | -1, char: string): number {
  * in the middle), which Markdown does not read as styled text, or null.
  */
 function emptyPair(text: string, caret: number, mark: Mark): { from: number; to: number } | null {
-  const chars = { bold: ["*", "_"], italic: ["*", "_"], strike: ["~"], code: ["`"] }[mark];
+  const chars = { bold: ["*", "_"], italic: ["*", "_"], strike: ["~"], code: ["`"], math: ["$"] }[
+    mark
+  ];
   for (const char of chars) {
     const before = runAt(text, caret, -1, char);
     if (before === 0 || runAt(text, caret, 1, char) !== before) continue;
@@ -145,6 +150,7 @@ function emptyPair(text: string, caret: number, mark: Mark): { from: number; to:
       italic: before === 1 || before === 3 ? 1 : 0,
       strike: before === 2 ? 2 : 0,
       code: before,
+      math: before === 1 ? 1 : 0,
     }[mark];
     if (width > 0) return { from: caret - width, to: caret + width };
   }
@@ -153,7 +159,7 @@ function emptyPair(text: string, caret: number, mark: Mark): { from: number; to:
 
 /** The delimiter that adds `mark` around the selection. */
 function delimiterFor(
-  mark: Exclude<Mark, "code">,
+  mark: Exclude<Mark, "code" | "math">,
   text: string,
   start: number,
   end: number,
@@ -172,6 +178,25 @@ function codeSpan(content: string): { open: string; close: string } {
   return { open: fence + pad, close: pad + fence };
 }
 
+/**
+ * An inline equation around TeX `content` that is followed by `after`:
+ * `$…$`, or `` $`…`$ `` when plain dollars would not read back as the same
+ * TeX (a `$` inside, a backtick at its start, a backslash at its end, or a
+ * digit after it).
+ */
+function mathSpan(content: string, after: string | undefined): { open: string; close: string } {
+  const plain =
+    !content.includes("$") &&
+    !content.startsWith("`") &&
+    !content.endsWith("\\") &&
+    !/\d/.test(after ?? "");
+  if (plain) {
+    return { open: "$", close: "$" };
+  }
+  const code = codeSpan(content);
+  return { open: `$${code.open}`, close: `${code.close}$` };
+}
+
 /** Add `mark` around the selection, or a pair of delimiters at a caret. */
 function addMark(selection: Selected, mark: Mark): Selected {
   const { text } = selection;
@@ -182,6 +207,8 @@ function addMark(selection: Selected, mark: Mark): Selected {
   let close: string;
   if (mark === "code") {
     ({ open, close } = start === end ? { open: "`", close: "`" } : codeSpan(content));
+  } else if (mark === "math") {
+    ({ open, close } = start === end ? { open: "$", close: "$" } : mathSpan(content, text[end]));
   } else {
     open = delimiterFor(mark, text, start, end);
     close = open;
@@ -249,9 +276,25 @@ export function toggleMark(text: string, start: number, end: number, mark: Mark)
     }
   }
   const span = enclosing(text, selection.start, selection.end, mark);
+  if (span && mark === "math") return unwrapMath(text, span);
   if (span) return removeMark(selection, span);
-  if (enclosing(text, selection.start, selection.end, "code")) return { text, start, end };
+  if (LITERAL.some((literal) => enclosing(text, selection.start, selection.end, literal))) {
+    return { text, start, end };
+  }
   return addMark(selection, mark);
+}
+
+/**
+ * Turn the whole inline equation `span` back into text, its TeX selected,
+ * since part of an equation is not an equation of its own.
+ */
+function unwrapMath(text: string, span: InlineSpan): Selected {
+  const tex = text.slice(span.innerFrom, span.innerTo);
+  return {
+    text: text.slice(0, span.from) + tex + text.slice(span.to),
+    start: span.from,
+    end: span.from + tex.length,
+  };
 }
 
 /** The innermost link around the selection from `start` to `end`, or null. */

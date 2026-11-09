@@ -1,6 +1,7 @@
 /**
  * Vite plugin that emits the extension manifest and the PNG icons into the
- * build, and fails the build when a provider SDK would load at startup.
+ * build, and fails the build when a provider SDK or the math renderer would
+ * load at startup.
  */
 import type { Plugin } from "vite";
 
@@ -8,7 +9,7 @@ import { buildManifest, ICON_SIZES } from "./manifest";
 import { renderIconPng } from "./png";
 
 /** Packages that may only be bundled into lazily loaded chunks. */
-const LAZY_PACKAGES = ["@google/genai"];
+const LAZY_PACKAGES = ["@google/genai", "katex"];
 
 /** The parts of an output chunk the startup check reads. */
 export interface ChunkInfo {
@@ -59,7 +60,9 @@ export function quireExtension(options: { version: string }): Plugin {
       );
       const leaks = startupLeaks(chunks);
       if (leaks.length > 0) {
-        this.error(`Provider SDKs must load lazily, but these load at startup:\n${leaks.join("\n")}`);
+        this.error(
+          `Provider SDKs and KaTeX must load lazily, but these load at startup:\n${leaks.join("\n")}`,
+        );
       }
       this.emitFile({
         type: "asset",
