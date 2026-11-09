@@ -3,7 +3,7 @@
  * math fences render with KaTeX, clicking one opens a TeX editor that
  * redraws it while typing, `/equation` and typed `$$…$$` add one, the
  * keyboard moves past and deletes a selected equation, and inline `$…$`
- * math renders in text and is added with Ctrl+Shift+E. The rest of the page
+ * math renders in text and is added with Ctrl+Shift+E or `/inline`. The rest of the page
  * keeps its bytes and line endings.
  */
 import { readFile } from "node:fs/promises";
@@ -131,4 +131,26 @@ test("inline equations render and Ctrl+Shift+E or $$…$$ adds math", async ({
   await expect(tex).toHaveValue("x^3");
   await app.keyboard.type("+1");
   await expect.poll(readme).toBe("# Circles\n\nArea is $\\pi r^2$ for $5 and $10.\n$$x^3+1$$\n");
+});
+
+test("/inline starts an inline equation where it is typed", async ({ openApp, sandbox }) => {
+  const notes = await createNotes(sandbox, { "README.md": "# Circles\n\nArea\n" });
+  const readme = () => readFile(join(notes, "README.md"), "utf8");
+  const app = await openApp();
+  await app.getByText("Area", { exact: true }).click();
+  const line = app.getByRole("textbox", { name: "Edit block" });
+  await expect(line).toBeFocused();
+  await app.keyboard.press("End");
+  await app.keyboard.type(" /inline");
+  const menu = app.getByRole("listbox", { name: "Blocks" });
+  await expect(menu.getByRole("option")).toHaveCount(1);
+  await expect(menu.getByRole("option").first()).toContainText("Inline equation");
+  await app.keyboard.press("Enter");
+  await expect(line).toHaveValue("Area $$");
+  await app.keyboard.type("\\pi r^2");
+  await expect.poll(readme).toBe("# Circles\n\nArea $\\pi r^2$\n");
+
+  await app.keyboard.press("Escape");
+  const paragraph = app.locator(".block--text", { hasText: "Area" });
+  await expect(paragraph.locator(".math--inline .katex")).toHaveCount(1);
 });

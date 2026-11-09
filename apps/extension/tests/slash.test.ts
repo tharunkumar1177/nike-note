@@ -35,6 +35,7 @@ describe("filterSlashItems", () => {
       "callout",
       "toggle",
       "math",
+      "inlineMath",
       "image",
       "page",
       "ai",
@@ -47,8 +48,9 @@ describe("filterSlashItems", () => {
     expect(commands("Heading 3")[0]).toBe("h3");
     expect(commands("list")).toEqual(["bullet", "numbered", "todo"]);
     expect(commands("HR")).toEqual(["divider"]);
-    expect(commands("equation")).toEqual(["math"]);
-    expect(commands("LaTeX")).toEqual(["math"]);
+    expect(commands("equation")).toEqual(["math", "inlineMath"]);
+    expect(commands("LaTeX")).toEqual(["math", "inlineMath"]);
+    expect(commands("inline")).toEqual(["inlineMath"]);
     expect(commands("eadi")).toEqual(["h1", "h2", "h3", "h4", "h5", "h6"]);
   });
 

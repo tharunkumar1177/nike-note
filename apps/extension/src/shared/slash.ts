@@ -7,9 +7,16 @@ import type { TemplateKind, TurnIntoKind } from "@quire/markdown";
 
 /**
  * What a slash command does: turn the line into a block type, add a block
- * from a template, add an image, add a sub-page, or write with AI.
+ * from a template, start an inline equation, add an image, add a sub-page,
+ * or write with AI.
  */
-export type SlashCommand = TurnIntoKind | TemplateKind | "image" | "page" | "ai";
+export type SlashCommand =
+  | TurnIntoKind
+  | TemplateKind
+  | "inlineMath"
+  | "image"
+  | "page"
+  | "ai";
 
 /** One entry of the slash menu. */
 export interface SlashItem {
@@ -81,6 +88,12 @@ export const SLASH_ITEMS: readonly SlashItem[] = [
     label: "Block equation",
     hint: "A TeX formula on its own line",
     keywords: ["math", "equation", "tex", "latex", "formula", "katex"],
+  },
+  {
+    command: "inlineMath",
+    label: "Inline equation",
+    hint: "A TeX formula inside the text",
+    keywords: ["inlinemath", "inline", "equation", "math", "tex", "latex", "formula"],
   },
   {
     command: "image",
