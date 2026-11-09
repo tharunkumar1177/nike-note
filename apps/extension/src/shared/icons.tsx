@@ -157,3 +157,13 @@ export function CaptionIcon() {
     </svg>
   );
 }
+
+/** Equation (a square root sign over an x). */
+export function EquationIcon() {
+  return (
+    <svg {...iconProps}>
+      <path d="M1.5 9 3.25 8l2 5 3-10.5h6" />
+      <path d="m9.5 7 3.5 4.5M13 7l-3.5 4.5" />
+    </svg>
+  );
+}

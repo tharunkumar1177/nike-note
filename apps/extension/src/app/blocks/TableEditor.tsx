@@ -56,7 +56,7 @@ function alignStyle(align: CellAlign | undefined): CSSProperties | undefined {
 function shortcutMark(event: KeyboardEvent<HTMLTextAreaElement>): Mark | null {
   if (!(event.ctrlKey || event.metaKey) || event.altKey) return null;
   const key = event.key.toLowerCase();
-  if (event.shiftKey) return key === "x" || key === "s" ? "strike" : null;
+  if (event.shiftKey) return key === "x" || key === "s" ? "strike" : key === "e" ? "math" : null;
   return key === "b" ? "bold" : key === "i" ? "italic" : key === "e" ? "code" : null;
 }
 

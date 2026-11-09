@@ -1,7 +1,7 @@
 /**
  * The toolbar that floats above selected text in the block being edited (see
  * blueprints/inline-formatting.md): bold, italic, strikethrough, inline code,
- * and link, each showing whether the selection already has it. Focus stays in
+ * inline equation, and link, each showing whether the selection already has it. Focus stays in
  * the block's text box except while a link address is typed.
  */
 import type { Formats, Mark } from "@quire/markdown";
@@ -24,6 +24,7 @@ const MARK_BUTTONS: readonly { mark: Mark; label: string; keys: string; face: st
   { mark: "italic", label: "Italic", keys: "I", face: "I" },
   { mark: "strike", label: "Strikethrough", keys: "Shift+X", face: "S" },
   { mark: "code", label: "Code", keys: "E", face: "</>" },
+  { mark: "math", label: "Equation", keys: "Shift+E", face: "√x" },
 ];
 
 /**
@@ -167,7 +168,7 @@ export function FormatToolbar({
               aria-label={label}
               aria-pressed={formats.marks.has(mark)}
               title={`${label} (${shortcut(keys)})`}
-              disabled={formats.inCode && mark !== "code"}
+              disabled={formats.inCode && !formats.marks.has(mark)}
               onClick={() => onMark(mark)}
             >
               {face}

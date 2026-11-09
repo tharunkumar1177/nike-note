@@ -74,6 +74,14 @@ describe("startupLeaks", () => {
       ]),
     ).toEqual([`deep.js: ${sdk.replaceAll("/", "\\")}`]);
   });
+
+  it("treats KaTeX like a provider SDK", () => {
+    const katex = "/repo/node_modules/.pnpm/katex@0.19.1/node_modules/katex/dist/katex.mjs";
+    expect(startupLeaks([chunk("app.js", true, [], [katex])])).toEqual([`app.js: ${katex}`]);
+    expect(
+      startupLeaks([chunk("app.js", true, [], []), chunk("katex.js", false, [], [katex])]),
+    ).toEqual([]);
+  });
 });
 
 describe("icon PNG", () => {

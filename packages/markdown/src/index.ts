@@ -38,6 +38,7 @@ export {
   removeBlock,
   replaceBlockText,
   setImage,
+  setMath,
   setTitle,
   splitBlock,
   titleText,
@@ -85,6 +86,7 @@ export {
   type PageLinkLine,
 } from "./links";
 export { dominantEol, indentWidth, splitLines, type SourceLine } from "./lines";
+export { mathSource, parseMathLine, type MathForm, type MathParts } from "./math";
 export {
   alignColumn,
   cellText,

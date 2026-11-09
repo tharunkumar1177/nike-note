@@ -71,12 +71,22 @@ export const SHORTCUT_GROUPS: readonly ShortcutGroup[] = [
     ],
   },
   {
+    title: "Equations",
+    shortcuts: [
+      { action: "Edit the selected equation", keys: [["Enter"]] },
+      { action: "Delete the selected equation", keys: [["Backspace"], ["Delete"]] },
+      { action: "Finish editing the TeX", keys: [["Enter"], ["Esc"]] },
+      { action: "New line in the TeX", keys: [["Shift", "Enter"]] },
+    ],
+  },
+  {
     title: "Text",
     shortcuts: [
       { action: "Bold", keys: [["Mod", "B"]] },
       { action: "Italic", keys: [["Mod", "I"]] },
       { action: "Strikethrough", keys: [["Mod", "Shift", "X"]] },
       { action: "Inline code", keys: [["Mod", "E"]] },
+      { action: "Inline equation", keys: [["Mod", "Shift", "E"]] },
       { action: "Add or edit a link", keys: [["Mod", "K"]] },
     ],
   },

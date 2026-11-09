@@ -77,6 +77,12 @@ export const SLASH_ITEMS: readonly SlashItem[] = [
     keywords: ["toggle", "details", "collapse", "fold"],
   },
   {
+    command: "math",
+    label: "Block equation",
+    hint: "A TeX formula on its own line",
+    keywords: ["math", "equation", "tex", "latex", "formula", "katex"],
+  },
+  {
     command: "image",
     label: "Image",
     hint: "Add a picture from your computer",

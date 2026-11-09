@@ -1,12 +1,13 @@
 /**
- * Inline Markdown inside a block: bold, italic, strikethrough, code, links,
- * and autolinks. Anything else, including images and HTML, stays plain text.
+ * Inline Markdown inside a block: bold, italic, strikethrough, code, math,
+ * links, and autolinks. Anything else, including images and HTML, stays
+ * plain text.
  */
 
-/** One inline node. */
+/** One inline node. `math` holds TeX. */
 export type Inline =
   | { type: "text"; text: string }
-  | { type: "code"; text: string }
+  | { type: "code" | "math"; text: string }
   | { type: "bold" | "italic" | "strike"; children: Inline[] }
   | { type: "link"; href: string; children: Inline[] };
 
@@ -26,7 +27,7 @@ export interface SourceRange {
 export type InlineSpan = SourceRange &
   (
     | { type: "text"; text: string }
-    | { type: "code"; text: string }
+    | { type: "code" | "math"; text: string }
     | { type: "bold" | "italic" | "strike"; children: InlineSpan[] }
     | {
         type: "link";
@@ -129,6 +130,47 @@ function findDelimiterClose(source: string, from: number, delimiter: string): nu
   return -1;
 }
 
+/** Where inline math starting at a `$` sits: its TeX and the end of its closing `$`. */
+interface MathSpan {
+  innerFrom: number;
+  innerTo: number;
+  end: number;
+}
+
+/**
+ * Inline math opened by the single `$` at `start`, as GitHub reads it:
+ * `` $`…`$ `` around a code span, or `$…$` whose TeX neither starts nor ends
+ * with a space, where the closing `$` is not escaped, doubled, or followed by
+ * a digit (so "$5 and $10" stays text). Null when it does not close.
+ */
+function readMath(source: string, start: number): MathSpan | null {
+  const first = source[start + 1];
+  if (first === "`") {
+    let run = 0;
+    while (source[start + 1 + run] === "`") run += 1;
+    const close = findCodeClose(source, start + 1 + run, run);
+    if (close === -1 || source[close + run] !== "$") return null;
+    const innerFrom = start + 1 + run;
+    return close > innerFrom ? { innerFrom, innerTo: close, end: close + run + 1 } : null;
+  }
+  if (first === undefined || /\s/.test(first)) return null;
+  for (let index = start + 1; index < source.length; index += 1) {
+    const char = source[index];
+    if (char === "\\") {
+      index += 1;
+      continue;
+    }
+    if (char !== "$") continue;
+    if (source[index + 1] === "$") {
+      while (source[index + 1] === "$") index += 1;
+      continue;
+    }
+    if (/\s/.test(source[index - 1] ?? "") || /\d/.test(source[index + 1] ?? "")) continue;
+    return { innerFrom: start + 1, innerTo: index, end: index + 1 };
+  }
+  return null;
+}
+
 /**
  * Length of a bare `http(s)://` URL at `start`, without trailing punctuation.
  */
@@ -206,6 +248,28 @@ export function scanInline(source: string, base = 0, nesting = 0): InlineSpan[] 
         innerTo: base + close,
       });
       index = close + run;
+      continue;
+    }
+
+    if (char === "$") {
+      let run = 0;
+      while (source[index + run] === "$") run += 1;
+      const math = run === 1 ? readMath(source, index) : null;
+      if (!math) {
+        addText("$".repeat(run), index);
+        index += run;
+        continue;
+      }
+      flush(index);
+      nodes.push({
+        type: "math",
+        text: source.slice(math.innerFrom, math.innerTo),
+        from: base + index,
+        to: base + math.end,
+        innerFrom: base + math.innerFrom,
+        innerTo: base + math.innerTo,
+      });
+      index = math.end;
       continue;
     }
 
@@ -324,6 +388,7 @@ function withoutRange(span: InlineSpan): Inline {
   switch (span.type) {
     case "text":
     case "code":
+    case "math":
       return { type: span.type, text: span.text };
     case "link":
       return { type: "link", href: span.href, children: span.children.map(withoutRange) };
@@ -344,6 +409,6 @@ export function parseInline(source: string): Inline[] {
  */
 export function inlineText(nodes: readonly Inline[]): string {
   return nodes
-    .map((node) => (node.type === "text" || node.type === "code" ? node.text : inlineText(node.children)))
+    .map((node) => ("text" in node ? node.text : inlineText(node.children)))
     .join("");
 }

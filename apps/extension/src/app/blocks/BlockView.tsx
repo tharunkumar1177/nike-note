@@ -10,6 +10,7 @@ import type { CSSProperties, ReactNode } from "react";
 import { PageIcon } from "../../shared/icons";
 import { pageHash } from "../../shared/pages";
 import { InlineView } from "./InlineView";
+import { MathView } from "./MathFormula";
 import { CalloutView, ImageView, TableView } from "./RichBlocks";
 
 /** Bullet glyphs by nesting depth, repeating. */
@@ -197,6 +198,8 @@ export function BlockView({
       return <TableView block={block} pagePath={pagePath} />;
     case "image":
       return <ImageView block={block} pagePath={pagePath} />;
+    case "math":
+      return <MathView block={block} />;
     case "callout":
       return <CalloutView block={block} pagePath={pagePath} />;
     case "toggle":

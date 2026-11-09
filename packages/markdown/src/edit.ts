@@ -6,6 +6,7 @@
 import { parseDocument, titleBlockIndex, type Block, type MarkdownDocument } from "./blocks";
 import { imageLine, type ImageParts } from "./image";
 import { indentWidth } from "./lines";
+import { mathSource, type MathForm } from "./math";
 import { LIST_KINDS, nestedIndent, splitLine, type LineParts } from "./prefix";
 
 /** A caret in source coordinates: zero-based line and UTF-16 column. */
@@ -21,7 +22,14 @@ export interface Edit {
 }
 
 /** Block types whose source spans several lines, where Enter inserts a newline. */
-const MULTI_LINE = new Set<Block["type"]>(["code", "table", "frontMatter", "callout", "toggle"]);
+const MULTI_LINE = new Set<Block["type"]>([
+  "code",
+  "table",
+  "frontMatter",
+  "math",
+  "callout",
+  "toggle",
+]);
 
 const FENCE_OPEN = /^ {0,3}(`{3,}|~{3,})/;
 const TODO_ITEM = /^([ \t]*)([-*+])( \[[ xX]\])(?:[ \t]+|$)/;
@@ -390,8 +398,25 @@ export function setImage(
   return replaceBlockText(document, index, separate ? `${line}\n` : line);
 }
 
+/**
+ * Rewrite equation block `index` with TeX `tex`, in `form` (by default the
+ * form it is written in) when the TeX fits it, or null when the block is not
+ * an equation. An editor passes the form the equation had when editing
+ * started, so TeX that fits it again goes back to it.
+ */
+export function setMath(
+  document: MarkdownDocument,
+  index: number,
+  tex: string,
+  form?: MathForm,
+): string | null {
+  const block = document.blocks[index];
+  if (block?.type !== "math") return null;
+  return replaceBlockText(document, index, mathSource(tex, form ?? block.form));
+}
+
 /** Multi-line blocks the slash menu adds from a template. */
-export type TemplateKind = "table" | "callout" | "toggle";
+export type TemplateKind = "table" | "callout" | "toggle" | "math";
 
 /** Each template's lines and where the caret goes in them. */
 const TEMPLATES: Record<TemplateKind, { lines: readonly string[]; caret: SourcePosition }> = {
@@ -404,6 +429,7 @@ const TEMPLATES: Record<TemplateKind, { lines: readonly string[]; caret: SourceP
     lines: ["<details>", "<summary>Toggle</summary>", "", "", "</details>"],
     caret: { line: 3, column: 0 },
   },
+  math: { lines: ["$$", "$$"], caret: { line: 0, column: 0 } },
 };
 
 /**
