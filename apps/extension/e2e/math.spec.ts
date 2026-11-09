@@ -30,7 +30,8 @@ test("clicking an equation edits its TeX and redraws it", async ({ openApp, sand
   await expect(tex).toHaveValue("\\sqrt{x}");
 
   await tex.fill("\\frac{1}{2");
-  await expect(app.locator(".math-editor__message--error")).toContainText("Expected");
+  await expect(app.locator(".math-editor__message--error")).toContainText("expected '}'");
+  await expect(equations.first().locator(".math--error")).toHaveText("\\frac{1}{2");
   await expect(tex).toHaveAttribute("aria-invalid", "true");
   await tex.fill("\\frac{1}{2}");
   await expect(equations.first().locator(".mfrac")).toBeVisible();
