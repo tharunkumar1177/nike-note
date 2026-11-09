@@ -92,7 +92,7 @@ function unregisterHelper(): void {
  * into the sandbox.
  */
 function sandboxEnv(sandbox: Sandbox): Record<string, string> {
-  const folders = windows
+  const folders: Record<string, string> = windows
     ? { USERPROFILE: sandbox.home, LOCALAPPDATA: sandbox.config }
     : { XDG_CONFIG_HOME: sandbox.config };
   return {
