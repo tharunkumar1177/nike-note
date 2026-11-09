@@ -6,9 +6,9 @@ The repository scaffold and the GitHub Actions workflow that checks, tests, and 
 
 ## Current verified status
 
-**Status:** Implemented
+**Status:** Partial
 
-Delivered by ROADMAP slice 1. Every job in `.github/workflows/ci.yml` passes on branch `slice/01-extension-skeleton`, including the three-OS helper matrix, the install smoke test, and the Playwright e2e job. Both lockfiles are committed from CI artifacts.
+Delivered by ROADMAP slice 1. Every job in `.github/workflows/ci.yml` passes on branch `slice/01-extension-skeleton`, including the three-OS helper matrix, the install smoke test, and the Playwright e2e job. Both lockfiles are committed from CI artifacts. The Windows-only branch runs, the manual `all_os` run, and e2e on Windows are not yet verified in CI.
 
 ## Architecture dependencies
 
@@ -20,7 +20,10 @@ Delivered by ROADMAP slice 1. Every job in `.github/workflows/ci.yml` passes on 
 
 ## Local rules and implications
 
-- Jobs: `install` (pnpm, uploads `pnpm-lock.yaml`), then `lint`, `typecheck`, `test` in parallel, then `build` (uploads `quire-extension`). `helper` runs as a three-OS matrix in parallel (fmt, clippy with `-D warnings`, tests, release build, install smoke test, uploads `quire-helper-<os>` and `Cargo.lock` from Linux). `e2e` needs `build` and `helper` and runs Playwright on Linux.
+- Triggers: a push to any branch except `main`, and a manual run (`workflow_dispatch`). A merge to `main` does not run CI again, since the branch already passed; there is no separate pull request run.
+- Jobs: `install` (pnpm, uploads `pnpm-lock.yaml`), then `lint`, `typecheck`, `test` in parallel, then `build` (uploads `quire-extension`). `helper` runs in parallel (fmt, clippy with `-D warnings`, tests, release build, install smoke test, uploads `quire-helper-<os>` and `Cargo.lock` from Windows). `e2e` needs `build` and `helper` and runs Playwright on Windows with the Windows helper.
+- Helper operating systems: only Windows on branch pushes. A manual run with `all_os` checked (`gh workflow run CI --ref main -f all_os=true`) adds macOS and Linux, for releases. macOS runners cost ten times and Windows runners twice as many minutes as Linux.
+- The e2e harness registers the helper per test: a manifest in the profile's `NativeMessagingHosts` folder on Linux and macOS, plus `HKCU` registry keys for Chromium, Chrome, and Chrome for Testing on Windows, removed after each test. The sandbox is passed as `HOME` and `XDG_CONFIG_HOME`, or `USERPROFILE` and `LOCALAPPDATA` on Windows.
 - Lockfiles: while a lockfile is missing from the repo, CI resolves it and uploads it as an artifact. The agent commits the artifact contents. After that, installs are frozen (`--frozen-lockfile`, `cargo --locked`). When a `package.json` change makes `pnpm-lock.yaml` stale, the `install` job regenerates it and every later job uses the regenerated artifact, so the run still tests the change; the `lockfile` job fails until the agent commits the artifact.
 - pnpm enforces a one-day `minimumReleaseAge`. Pin only versions published at least 24 hours before the CI run.
 - TypeScript stays on 6.0.x until `typescript-eslint` supports 7.x.
@@ -48,11 +51,11 @@ None
 
 ## Acceptance or verification criteria
 
-- [x] A push to a branch triggers the workflow.
+- [ ] A push to a work branch triggers the workflow, and a merge to `main` does not.
 - [x] Extension lint, type-check, unit tests, and build pass.
-- [x] The helper passes fmt, clippy, tests, and release builds on Windows, macOS, and Linux.
-- [x] The e2e job loads the unpacked extension and completes the `hello` handshake with the Linux helper.
-- [x] Artifacts `quire-extension`, `quire-helper-windows`, `quire-helper-macos`, and `quire-helper-linux` are uploaded.
+- [ ] A branch push builds only the Windows helper; a manual run with `all_os` passes fmt, clippy, tests, and release builds on Windows, macOS, and Linux.
+- [ ] The e2e job on Windows loads the unpacked extension and completes the `hello` handshake with the Windows helper.
+- [ ] Artifacts `quire-extension` and `quire-helper-windows` are uploaded on every run, and `quire-helper-macos` and `quire-helper-linux` on an `all_os` run.
 
 ## Remaining gaps and unknowns
 
