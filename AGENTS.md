@@ -16,6 +16,8 @@ Bind every agent, including subagents. Hard rules come first; none may be traded
 ### Build and CI
 - GitHub Actions CI is the only build authority. Nothing runs locally.
 - Read CI logs with `gh`. If `gh` is unavailable, stop and ask the user for the logs.
+- CI runs on work-branch pushes only. Never trigger it on `main`, and never add `push` to `main` or `pull_request` triggers.
+- Build, test, and ship the helper only for Windows. Never add macOS or Linux jobs to branch runs; they run only when the user starts CI by hand with `all_os` on `main`.
 
 ### Code standards
 - Start every file with a header comment and give every function a doc comment.

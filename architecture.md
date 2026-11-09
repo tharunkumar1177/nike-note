@@ -207,7 +207,7 @@ Popup **Open Quire** focuses an existing app tab (found with `chrome.runtime.get
 - Node.js (pinned in `.nvmrc`), pnpm (pinned with `packageManager`), TypeScript strict mode, Vite.
 - Rust stable with `rustfmt` and `clippy`. Helper targets: `x86_64-pc-windows-msvc`, a universal macOS binary (`aarch64-apple-darwin` and `x86_64-apple-darwin`, merged with `lipo`), and `x86_64-unknown-linux-musl`.
 - Lockfiles (`pnpm-lock.yaml`, `helper/Cargo.lock`) are produced by CI and committed from CI artifacts, never hand-written. When a `package.json` change makes `pnpm-lock.yaml` stale, CI regenerates it for the rest of the run and the `lockfile` job fails until the regenerated file is committed.
-- GitHub Actions runs extension lint, type-check, unit tests, and build; helper format, lint, tests, and release builds on three operating systems; and Playwright end-to-end tests on the unpacked extension with the Linux helper. Nothing runs locally.
+- GitHub Actions runs extension lint, type-check, unit tests, and build; helper format, lint, tests, and the release build on Windows; and Playwright end-to-end tests on Windows on the unpacked extension with the Windows helper. It runs on pushes to work branches, not on `main` after a merge. The macOS and Linux helpers are built and tested only by a manual run with `all_os` (`gh workflow run CI --ref main -f all_os=true`), for releases. Nothing runs locally.
 
 ## Verification boundaries
 

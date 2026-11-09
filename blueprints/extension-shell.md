@@ -8,7 +8,7 @@ The Manifest V3 extension frame: the manifest, the popup's **Open Quire** button
 
 **Status:** Implemented
 
-Delivered by slices 1 and 2. Unit tests cover the manifest, the extension ID, the icons, protocol validation, and request matching. `e2e/shell.spec.ts` covers Open Quire, the handshake, and the install screen against the real Linux helper. The `forbidden`, `outdated`, and `stopped` screens are covered only by unit-tested classification, not by e2e.
+Delivered by slices 1 and 2. Unit tests cover the manifest, the extension ID, the icons, protocol validation, and request matching. `e2e/shell.spec.ts` covers Open Quire, the handshake, and the install screen against the real helper, which CI now runs on Windows. The `forbidden`, `outdated`, and `stopped` screens are covered only by unit-tested classification, not by e2e.
 
 ## Architecture dependencies
 

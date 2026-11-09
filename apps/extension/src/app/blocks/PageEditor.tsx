@@ -861,6 +861,15 @@ export function PageEditor({
       pickImage(index, block, text, offset);
       return;
     }
+    if (command === "inlineMath") {
+      applySelected(
+        index,
+        block,
+        { ...parts, content },
+        toggleMark(content, slash.start, slash.start, "math"),
+      );
+      return;
+    }
     if (command === "ai") {
       apply(replaceBlockText(markdown, index, text), {
         kind: "body",
