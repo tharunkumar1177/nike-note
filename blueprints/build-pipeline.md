@@ -8,7 +8,7 @@ The repository scaffold and the GitHub Actions workflow that checks, tests, and 
 
 **Status:** Partial
 
-Delivered by ROADMAP slice 1. Every job in `.github/workflows/ci.yml` passes on branch `slice/01-extension-skeleton`, including the three-OS helper matrix, the install smoke test, and the Playwright e2e job. Both lockfiles are committed from CI artifacts. The Windows-only branch runs, the manual `all_os` run, and e2e on Windows are not yet verified in CI.
+Delivered by ROADMAP slice 1. Every job in `.github/workflows/ci.yml` passes on branch `slice/01-extension-skeleton`, including the three-OS helper matrix, the install smoke test, and the Playwright e2e job. Both lockfiles are committed from CI artifacts. Branch runs now build only the Windows helper and run the whole e2e suite on Windows, verified on a branch push; a merge to `main` starting no run and the manual `all_os` run are not yet verified.
 
 ## Architecture dependencies
 
@@ -51,11 +51,13 @@ None
 
 ## Acceptance or verification criteria
 
-- [ ] A push to a work branch triggers the workflow, and a merge to `main` does not.
+- [x] A push to a work branch triggers the workflow.
+- [ ] A merge to `main` does not trigger the workflow.
 - [x] Extension lint, type-check, unit tests, and build pass.
-- [ ] A branch push builds only the Windows helper; a manual run with `all_os` passes fmt, clippy, tests, and release builds on Windows, macOS, and Linux.
-- [ ] The e2e job on Windows loads the unpacked extension and completes the `hello` handshake with the Windows helper.
-- [ ] Artifacts `quire-extension` and `quire-helper-windows` are uploaded on every run, and `quire-helper-macos` and `quire-helper-linux` on an `all_os` run.
+- [x] A branch push builds and tests only the Windows helper (fmt, clippy, tests, release build, smoke test).
+- [ ] A manual run with `all_os` passes fmt, clippy, tests, and release builds on Windows, macOS, and Linux and uploads `quire-helper-macos` and `quire-helper-linux`.
+- [x] The e2e job on Windows runs the whole suite on the unpacked extension with the Windows helper.
+- [x] Artifacts `quire-extension` and `quire-helper-windows` are uploaded on every run.
 
 ## Remaining gaps and unknowns
 
