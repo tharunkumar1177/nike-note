@@ -37,6 +37,7 @@ describe("filterSlashItems", () => {
       "math",
       "inlineMath",
       "image",
+      "visual",
       "page",
       "ai",
     ]) {
@@ -51,6 +52,8 @@ describe("filterSlashItems", () => {
     expect(commands("equation")).toEqual(["math", "inlineMath"]);
     expect(commands("LaTeX")).toEqual(["math", "inlineMath"]);
     expect(commands("inline")).toEqual(["inlineMath"]);
+    expect(commands("diagram")).toEqual(["visual"]);
+    expect(commands("HTML")).toEqual(["visual"]);
     expect(commands("eadi")).toEqual(["h1", "h2", "h3", "h4", "h5", "h6"]);
   });
 

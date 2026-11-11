@@ -161,6 +161,44 @@ export function writePrompt(request: string, title: string, markdown: string): A
 }
 
 /**
+ * The prompt that makes an interactive visual explaining `request` (for
+ * example "Git merge vs rebase") for page `title` with body `markdown`. The
+ * answer must be one HTML document that works in the visual sandbox, which
+ * has no network (see blueprints/visual-blocks.md).
+ */
+export function visualPrompt(request: string, title: string, markdown: string): AiPrompt {
+  return {
+    system:
+      "You make one interactive visual that helps a person understand a concept from their " +
+      "notes. Answer with only a complete HTML document that starts with <!doctype html>: no " +
+      "explanation and no code fence. Put all CSS in <style> elements and all JavaScript in " +
+      "<script> elements inside the document. It runs in a sandbox without network access: " +
+      "never load scripts, styles, fonts, or images from a URL, and never use fetch, forms, " +
+      "alert, or new windows. Draw with inline SVG, canvas, or HTML and CSS. Make it " +
+      "interactive where that helps understanding, for example buttons that step through " +
+      "states, sliders, toggles, or details on hover, and label every part. Fit widths from " +
+      "360 to 900 pixels, stay under 900 pixels tall, and never size anything with vh units. " +
+      "Use a system font, and support light and dark color schemes with " +
+      "prefers-color-scheme. Use the page for context. Write in the language of the request.",
+    prompt: `${pageContext(title, markdown)}\n\nConcept to show:\n${request.trim()}`,
+  };
+}
+
+/**
+ * A generated visual made ready to save: line endings normalized, a code
+ * fence around the whole answer removed, and any words before the document
+ * dropped. Answers an empty string when the text holds no HTML.
+ */
+export function cleanVisualHtml(text: string): string {
+  let html = text.replace(/\r\n?/g, "\n").trim();
+  const fenced = /^(```|~~~)[^\n]*\n([\s\S]*?)\n\1\s*$/.exec(html);
+  if (fenced) html = (fenced[2] ?? "").trim();
+  const start = html.search(/<!doctype html|<html[\s>]/i);
+  if (start > 0) html = html.slice(start);
+  return /<[a-z!][^>]*>/i.test(html) ? html : "";
+}
+
+/**
  * The prompt that answers `question` about page `title` with body `markdown`.
  */
 export function askPrompt(question: string, title: string, markdown: string): AiPrompt {

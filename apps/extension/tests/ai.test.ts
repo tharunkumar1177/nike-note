@@ -1,12 +1,14 @@
 /**
- * Unit tests for the AI settings validator, model choice, the summary prompt,
- * and error messages.
+ * Unit tests for the AI settings validator, model choice, the summary, write,
+ * ask, and visual prompts, cleaning generated text and HTML, and error
+ * messages.
  */
 import { describe, expect, it } from "vitest";
 
 import {
   askPrompt,
   cleanGenerated,
+  cleanVisualHtml,
   defaultModel,
   describeAiError,
   MAX_PAGE_CHARS,
@@ -14,6 +16,7 @@ import {
   parseAiSettings,
   summaryPrompt,
   textModels,
+  visualPrompt,
   writePrompt,
 } from "../src/shared/ai";
 
@@ -103,6 +106,40 @@ describe("cleanGenerated", () => {
       "Intro\n~~~\n# not a heading\n```\n~~~\n## Heading",
     );
     expect(cleanGenerated("  \n ")).toBe("");
+  });
+});
+
+describe("visualPrompt", () => {
+  it("asks for one offline HTML document about the trimmed concept", () => {
+    const prompt = visualPrompt("  Git merge vs rebase \n", "Git", "# Git\n");
+    expect(prompt.prompt).toBe(
+      "Page title: Git\n\nPage (Markdown):\n# Git\n\n\nConcept to show:\nGit merge vs rebase",
+    );
+    expect(prompt.system).toContain("starts with <!doctype html>");
+    expect(prompt.system).toContain("without network access");
+    expect(prompt.system).toContain("never size anything with vh units");
+  });
+});
+
+describe("cleanVisualHtml", () => {
+  const page = "<!doctype html>\n<html><body><svg></svg></body></html>";
+
+  it("keeps a bare document and unwraps a fence around it", () => {
+    expect(cleanVisualHtml(`\n${page}\n`)).toBe(page);
+    expect(cleanVisualHtml(`\`\`\`html\r\n${page}\r\n\`\`\`\n`)).toBe(page);
+    expect(cleanVisualHtml(`~~~\n${page}\n~~~`)).toBe(page);
+  });
+
+  it("drops words before the document", () => {
+    expect(cleanVisualHtml(`Here is your visual:\n\n${page}`)).toBe(page);
+    expect(cleanVisualHtml("Sure!\n<html lang=\"en\"><p>x</p></html>")).toBe(
+      '<html lang="en"><p>x</p></html>',
+    );
+  });
+
+  it("answers nothing for text without HTML", () => {
+    expect(cleanVisualHtml("I cannot draw that.")).toBe("");
+    expect(cleanVisualHtml("  ")).toBe("");
   });
 });
 

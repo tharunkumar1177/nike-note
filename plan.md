@@ -57,6 +57,7 @@ The rules are defined in [architecture.md](architecture.md#page-structure).
 | `![alt](assets/file.png)` | Image | (slice 13) |
 | `> [!NOTE]` and the other GFM alerts | Callout | (slice 13) |
 | `<details>` | Toggle | (slice 13) |
+| `[Title](assets/name.html)` | Visual: an interactive HTML page in a sandbox | `/visual` |
 | Any other line | Text; a blank line is an empty Text block | `/text` |
 
 Inline styles inside a block: `**bold**`, `*italic*` and `_italic_`, `~~strikethrough~~`, `` `code` ``, `[link](url)`, and autolinks. Constructs with no Notion equivalent (HTML lines, footnote definitions, reference link definitions) render as Text blocks that show their source, so files round-trip without loss.

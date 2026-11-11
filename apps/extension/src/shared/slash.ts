@@ -7,14 +7,15 @@ import type { TemplateKind, TurnIntoKind } from "@quire/markdown";
 
 /**
  * What a slash command does: turn the line into a block type, add a block
- * from a template, start an inline equation, add an image, add a sub-page,
- * or write with AI.
+ * from a template, start an inline equation, add an image, add an
+ * interactive visual, add a sub-page, or write with AI.
  */
 export type SlashCommand =
   | TurnIntoKind
   | TemplateKind
   | "inlineMath"
   | "image"
+  | "visual"
   | "page"
   | "ai";
 
@@ -100,6 +101,12 @@ export const SLASH_ITEMS: readonly SlashItem[] = [
     label: "Image",
     hint: "Add a picture from your computer",
     keywords: ["image", "picture", "photo", "img"],
+  },
+  {
+    command: "visual",
+    label: "Visual",
+    hint: "An interactive diagram that explains a concept",
+    keywords: ["visual", "interactive", "diagram", "html", "explainer", "animation", "demo"],
   },
   {
     command: "page",

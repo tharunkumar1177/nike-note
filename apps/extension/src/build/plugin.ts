@@ -1,10 +1,11 @@
 /**
- * Vite plugin that emits the extension manifest and the PNG icons into the
- * build, and fails the build when a provider SDK or the math renderer would
- * load at startup.
+ * Vite plugin that emits the extension manifest, the PNG icons, and the
+ * visual sandbox page into the build, and fails the build when a provider
+ * SDK or the math renderer would load at startup.
  */
 import type { Plugin } from "vite";
 
+import { VISUAL_PAGE, visualPageHtml } from "../shared/visual";
 import { buildManifest, ICON_SIZES } from "./manifest";
 import { renderIconPng } from "./png";
 
@@ -48,7 +49,8 @@ export function startupLeaks(chunks: readonly ChunkInfo[]): string[] {
 }
 
 /**
- * Emit `manifest.json` and `icons/icon-<size>.png` during `vite build`.
+ * Emit `manifest.json`, `icons/icon-<size>.png`, and the visual sandbox page
+ * during `vite build`.
  */
 export function quireExtension(options: { version: string }): Plugin {
   return {
@@ -69,6 +71,7 @@ export function quireExtension(options: { version: string }): Plugin {
         fileName: "manifest.json",
         source: `${JSON.stringify(buildManifest(options.version), null, 2)}\n`,
       });
+      this.emitFile({ type: "asset", fileName: VISUAL_PAGE, source: visualPageHtml() });
       for (const size of ICON_SIZES) {
         this.emitFile({
           type: "asset",

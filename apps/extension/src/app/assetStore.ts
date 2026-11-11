@@ -1,18 +1,27 @@
 /**
- * External store for page images (see blueprints/rich-blocks.md). Images are
- * read through the helper's chunked `readAsset` and kept as object URLs, the
- * most recently used 64 at a time; new images are saved with `writeAsset`
- * into the page's `assets` folder.
+ * External store for page assets (see blueprints/rich-blocks.md and
+ * blueprints/visual-blocks.md). Images are read through the helper's chunked
+ * `readAsset` and kept as object URLs, the most recently used 64 at a time;
+ * the HTML of visuals is kept as text, the most recently used 16 at a time.
+ * New images and visuals are saved with `writeAsset` into the page's
+ * `assets` folder.
  */
 import { createContext } from "react";
 
 import type { HelperConnection } from "../shared/helperClient";
 import { isRecord } from "../shared/protocol";
+import { MAX_VISUAL_BYTES } from "../shared/visual";
 
 /** What an image block shows for one image file. */
 export type AssetView =
   | { status: "loading" }
   | { status: "ready"; url: string }
+  | { status: "error"; message: string };
+
+/** What a Visual block shows for one HTML file. */
+export type VisualView =
+  | { status: "loading" }
+  | { status: "ready"; html: string }
   | { status: "error"; message: string };
 
 /** An image saved by `writeAsset`: its path in the notes folder and its file name. */
@@ -25,6 +34,8 @@ export interface SavedAsset {
 export const MAX_IMAGE_BYTES = 16 * 1024 * 1024;
 /** Images kept loaded at once; older ones are released. */
 const MAX_CACHED = 64;
+/** Visuals kept loaded at once; older ones are forgotten. */
+const MAX_CACHED_VISUALS = 16;
 /** Time allowed for one chunk or one save. */
 const ASSET_TIMEOUT_MS = 60_000;
 /** File extensions for image types whose files may come without a usable name. */
@@ -70,6 +81,16 @@ export function parseSavedAsset(value: unknown): SavedAsset {
   return { path: value.path, name: value.name };
 }
 
+/**
+ * The file name to save a visual titled `title` under: the title with
+ * `.html`, or `visual.html` for an empty title. The helper cleans the name
+ * like a page folder name and makes it unique.
+ */
+export function visualFileName(title: string): string {
+  const stem = title.replace(/[\r\n]+/g, " ").trim();
+  return `${stem === "" ? "visual" : stem}.html`;
+}
+
 /** Bytes from base64. */
 function fromBase64(data: string): Uint8Array<ArrayBuffer> {
   const binary = atob(data);
@@ -104,9 +125,10 @@ function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-/** Loads, caches, and saves the images of one notes folder. */
+/** Loads, caches, and saves the images and visuals of one notes folder. */
 export class AssetStore {
   private readonly views = new Map<string, AssetView>();
+  private readonly visuals = new Map<string, VisualView>();
   private readonly listeners = new Set<() => void>();
   private readonly helper: HelperConnection;
 
@@ -166,45 +188,132 @@ export class AssetStore {
     return saved;
   }
 
-  /** Release every loaded image. */
+  /** The current view of visual `path` (in the notes folder), if it was asked for. */
+  getVisual(path: string): VisualView | undefined {
+    return this.visuals.get(path);
+  }
+
+  /** Start loading the HTML of visual `path` unless it is loaded, loading, or failed. */
+  requestVisual(path: string): void {
+    const view = this.visuals.get(path);
+    if (view) {
+      this.visuals.delete(path);
+      this.visuals.set(path, view);
+      return;
+    }
+    this.setVisual(path, { status: "loading" });
+    void this.loadVisual(path);
+  }
+
+  /** Read visual `path` again: after a failure, or to pick up a change on disk. */
+  reloadVisual(path: string): void {
+    if (this.visuals.get(path)?.status === "loading") return;
+    this.visuals.delete(path);
+    this.requestVisual(path);
+  }
+
+  /**
+   * Save `html` as a new visual of page `page`, named after `title`, and
+   * keep it loaded. Rejects with a readable message for empty or too large
+   * HTML.
+   */
+  async saveVisual(page: string, title: string, html: string): Promise<SavedAsset> {
+    const bytes = new TextEncoder().encode(html);
+    if (html.trim() === "") throw new Error("The visual has no HTML.");
+    if (bytes.length > MAX_VISUAL_BYTES) throw new Error("Visuals larger than 1 MiB cannot be added.");
+    const saved = await this.helper.request(
+      "writeAsset",
+      { page, name: visualFileName(title), data: toBase64(bytes) },
+      parseSavedAsset,
+      ASSET_TIMEOUT_MS,
+    );
+    this.setVisual(saved.path, { status: "ready", html });
+    return saved;
+  }
+
+  /** Release every loaded image and forget every loaded visual. */
   dispose(): void {
     for (const view of this.views.values()) {
       if (view.status === "ready") URL.revokeObjectURL(view.url);
     }
     this.views.clear();
+    this.visuals.clear();
   }
 
   /**
-   * Read image `path` chunk by chunk and publish it as an object URL.
+   * Read asset `path` chunk by chunk, refusing files over `limit` bytes.
+   * Answers the chunks and the media type.
+   */
+  private async readBytes(
+    path: string,
+    limit: number,
+  ): Promise<{ parts: Uint8Array<ArrayBuffer>[]; mime: string }> {
+    const parts: Uint8Array<ArrayBuffer>[] = [];
+    let offset = 0;
+    let size = 0;
+    let mime = "";
+    do {
+      const chunk = await this.helper.request(
+        "readAsset",
+        { path, offset },
+        parseChunk,
+        ASSET_TIMEOUT_MS,
+      );
+      if (chunk.size > limit) throw new Error(`The file is larger than ${limit / 1024 / 1024} MiB.`);
+      const bytes = fromBase64(chunk.data);
+      if (offset > 0 && (chunk.size !== size || chunk.mime !== mime)) {
+        throw new Error("The file changed while it was read.");
+      }
+      ({ size, mime } = chunk);
+      if (bytes.length === 0 && offset < size) throw new Error("The file is shorter than expected.");
+      parts.push(bytes);
+      offset += bytes.length;
+    } while (offset < size);
+    return { parts, mime };
+  }
+
+  /**
+   * Read image `path` and publish it as an object URL.
    */
   private async load(path: string): Promise<void> {
     try {
-      const parts: Uint8Array<ArrayBuffer>[] = [];
-      let offset = 0;
-      let size = 0;
-      let mime = "";
-      do {
-        const chunk = await this.helper.request(
-          "readAsset",
-          { path, offset },
-          parseChunk,
-          ASSET_TIMEOUT_MS,
-        );
-        const bytes = fromBase64(chunk.data);
-        if (offset > 0 && (chunk.size !== size || chunk.mime !== mime)) {
-          throw new Error("The image changed while it was read.");
-        }
-        ({ size, mime } = chunk);
-        if (bytes.length === 0 && offset < size) throw new Error("The image file is shorter than expected.");
-        parts.push(bytes);
-        offset += bytes.length;
-      } while (offset < size);
+      const { parts, mime } = await this.readBytes(path, Number.POSITIVE_INFINITY);
       if (this.views.get(path)?.status !== "loading") return;
       this.set(path, { status: "ready", url: URL.createObjectURL(new Blob(parts, { type: mime })) });
     } catch (error) {
       if (this.views.get(path)?.status !== "loading") return;
       this.set(path, { status: "error", message: messageOf(error) });
     }
+  }
+
+  /**
+   * Read visual `path` and publish its HTML, decoded as UTF-8.
+   */
+  private async loadVisual(path: string): Promise<void> {
+    try {
+      const { parts, mime } = await this.readBytes(path, MAX_VISUAL_BYTES);
+      if (mime !== "text/html") throw new Error("The file is not an HTML page.");
+      const html = await new Blob(parts).text();
+      if (this.visuals.get(path)?.status !== "loading") return;
+      this.setVisual(path, { status: "ready", html });
+    } catch (error) {
+      if (this.visuals.get(path)?.status !== "loading") return;
+      this.setVisual(path, { status: "error", message: messageOf(error) });
+    }
+  }
+
+  /**
+   * Replace the view of visual `path` as the most recently used, forget
+   * visuals beyond the cache size, and notify subscribers.
+   */
+  private setVisual(path: string, view: VisualView): void {
+    this.visuals.delete(path);
+    this.visuals.set(path, view);
+    for (const [key, cached] of this.visuals) {
+      if (this.visuals.size <= MAX_CACHED_VISUALS) break;
+      if (cached.status !== "loading") this.visuals.delete(key);
+    }
+    for (const listener of this.listeners) listener();
   }
 
   /**

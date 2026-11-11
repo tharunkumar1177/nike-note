@@ -1,6 +1,6 @@
-//! Page images (see architecture.md, Page assets): chunked reads of image
-//! files anywhere in the notes folder, and writes of new images into a page's
-//! `assets` folder.
+//! Page assets (see architecture.md, Page assets): chunked reads of image and
+//! HTML visual files anywhere in the notes folder, and writes of new ones
+//! into a page's `assets` folder.
 
 use std::collections::HashSet;
 use std::fs::{self, File, OpenOptions};
@@ -16,15 +16,16 @@ use crate::protocol::{ErrorCode, ProtocolError};
 
 /// Bytes returned per `readAsset` reply; base64 keeps the reply under 1 MiB.
 pub const CHUNK_BYTES: usize = 512 * 1024;
-/// Largest image `readAsset` serves.
+/// Largest asset `readAsset` serves.
 pub const MAX_READ_BYTES: u64 = 32 * 1024 * 1024;
-/// Largest image `writeAsset` accepts.
+/// Largest asset `writeAsset` accepts.
 pub const MAX_WRITE_BYTES: usize = 16 * 1024 * 1024;
-/// The folder inside a page that holds its images.
+/// The folder inside a page that holds its assets.
 pub const ASSETS: &str = "assets";
 
-/// Image file extensions and the media type each is served as.
-const IMAGE_TYPES: [(&str, &str); 8] = [
+/// Asset file extensions and the media type each is served as: images, and
+/// the HTML files that Visual blocks show in a sandbox.
+const ASSET_TYPES: [(&str, &str); 10] = [
     ("png", "image/png"),
     ("jpg", "image/jpeg"),
     ("jpeg", "image/jpeg"),
@@ -33,20 +34,30 @@ const IMAGE_TYPES: [(&str, &str); 8] = [
     ("avif", "image/avif"),
     ("bmp", "image/bmp"),
     ("svg", "image/svg+xml"),
+    ("html", "text/html"),
+    ("htm", "text/html"),
 ];
 
-/// The media type for a file name's extension, when it names an image.
-fn image_type(name: &str) -> Option<&'static str> {
+/// The media type for a file name's extension, when it names an asset.
+fn asset_type(name: &str) -> Option<&'static str> {
     let (_, extension) = name.rsplit_once('.')?;
-    IMAGE_TYPES
+    ASSET_TYPES
         .iter()
         .find(|(known, _)| extension.eq_ignore_ascii_case(known))
         .map(|&(_, media)| media)
 }
 
-/// An IO error while reading or writing an image.
+/// An IO error while reading or writing an asset.
 fn io_error(verb: &str, error: std::io::Error) -> ProtocolError {
-    ProtocolError::new(ErrorCode::Io, format!("Cannot {verb} the image: {error}"))
+    ProtocolError::new(ErrorCode::Io, format!("Cannot {verb} the file: {error}"))
+}
+
+/// The refusal for a file that is neither an image nor an HTML visual.
+fn not_an_asset(name: &str) -> ProtocolError {
+    ProtocolError::new(
+        ErrorCode::BadRequest,
+        format!("\"{name}\" is not an image or an HTML visual."),
+    )
 }
 
 /// True when a file name could name something outside its folder or is hidden.
@@ -57,7 +68,7 @@ fn unsafe_file_name(name: &str) -> bool {
         || (cfg!(windows) && name.contains(':'))
 }
 
-/// Read up to 512 KiB of the image at `path` (relative to the notes folder,
+/// Read up to 512 KiB of the asset at `path` (relative to the notes folder,
 /// `/`-separated) from byte `offset`. Answers `{ path, size, offset, mime,
 /// data }` with the bytes in base64; the app asks again from `offset` plus the
 /// decoded length until it has `size` bytes.
@@ -66,17 +77,12 @@ pub fn read_asset(root: &Path, path: &str, offset: u64) -> Result<Value, Protoco
     if unsafe_file_name(name) || folder.split('/').any(|segment| segment.starts_with('.')) {
         return Err(outside(path));
     }
-    let mime = image_type(name).ok_or_else(|| {
-        ProtocolError::new(
-            ErrorCode::BadRequest,
-            format!("\"{path}\" is not an image."),
-        )
-    })?;
+    let mime = asset_type(name).ok_or_else(|| not_an_asset(path))?;
     let dir = page_dir(root, folder)?;
     let file = fs::canonicalize(dir.dir.join(name)).map_err(|error| match error.kind() {
         ErrorKind::NotFound => ProtocolError::new(
             ErrorCode::NotFound,
-            format!("The image \"{path}\" does not exist."),
+            format!("The file \"{path}\" does not exist."),
         ),
         _ => io_error("open", error),
     })?;
@@ -89,7 +95,7 @@ pub fn read_asset(root: &Path, path: &str, offset: u64) -> Result<Value, Protoco
     if !file.is_file() {
         return Err(ProtocolError::new(
             ErrorCode::NotFound,
-            format!("\"{path}\" is a folder, not an image file."),
+            format!("\"{path}\" is a folder, not a file."),
         ));
     }
     if size > MAX_READ_BYTES {
@@ -122,15 +128,18 @@ pub fn read_asset(root: &Path, path: &str, offset: u64) -> Result<Value, Protoco
     }))
 }
 
-/// A portable file name for an image called `name`: the stem gets the same
+/// A portable file name for an asset called `name`: the stem gets the same
 /// cleaning as page folder names, and the extension is lowercased. Returns
-/// None when `name` has no image extension.
-fn image_file_name(name: &str) -> Option<String> {
+/// None when `name` has no image or HTML extension.
+fn asset_file_name(name: &str) -> Option<String> {
     let base = name.rsplit(['/', '\\']).next().unwrap_or(name);
-    image_type(base)?;
+    let fallback = match asset_type(base)? {
+        "text/html" => "visual",
+        _ => "image",
+    };
     let (stem, extension) = base.rsplit_once('.')?;
     let stem = if stem.trim_matches(['.', ' ']).is_empty() {
-        "image".to_string()
+        fallback.to_string()
     } else {
         folder_name(stem)
     };
@@ -149,10 +158,10 @@ fn unique_file_name(dir: &Path, file: &str) -> Result<String, ProtocolError> {
     std::iter::once(file.to_string())
         .chain((2..10_000).map(|n| format!("{stem} {n}.{extension}")))
         .find(|name| !taken.contains(&name.to_lowercase()))
-        .ok_or_else(|| ProtocolError::new(ErrorCode::Io, "Too many images share this name."))
+        .ok_or_else(|| ProtocolError::new(ErrorCode::Io, "Too many files share this name."))
 }
 
-/// Save image bytes (`data`, base64) as a new file named after `name` in page
+/// Save asset bytes (`data`, base64) as a new file named after `name` in page
 /// `page`'s `assets` folder, which is created when missing. The file is
 /// written under a temporary name and renamed into place, and never replaces
 /// an existing file. Answers `{ path, name }`: the file's path in the notes
@@ -163,21 +172,16 @@ pub fn write_asset(
     name: &str,
     data: &str,
 ) -> Result<Value, ProtocolError> {
-    let file_name = image_file_name(name).ok_or_else(|| {
-        ProtocolError::new(
-            ErrorCode::BadRequest,
-            format!("\"{name}\" is not an image."),
-        )
-    })?;
+    let file_name = asset_file_name(name).ok_or_else(|| not_an_asset(name))?;
     if data.len() > MAX_WRITE_BYTES.div_ceil(3) * 4 {
         return Err(ProtocolError::new(
             ErrorCode::TooLarge,
-            "Images larger than 16 MiB cannot be added.",
+            "Files larger than 16 MiB cannot be added.",
         ));
     }
     let bytes = base64::decode(data)
         .filter(|bytes| !bytes.is_empty())
-        .ok_or_else(|| ProtocolError::new(ErrorCode::BadRequest, "The image data is invalid."))?;
+        .ok_or_else(|| ProtocolError::new(ErrorCode::BadRequest, "The file data is invalid."))?;
 
     let dir = page_dir(root, page)?;
     let assets = dir.dir.join(ASSETS);
@@ -238,17 +242,38 @@ mod tests {
     }
 
     #[test]
-    fn refuses_files_that_are_not_safe_images() {
+    fn reads_an_html_visual_as_text_html() {
+        let dir = TestDir::new("assets-read-html");
+        let root = dir.path();
+        fs::create_dir_all(root.join("Git/assets")).unwrap();
+        let page: &[u8] = b"<!doctype html><p>Merge vs rebase</p>";
+        fs::write(root.join("Git/assets/merge.html"), page).unwrap();
+        fs::write(root.join("Git/assets/old.HTM"), page).unwrap();
+
+        let reply = read_asset(root, "Git/assets/merge.html", 0).unwrap();
+        assert_eq!(reply["mime"], json!("text/html"));
+        assert_eq!(data(&reply), page);
+        let upper = read_asset(root, "Git/assets/old.HTM", 0).unwrap();
+        assert_eq!(upper["mime"], json!("text/html"));
+    }
+
+    #[test]
+    fn refuses_files_that_are_not_safe_assets() {
         let dir = TestDir::new("assets-refuse");
         let root = dir.path();
         fs::create_dir_all(root.join(".git")).unwrap();
         fs::write(root.join("notes.txt"), "x").unwrap();
+        fs::write(root.join("script.js"), "x").unwrap();
         fs::write(root.join(".git/a.png"), "x").unwrap();
+        fs::write(root.join(".git/a.html"), "x").unwrap();
         fs::write(root.join("a.png"), "x").unwrap();
         let code = |path: &str, offset: u64| read_asset(root, path, offset).unwrap_err().code;
         assert_eq!(code("notes.txt", 0), ErrorCode::BadRequest);
+        assert_eq!(code("script.js", 0), ErrorCode::BadRequest);
         assert_eq!(code(".git/a.png", 0), ErrorCode::OutsideRoot);
+        assert_eq!(code(".git/a.html", 0), ErrorCode::OutsideRoot);
         assert_eq!(code("../a.png", 0), ErrorCode::OutsideRoot);
+        assert_eq!(code("../a.html", 0), ErrorCode::OutsideRoot);
         assert_eq!(code("a\\b.png", 0), ErrorCode::OutsideRoot);
         assert_eq!(code("missing.png", 0), ErrorCode::NotFound);
         assert_eq!(code("a.png", 2), ErrorCode::BadRequest);
@@ -278,9 +303,31 @@ mod tests {
         let refuse =
             |name: &str, data: &str| write_asset(root, "Trips", name, data).unwrap_err().code;
         assert_eq!(refuse("notes.txt", &data), ErrorCode::BadRequest);
+        assert_eq!(refuse("a.js", &data), ErrorCode::BadRequest);
         assert_eq!(refuse("a.png", "not base64"), ErrorCode::BadRequest);
         assert_eq!(refuse("a.png", ""), ErrorCode::BadRequest);
         let leftovers = fs::read_dir(root.join("Trips/assets")).unwrap().count();
         assert_eq!(leftovers, 2);
+    }
+
+    #[test]
+    fn saves_html_visuals_under_portable_unique_names() {
+        let dir = TestDir::new("assets-write-html");
+        let root = dir.path();
+        fs::create_dir_all(root.join("Git")).unwrap();
+        let page = "<!doctype html><title>Merge</title>";
+        let data = base64::encode(page.as_bytes());
+
+        let saved = write_asset(root, "Git", "Merge vs rebase?.HTML", &data).unwrap();
+        assert_eq!(
+            saved,
+            json!({ "path": "Git/assets/Merge vs rebase.html", "name": "Merge vs rebase.html" })
+        );
+        let written = fs::read_to_string(root.join("Git/assets/Merge vs rebase.html")).unwrap();
+        assert_eq!(written, page);
+        let again = write_asset(root, "Git", "merge vs rebase.html", &data).unwrap();
+        assert_eq!(again["name"], json!("merge vs rebase 2.html"));
+        let unnamed = write_asset(root, "Git", ".html", &data).unwrap();
+        assert_eq!(unnamed["name"], json!("visual.html"));
     }
 }

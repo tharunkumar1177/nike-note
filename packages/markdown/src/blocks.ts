@@ -1,7 +1,9 @@
 /**
  * Block model and line-based block parser (architecture.md#block-model-and-line-mapping).
  * One source line is one block, except front matter, fenced code, tables,
- * equations, callouts, and toggles, which are one block each. Every block
+ * equations, callouts, and toggles, which are one block each. A line that is
+ * only an image, a sub-page link, or a link to an HTML file in the page's
+ * `assets` folder (a Visual) is its own one-line block type. Every block
  * keeps its exact source in `raw`, so joining the blocks' `raw` reproduces the
  * document unchanged.
  */
@@ -9,6 +11,7 @@ import { parseImageLine, type ImageParts } from "./image";
 import { parsePageLinkLine } from "./links";
 import { dominantEol, indentWidth, splitLines, type SourceLine } from "./lines";
 import { dollarsEnd, isDollarsLine, parseMathLine, type MathParts } from "./math";
+import { parseVisualLine, type VisualParts } from "./visual";
 
 /** Heading levels `#` to `######`. */
 export type HeadingLevel = 1 | 2 | 3 | 4 | 5 | 6;
@@ -40,6 +43,7 @@ export type Block = BlockBase &
     | { type: "table"; source: string }
     | ({ type: "image" } & ImageParts)
     | ({ type: "math" } & MathParts)
+    | ({ type: "visual" } & VisualParts)
     | { type: "callout"; kind: CalloutKind; text: string }
     | { type: "toggle"; open: boolean; summary: string; body: string }
   );
@@ -187,6 +191,8 @@ function parseLine(text: string, lists: ListDepth): LineBlock {
   if (quote) return { type: "quote", text: quote[1] ?? "" };
   const image = parseImageLine(text);
   if (image) return { type: "image", ...image };
+  const visual = parseVisualLine(text);
+  if (visual) return { type: "visual", ...visual };
   const page = parsePageLinkLine(text);
   if (page) return { type: "page", ...page };
   return { type: "text", text };

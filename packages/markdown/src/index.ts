@@ -87,6 +87,7 @@ export {
 } from "./links";
 export { dominantEol, indentWidth, splitLines, type SourceLine } from "./lines";
 export { mathSource, parseMathLine, type MathForm, type MathParts } from "./math";
+export { parseVisualLine, visualLine, type VisualParts } from "./visual";
 export {
   alignColumn,
   cellText,

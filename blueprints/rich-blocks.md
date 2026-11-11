@@ -88,6 +88,7 @@ Verified in CI (Markdown unit tests for image, callout, and toggle rules, table 
 - An image's caption is its title, which GitHub shows only as a tooltip, not under the image. Captions are plain text.
 - Images cannot be dragged to resize by height or cropped, and several images cannot sit side by side in one row.
 - Replacing an image leaves the old file in `assets/`; nothing deletes unused asset files.
+- The asset store and `readAsset`/`writeAsset` also carry the HTML of interactive visuals, which are owned by [visual-blocks](visual-blocks.md).
 - `$$…$$` inside a line of text stays text; only a line that is only an equation becomes a block. Equations have no numbering, and `\tag` is passed to KaTeX as typed.
 - Quire draws with KaTeX and GitHub with MathJax, so rare commands either supports alone show differently on GitHub. KaTeX's fonts add about 1 MB to the extension, loaded only when math is shown.
 - Text typed onto the empty line right under a sized or aligned image, or a line moved there, is read by GitHub as part of the image's HTML (shown without Markdown formatting) until the next empty line. Quire keeps that empty line when it writes the image and when Enter adds a line, but does not stop other edits from filling it.

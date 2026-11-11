@@ -59,6 +59,7 @@ Pick the first unchecked slice. Route it through [the blueprint manifest](bluepr
 - [x] 19. Image editing like Notion: select, resize from the sides, align left, center, or right, caption, alt text, replace, download, and delete
 - [x] 20. Math equations like Notion: block and inline TeX drawn with KaTeX, edited in a popover under the equation, stored as `$$`, `$$…$$`, a `math` fence, or `$…$`
 - [x] 21. Inline equation slash command, and CI on work branches with the Windows helper only
+- [ ] 22. Visual blocks: interactive HTML visuals that explain a concept (for example Git merge vs rebase), saved in the page's `assets/` folder, linked by one line, run in a sandboxed frame, and added with `/visual` by generating with AI, pasting, or uploading
 
 ## Checkpoint log
 

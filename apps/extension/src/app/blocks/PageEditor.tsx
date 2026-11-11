@@ -450,6 +450,7 @@ export function PageEditor({
   onTransform,
   onTitleCommit,
   onAiWrite,
+  onAddVisual,
   onAddImage,
   children,
 }: {
@@ -464,6 +465,8 @@ export function PageEditor({
   onTitleCommit?: (title: string, from: string) => void;
   /** Opens Write with AI for source line `line`, where `/ai` was typed. */
   onAiWrite?: (line: number) => void;
+  /** Opens the Visual dialog for source line `line`, where `/visual` was typed. */
+  onAddVisual?: (line: number) => void;
   /** Saves an image file into the page's assets and answers its image line. */
   onAddImage?: (file: File) => Promise<string>;
   children?: ReactNode;
@@ -870,12 +873,13 @@ export function PageEditor({
       );
       return;
     }
-    if (command === "ai") {
+    if (command === "ai" || command === "visual") {
       apply(replaceBlockText(markdown, index, text), {
         kind: "body",
         ...positionInText(block.line, text, offset),
       });
-      onAiWrite?.(block.line);
+      if (command === "ai") onAiWrite?.(block.line);
+      else onAddVisual?.(block.line);
       return;
     }
     if (

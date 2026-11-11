@@ -11,6 +11,7 @@ import {
   parseDocument,
   parseInline,
   titleBlockIndex,
+  visualLine,
   type Block,
 } from "@quire/markdown";
 import { useContext, useEffect, useMemo, useState, useSyncExternalStore } from "react";
@@ -22,6 +23,7 @@ import { PageAiDialog, type AiAction } from "./ai/PageAiDialog";
 import { AssetContext } from "./assetStore";
 import { PageEditor } from "./blocks/PageEditor";
 import type { PageEditorStore, PageEditorView } from "./pageEditorStore";
+import { VisualDialog } from "./VisualDialog";
 
 /** Folders of the sub-pages that `blocks` link, including links inside toggles. */
 function linkedFolders(blocks: readonly Block[]): string[] {
@@ -140,6 +142,7 @@ export function PageView({
     action: AiAction;
     setup: boolean;
   } | null>(null);
+  const [visualDialog, setVisualDialog] = useState<{ path: string; line: number } | null>(null);
   const assets = useContext(AssetContext);
   const [renameError, setRenameError] = useState<{ path: string; message: string } | null>(
     null,
@@ -194,6 +197,22 @@ export function PageView({
       return insertLinkLine(document, at < 0 ? document.blocks.length : at, text).source;
     });
     setAiDialog(null);
+  };
+
+  /**
+   * Save visual `html` titled `name` into the page's assets and put its link
+   * line on source line `line` when it is empty, otherwise after its block.
+   */
+  const insertVisual = async (line: number, name: string, html: string): Promise<void> => {
+    if (!assets) throw new Error("The notes folder is not open.");
+    const saved = await assets.saveVisual(path, name, html);
+    const text = visualLine(name, saved.name);
+    editor.transform(path, (current) => {
+      const document = parseDocument(current);
+      const at = blockAtLine(document.blocks, line);
+      return insertLinkLine(document, at < 0 ? document.blocks.length : at, text).source;
+    });
+    setVisualDialog(null);
   };
 
   if (!page && treeLoading) return <main className="page" aria-busy="true" />;
@@ -271,6 +290,16 @@ export function PageView({
           onClose={() => setAiDialog(null)}
         />
       )}
+      {visualDialog?.path === path && source !== null && (
+        <VisualDialog
+          store={ai}
+          settings={aiView.settings}
+          title={title ?? page.title}
+          source={source}
+          onInsert={(name, html) => insertVisual(visualDialog.line, name, html)}
+          onClose={() => setVisualDialog(null)}
+        />
+      )}
       <div className="page__content">
         {markdown ? (
           <PageEditor
@@ -284,6 +313,7 @@ export function PageView({
             onTransform={(change) => editor.transform(path, change)}
             onTitleCommit={commitTitle}
             onAiWrite={(line) => openAi({ kind: "write", line })}
+            onAddVisual={assets ? (line) => setVisualDialog({ path, line }) : undefined}
             onAddImage={
               assets
                 ? async (file) => assetImageLine((await assets.save(path, file)).name)

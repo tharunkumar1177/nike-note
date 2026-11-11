@@ -25,6 +25,7 @@ Verified in CI (Vitest for the settings validator, model filtering and the defau
 - Ask AI answers only from the page and says when the page does not hold the answer. Summarize has Try again. Neither writes into the page.
 - Write with AI asks for Markdown blocks without a level-1 heading or a code fence around the whole answer. Before inserting, a fence wrapping the whole answer is removed, `# ` headings outside code become `## `, and the text is trimmed, so the page title stays the only level-1 heading. Insert puts the text on the `/ai` line when it is empty, or on new lines after it, through the editor's normal save path; Cancel inserts nothing. Insert is disabled while text is streaming and when no text came; text kept by Stop can be inserted. Enter generates and Shift+Enter starts a new line in the request.
 - Provider errors show the provider's own message when it sends one, unwrapping JSON error bodies nested inside other error messages; network failures and stops have their own messages.
+- The visual prompt and its HTML cleanup also live in `shared/ai.ts`, but generating visuals is owned by [visual-blocks](visual-blocks.md), which reuses the settings, setup dialog, and streamed run.
 
 ## Related blueprints
 
@@ -37,6 +38,7 @@ Verified in CI (Vitest for the settings validator, model filtering and the defau
 
 - [build-pipeline](build-pipeline.md): check when dependencies, chunking, or the build plugin change.
 - [extension-shell](extension-shell.md): check when manifest permissions change.
+- [visual-blocks](visual-blocks.md): check when the setup dialog, `AiRun`, or the visual prompt changes.
 - [page-editing](page-editing.md): check when the editor's transform or save path changes.
 
 ## Relevant implementation and tests

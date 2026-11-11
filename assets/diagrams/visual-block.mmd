@@ -1,0 +1,13 @@
+%% Visual blocks: adding a visual with /visual, and showing one in the extension's sandbox page.
+flowchart LR
+  Slash["/visual in a page line"] --> Dialog["Add a visual: AI, paste, or upload"]
+  Dialog -->|"visualPrompt, user key"| AI["AI provider"]
+  Dialog -->|"writeAsset"| Helper["quire-helper"]
+  Helper --> File["page/assets/title.html"]
+  Dialog -->|"link line on Insert"| Readme["page README.md"]
+  Readme -->|"parseVisualLine"| View["Visual block view"]
+  View -->|"readAsset chunks"| Helper
+  View -->|"iframe sandbox allow-scripts"| Sandbox["visual.html: opaque origin, no network"]
+  Sandbox -->|"ready"| View
+  View -->|"render: html, scheme"| Sandbox
+  Sandbox -->|"height"| View

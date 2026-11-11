@@ -12,6 +12,7 @@ import { pageHash } from "../../shared/pages";
 import { InlineView } from "./InlineView";
 import { MathView } from "./MathFormula";
 import { CalloutView, ImageView, TableView } from "./RichBlocks";
+import { VisualBlockView } from "./VisualBlock";
 
 /** Bullet glyphs by nesting depth, repeating. */
 export const BULLETS = ["•", "◦", "▪"];
@@ -200,6 +201,8 @@ export function BlockView({
       return <ImageView block={block} pagePath={pagePath} />;
     case "math":
       return <MathView block={block} />;
+    case "visual":
+      return <VisualBlockView block={block} pagePath={pagePath} />;
     case "callout":
       return <CalloutView block={block} pagePath={pagePath} />;
     case "toggle":

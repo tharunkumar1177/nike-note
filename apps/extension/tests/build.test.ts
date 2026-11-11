@@ -1,5 +1,6 @@
 /**
- * Unit tests for the generated manifest, the fixed extension ID, and the icon PNGs.
+ * Unit tests for the generated manifest (including the visual sandbox), the
+ * fixed extension ID, and the icon PNGs.
  */
 import { createHash } from "node:crypto";
 import { inflateSync } from "node:zlib";
@@ -14,6 +15,7 @@ import {
 import { startupLeaks, type ChunkInfo } from "../src/build/plugin";
 import { crc32, encodePng, renderIconPng, renderMark } from "../src/build/png";
 import { EXTENSION_ID } from "../src/shared/identity";
+import { VISUAL_CSP, VISUAL_PAGE } from "../src/shared/visual";
 
 /**
  * Derive a Chrome extension ID from a base64 public key.
@@ -41,6 +43,12 @@ describe("manifest", () => {
       action: { default_popup: "popup.html" },
     });
     expect(Object.keys(manifest.icons as object)).toEqual(ICON_SIZES.map(String));
+  });
+
+  it("declares the visual page as a sandbox with its own policy", () => {
+    const manifest = buildManifest("0.1.0");
+    expect(manifest.sandbox).toEqual({ pages: [VISUAL_PAGE] });
+    expect(manifest.content_security_policy).toEqual({ sandbox: VISUAL_CSP });
   });
 
   it("rejects versions Chrome cannot parse", () => {

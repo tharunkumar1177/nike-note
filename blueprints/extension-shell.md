@@ -20,7 +20,7 @@ Delivered by slices 1 and 2. Unit tests cover the manifest, the extension ID, th
 ## Local rules and implications
 
 - Permissions: `nativeMessaging`, and `storage` for the AI settings (see [ai-assist](ai-assist.md)); no host permissions. Opening or focusing the app tab uses `chrome.runtime.getContexts`, `chrome.tabs.update`, `chrome.windows.update`, and `chrome.tabs.create`, which need no extra permission for the extension's own pages.
-- The manifest and the PNG icons are generated at build time by a Vite plugin (`src/build/`), so the version comes from `package.json` and no binary assets are committed.
+- The manifest and the PNG icons are generated at build time by a Vite plugin (`src/build/`), so the version comes from `package.json` and no binary assets are committed. The plugin also emits `visual.html`, which the manifest declares as its only sandbox page with its own policy (see [visual-blocks](visual-blocks.md)); the extension pages keep Chrome's default policy. The plugin also emits `visual.html`, which the manifest declares as its only sandbox page with its own policy (see [visual-blocks](visual-blocks.md)); the extension pages keep Chrome's default policy.
 - Connection states and their screens:
 
 | State | Trigger | Screen |

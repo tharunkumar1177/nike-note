@@ -1,7 +1,10 @@
 /**
  * Builds the Manifest V3 document for the extension. The public key fixes the
- * extension ID (see architecture.md, Extension identity).
+ * extension ID (see architecture.md, Extension identity), and the visual page
+ * is declared as a sandbox with its own policy (see architecture.md, Visual
+ * blocks).
  */
+import { VISUAL_CSP, VISUAL_PAGE } from "../shared/visual";
 
 /** DER-encoded SubjectPublicKeyInfo, base64. Its SHA-256 yields the extension ID. */
 export const EXTENSION_PUBLIC_KEY =
@@ -42,5 +45,7 @@ export function buildManifest(version: string): Record<string, unknown> {
     },
     icons: iconSet(ICON_SIZES),
     permissions: ["nativeMessaging", "storage"],
+    sandbox: { pages: [VISUAL_PAGE] },
+    content_security_policy: { sandbox: VISUAL_CSP },
   };
 }

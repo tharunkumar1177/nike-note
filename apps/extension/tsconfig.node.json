@@ -17,6 +17,7 @@
     "src/shared/pending.ts",
     "src/shared/workspace.ts",
     "src/shared/pages.ts",
+    "src/shared/visual.ts",
     "tests/**/*.ts",
     "e2e/**/*.ts"
   ]

@@ -1918,6 +1918,120 @@ h1.page__title:focus-visible {
   cursor: pointer;
 }
 
+/* Visual blocks: an interactive HTML page in the extension's sandbox */
+
+.block--visual {
+  display: flex;
+  flex-direction: column;
+  margin: var(--q-space-2) 0;
+  overflow: hidden;
+  border: 1px solid var(--q-border);
+  border-radius: var(--q-radius);
+}
+
+.block--visual__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--q-space-2);
+  padding: var(--q-space-1) var(--q-space-2) var(--q-space-1) var(--q-space-3);
+  border-bottom: 1px solid var(--q-border);
+  background: var(--q-bg-subtle);
+  font-family: var(--q-font-sans);
+  font-size: var(--q-text-sm);
+  cursor: text;
+}
+
+.block--visual__title {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--q-text-muted);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.block--visual__action {
+  flex: none;
+  padding: 2px var(--q-space-2);
+  border: 0;
+  border-radius: var(--q-radius-sm);
+  background: none;
+  color: var(--q-text-muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.block--visual__action:hover:not(:disabled) {
+  background: var(--q-bg-hover);
+  color: var(--q-text);
+}
+
+.block--visual__action:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.block--visual__note {
+  margin: 0;
+  padding: var(--q-space-3) var(--q-space-4);
+  color: var(--q-text-muted);
+  font-size: var(--q-text-sm);
+}
+
+.visual-frame {
+  display: block;
+  width: 100%;
+  border: 0;
+  background: transparent;
+}
+
+.visual-dialog {
+  width: min(760px, calc(100vw - 32px));
+  max-height: calc(100vh - 64px);
+}
+
+.visual-dialog .modal__body {
+  overflow-y: auto;
+}
+
+.visual-dialog__sources {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.visual-dialog__legend {
+  margin-bottom: var(--q-space-1);
+  padding: 0;
+  font-size: var(--q-text-sm);
+  font-weight: 500;
+}
+
+.visual-dialog__setup,
+.visual-dialog__file {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--q-space-2);
+}
+
+.visual-dialog__html {
+  height: auto;
+  padding: var(--q-space-2);
+  font-family: var(--q-font-mono);
+  font-size: var(--q-text-xs);
+  resize: vertical;
+}
+
+.visual-dialog__preview {
+  flex: none;
+  max-height: 420px;
+  overflow-y: auto;
+  border: 1px solid var(--q-border);
+  border-radius: var(--q-radius);
+}
+
 .image-editor {
   padding-inline: 0;
   outline: none;
