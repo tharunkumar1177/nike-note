@@ -106,7 +106,7 @@ test("/visual previews pasted HTML and inserts it as a file and a link line", as
   await expect(dialog.getByRole("button", { name: "Insert" })).toBeDisabled();
 
   await dialog.getByRole("textbox", { name: "Title" }).fill("Merge vs rebase");
-  await dialog.getByText("Paste HTML", { exact: true }).click();
+  await dialog.getByRole("radio", { name: "Paste HTML" }).check();
   await dialog.getByRole("textbox", { name: "HTML" }).fill(PROBE);
   const preview = dialog.frameLocator('iframe[title="Preview: Merge vs rebase"]');
   await preview.getByRole("button", { name: "Step" }).click();
@@ -145,7 +145,7 @@ test("/visual uploads an HTML file and generates with the saved key", async ({
   await expect(dialog.getByRole("alert")).toHaveText(REFUSAL, { timeout: 30_000 });
   await expect(dialog.getByRole("button", { name: "Insert" })).toBeDisabled();
 
-  await dialog.getByText("Upload file", { exact: true }).click();
+  await dialog.getByRole("radio", { name: "Upload file" }).check();
   await dialog.getByLabel("HTML file").setInputFiles({
     name: "Rebase steps.html",
     mimeType: "text/html",
