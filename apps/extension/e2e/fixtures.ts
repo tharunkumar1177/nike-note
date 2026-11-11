@@ -1,10 +1,12 @@
 /**
  * Playwright fixtures: a persistent Chromium profile with the unpacked
  * extension loaded and, unless disabled, the real helper registered. Each test
- * gets a sandbox folder used as HOME and XDG_CONFIG_HOME, so the helper's
- * settings and Git configuration never touch the runner's own.
+ * gets a sandbox folder used as the home and configuration folders (HOME and
+ * XDG_CONFIG_HOME, or USERPROFILE and LOCALAPPDATA on Windows), so the
+ * helper's settings and Git configuration never touch the runner's own.
  */
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { execFileSync } from "node:child_process";
+import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -36,9 +38,20 @@ function helperBinary(): string {
   return resolve(path);
 }
 
+const windows = process.platform === "win32";
+
 /**
- * Register the helper inside the profile. Chromium on Linux and macOS reads
- * per-user hosts from `<user data dir>/NativeMessagingHosts`.
+ * The per-user registry keys Chromium builds on Windows read the host from;
+ * which one applies depends on the build Playwright downloads.
+ */
+const HOST_KEYS = ["Chromium", "Google\\Chrome", "Google\\Chrome for Testing"].map(
+  (browser) => `HKCU\\Software\\${browser}\\NativeMessagingHosts\\${HOST_NAME}`,
+);
+
+/**
+ * Register the helper for the profile. Chromium on Linux and macOS reads
+ * per-user hosts from `<user data dir>/NativeMessagingHosts`; on Windows the
+ * manifest is found through the registry.
  */
 async function registerHelper(userDataDir: string): Promise<void> {
   const hostsDir = join(userDataDir, "NativeMessagingHosts");
@@ -50,7 +63,44 @@ async function registerHelper(userDataDir: string): Promise<void> {
     type: "stdio",
     allowed_origins: [`chrome-extension://${EXTENSION_ID}/`],
   };
-  await writeFile(join(hostsDir, `${HOST_NAME}.json`), JSON.stringify(manifest, null, 2));
+  const manifestPath = join(hostsDir, `${HOST_NAME}.json`);
+  await writeFile(manifestPath, JSON.stringify(manifest, null, 2));
+  if (windows) {
+    for (const key of HOST_KEYS) {
+      execFileSync("reg", ["add", key, "/ve", "/d", manifestPath, "/f"], { stdio: "ignore" });
+    }
+  }
+}
+
+/**
+ * Remove the Windows registry entries, so a test without the helper does not
+ * find the one registered for an earlier test. Missing keys are ignored.
+ */
+function unregisterHelper(): void {
+  if (!windows) return;
+  for (const key of HOST_KEYS) {
+    try {
+      execFileSync("reg", ["delete", key, "/f"], { stdio: "ignore" });
+    } catch {
+      // The key was not there.
+    }
+  }
+}
+
+/**
+ * The environment that points the helper's home and configuration folders
+ * into the sandbox.
+ */
+function sandboxEnv(sandbox: Sandbox): Record<string, string> {
+  const folders: Record<string, string> = windows
+    ? { USERPROFILE: sandbox.home, LOCALAPPDATA: sandbox.config }
+    : { XDG_CONFIG_HOME: sandbox.config };
+  return {
+    HOME: sandbox.home,
+    ...folders,
+    GIT_CONFIG_GLOBAL: join(sandbox.dir, "gitconfig"),
+    GIT_CONFIG_NOSYSTEM: "1",
+  };
 }
 
 export const test = base.extend<{
@@ -65,35 +115,32 @@ export const test = base.extend<{
   // Playwright requires an object pattern for fixtures without dependencies.
   // eslint-disable-next-line no-empty-pattern
   sandbox: async ({}, use) => {
-    const dir = await mkdtemp(join(tmpdir(), "quire-sandbox-"));
+    // The real path, so Windows short names such as RUNNER~1 match what the helper shows.
+    const dir = await realpath(await mkdtemp(join(tmpdir(), "quire-sandbox-")));
     const sandbox = { dir, home: join(dir, "home"), config: join(dir, "config") };
     await mkdir(sandbox.home);
     await mkdir(sandbox.config);
     await writeFile(join(dir, "gitconfig"), "");
     await use(sandbox);
-    await rm(dir, { recursive: true, force: true });
+    await rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
   },
 
   context: async ({ helperInstalled, sandbox }, use) => {
     const userDataDir = await mkdtemp(join(tmpdir(), "quire-e2e-"));
     if (helperInstalled) await registerHelper(userDataDir);
+    else unregisterHelper();
     const context = await chromium.launchPersistentContext(userDataDir, {
       channel: "chromium",
       args: [
         `--disable-extensions-except=${extensionDir}`,
         `--load-extension=${extensionDir}`,
       ],
-      env: {
-        ...process.env,
-        HOME: sandbox.home,
-        XDG_CONFIG_HOME: sandbox.config,
-        GIT_CONFIG_GLOBAL: join(sandbox.dir, "gitconfig"),
-        GIT_CONFIG_NOSYSTEM: "1",
-      },
+      env: { ...process.env, ...sandboxEnv(sandbox) },
     });
     await use(context);
     await context.close();
-    await rm(userDataDir, { recursive: true, force: true });
+    unregisterHelper();
+    await rm(userDataDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
   },
 
   // eslint-disable-next-line no-empty-pattern

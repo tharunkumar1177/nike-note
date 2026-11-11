@@ -1,10 +1,12 @@
 /**
  * Renders inline Markdown nodes. Page links open in Quire, web and mail links
- * open in a new tab, and any other link is shown as text with its target.
+ * open in a new tab, any other link is shown as text with its target, and
+ * inline math is drawn by KaTeX.
  */
 import { isExternalHref, resolvePageHref, type Inline } from "@quire/markdown";
 
 import { pageHash } from "../../shared/pages";
+import { MathFormula } from "./MathFormula";
 
 /**
  * Render a list of inline nodes for the page at `pagePath`.
@@ -28,6 +30,8 @@ function InlineNode({ node, pagePath }: { node: Inline; pagePath: string }) {
       return <>{node.text}</>;
     case "code":
       return <code className="inline-code">{node.text}</code>;
+    case "math":
+      return <MathFormula tex={node.text} display={false} />;
     case "bold":
       return (
         <strong>

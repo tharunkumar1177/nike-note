@@ -52,6 +52,15 @@ export function PlusIcon() {
   );
 }
 
+/** Three dots in a row, for a menu of more actions. */
+export function MoreIcon() {
+  return (
+    <svg {...iconProps}>
+      <path d="M3.5 8h.01M8 8h.01M12.5 8h.01" strokeWidth={2.5} />
+    </svg>
+  );
+}
+
 /** Page (a document with a folded corner). */
 export function PageIcon() {
   return (
@@ -83,11 +92,78 @@ export function BranchIcon() {
   );
 }
 
+/** Magnifying glass, for search. */
+export function SearchIcon() {
+  return (
+    <svg {...iconProps}>
+      <circle cx="7" cy="7" r="4.25" />
+      <path d="m10.25 10.25 3.25 3.25" />
+    </svg>
+  );
+}
+
+/** Four-pointed sparkle, for AI actions. */
+export function SparkleIcon() {
+  return (
+    <svg {...iconProps}>
+      <path d="M8 1.75c.4 3.1 2.15 4.85 5.25 5.25-3.1.4-4.85 2.15-5.25 5.25C7.6 9.15 5.85 7.4 2.75 7 5.85 6.6 7.6 4.85 8 1.75z" />
+      <path d="M12.75 11.5v2.5M11.5 12.75H14" />
+    </svg>
+  );
+}
+
+/** Two sliders, for settings. */
+export function SettingsIcon() {
+  return (
+    <svg {...iconProps}>
+      <path d="M2.5 5h6.25M12.25 5h1.25M2.5 11h1.25M7.25 11h6.25" />
+      <circle cx="10.5" cy="5" r="1.75" />
+      <circle cx="5.5" cy="11" r="1.75" />
+    </svg>
+  );
+}
+
 /** Check mark. */
 export function CheckIcon() {
   return (
     <svg {...iconProps} strokeWidth={2}>
       <path d="m3.5 8.5 3 3 6-7" />
+    </svg>
+  );
+}
+
+/** The short middle line of each alignment icon. */
+const ALIGN_LINES = {
+  left: "M2.5 8h7",
+  center: "M4.5 8h7",
+  right: "M6.5 8h7",
+} as const;
+
+/** Three lines with the middle one pushed left, to the center, or right. */
+export function AlignIcon({ align }: { align: keyof typeof ALIGN_LINES }) {
+  return (
+    <svg {...iconProps}>
+      <path d={`M2.5 4h11${ALIGN_LINES[align]}M2.5 12h11`} />
+    </svg>
+  );
+}
+
+/** A picture with a line of text under it, for captions. */
+export function CaptionIcon() {
+  return (
+    <svg {...iconProps}>
+      <rect x="2.5" y="2.5" width="11" height="7.5" rx="1" />
+      <path d="M4.5 13h7" />
+    </svg>
+  );
+}
+
+/** Equation (a square root sign over an x). */
+export function EquationIcon() {
+  return (
+    <svg {...iconProps}>
+      <path d="M1.5 9 3.25 8l2 5 3-10.5h6" />
+      <path d="m9.5 7 3.5 4.5M13 7l-3.5 4.5" />
     </svg>
   );
 }

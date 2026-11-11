@@ -1,6 +1,9 @@
 //! Quire Helper entry point: native messaging host mode when a browser launches
 //! it, and install, uninstall, version, and help commands otherwise.
 
+mod assets;
+mod base64;
+mod body;
 mod config;
 mod dirs;
 mod framing;
@@ -8,11 +11,16 @@ mod git;
 mod host;
 mod identity;
 mod install;
+mod pageops;
 mod pages;
 mod paths;
 mod protocol;
+mod relink;
+mod search;
+mod sync;
 #[cfg(test)]
 mod testdir;
+mod watch;
 mod workspace;
 
 use std::io::{self, BufRead, IsTerminal, Write};

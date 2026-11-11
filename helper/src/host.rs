@@ -3,19 +3,27 @@
 
 use std::io::{self, Read, Write};
 use std::process::ExitCode;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::{self, Receiver, Sender};
+use std::sync::{Arc, Mutex, PoisonError};
 use std::thread;
 
 use serde_json::{Map, Value, json};
 
+use crate::assets;
+use crate::body;
 use crate::config;
 use crate::dirs;
 use crate::framing::{ReadError, read_frame, write_frame};
 use crate::git;
 use crate::identity::{ALLOWED_ORIGIN, EXTENSION_ID, PROTOCOL_VERSION};
 use crate::install::TargetOs;
+use crate::pageops;
 use crate::pages;
 use crate::protocol::{ErrorCode, Outgoing, ProtocolError, Request, encode, parse_request};
+use crate::search;
+use crate::sync;
+use crate::watch::{self, PageWatch};
 use crate::workspace::{Workspace, status_for};
 
 /// Outcome of dispatching one request.
@@ -31,6 +39,13 @@ pub struct Session {
     greeted: bool,
     workspace: Workspace,
     out: Sender<Outgoing>,
+    watch: Option<PageWatch>,
+    /// Held by page writes and by sync while Git changes files.
+    writes: Arc<Mutex<()>>,
+    /// Held for a whole sync, so syncs run one at a time.
+    syncing: Arc<Mutex<()>>,
+    /// The generation of the newest search; older searches stop early.
+    searches: Arc<AtomicU64>,
 }
 
 impl Session {
@@ -40,6 +55,10 @@ impl Session {
             greeted: false,
             workspace,
             out,
+            watch: None,
+            writes: Arc::default(),
+            syncing: Arc::default(),
+            searches: Arc::default(),
         }
     }
 
@@ -89,7 +108,35 @@ impl Session {
                 .root()
                 .and_then(|root| pages::page_tree(&root)),
             "readPage" => string(params, "path")
-                .and_then(|path| pages::read_page(&self.workspace.root()?, &path)),
+                .and_then(|path| body::read_page(&self.workspace.root()?, &path)),
+            "writePage" => self.write_page(params),
+            "createPage" => string(params, "parent").and_then(|parent| {
+                let title = string(params, "title")?;
+                let link = params.get("link").and_then(Value::as_bool) == Some(true);
+                pageops::create_page(&self.workspace.root()?, &parent, &title, link)
+            }),
+            "renamePage" => string(params, "path").and_then(|path| {
+                let title = string(params, "title")?;
+                let from = params.get("from").and_then(Value::as_str);
+                pageops::rename_page(&self.workspace.root()?, &path, &title, from)
+            }),
+            "movePage" => string(params, "path").and_then(|path| {
+                let parent = string(params, "parent")?;
+                pageops::move_page(&self.workspace.root()?, &path, &parent)
+            }),
+            "deletePage" => string(params, "path")
+                .and_then(|path| pageops::delete_page(&self.workspace.root()?, &path)),
+            "readAsset" => string(params, "path").and_then(|path| {
+                let offset = params.get("offset").and_then(Value::as_u64).unwrap_or(0);
+                assets::read_asset(&self.workspace.root()?, &path, offset)
+            }),
+            "writeAsset" => string(params, "page").and_then(|page| {
+                let name = string(params, "name")?;
+                let data = string(params, "data")?;
+                let _guard = self.writes.lock().unwrap_or_else(PoisonError::into_inner);
+                assets::write_asset(&self.workspace.root()?, &page, &name, &data)
+            }),
+            "watch" => self.start_watch(),
             "gitInit" => self.with_root(git::init),
             "gitSetIdentity" => string(params, "name").and_then(|name| {
                 let email = string(params, "email")?;
@@ -109,12 +156,82 @@ impl Session {
                 }
                 Err(error) => Err(error),
             },
+            "sync" => match self.workspace.root() {
+                Ok(root) => {
+                    self.start_sync(root, request.id);
+                    return Dispatch::Deferred;
+                }
+                Err(error) => Err(error),
+            },
+            "search" => match (self.workspace.root(), string(params, "query")) {
+                (Ok(root), Ok(query)) => {
+                    self.start_search(root, query, request.id);
+                    return Dispatch::Deferred;
+                }
+                (Err(error), _) | (_, Err(error)) => Err(error),
+            },
             other => Err(ProtocolError::new(
                 ErrorCode::UnknownMethod,
                 format!("Unknown method \"{other}\"."),
             )),
         };
+        if request.method == "setRoot" && result.is_ok() {
+            self.watch = None;
+        }
         Dispatch::Reply(result)
+    }
+
+    /// Save a page body only over the version the app read (`writePage`).
+    fn write_page(&self, params: &Map<String, Value>) -> Result<Value, ProtocolError> {
+        let path = string(params, "path")?;
+        let content = string(params, "content")?;
+        let base_hash = optional_string(params, "baseHash")?;
+        let _guard = self.writes.lock().unwrap_or_else(PoisonError::into_inner);
+        body::write_page(
+            &self.workspace.root()?,
+            &path,
+            &content,
+            base_hash.as_deref(),
+        )
+    }
+
+    /// Sync the notes folder with its remote on a worker thread and reply when
+    /// done (`sync`). A second request waits for the first to finish.
+    fn start_sync(&self, root: std::path::PathBuf, id: u64) {
+        let out = self.out.clone();
+        let writes = Arc::clone(&self.writes);
+        let syncing = Arc::clone(&self.syncing);
+        thread::spawn(move || {
+            let _running = syncing.lock().unwrap_or_else(PoisonError::into_inner);
+            let _ = out.send(reply(id, sync::sync(&root, &writes)));
+        });
+    }
+
+    /// Search the notes folder on a worker thread and reply when done
+    /// (`search`). Starting a search makes any earlier one stop early.
+    fn start_search(&self, root: std::path::PathBuf, query: String, id: u64) {
+        let out = self.out.clone();
+        let latest = Arc::clone(&self.searches);
+        let generation = latest.fetch_add(1, Ordering::Relaxed) + 1;
+        thread::spawn(move || {
+            let result = search::search(&root, &query, &latest, generation);
+            let _ = out.send(reply(id, result));
+        });
+    }
+
+    /// Watch the notes folder and report changes as `filesChanged` events,
+    /// replacing any earlier watch (`watch`).
+    fn start_watch(&mut self) -> Result<Value, ProtocolError> {
+        let root = self.workspace.root()?;
+        self.watch = None;
+        let watch = watch::start(&root, self.out.clone()).map_err(|error| {
+            ProtocolError::new(
+                ErrorCode::Io,
+                format!("Cannot watch {}: {error}", root.display()),
+            )
+        })?;
+        self.watch = Some(watch);
+        Ok(json!({ "watching": true }))
     }
 
     /// Run a step against the notes folder and answer with the new workspace state.
@@ -283,6 +400,7 @@ mod tests {
         while let Ok(frame) = read_frame(&mut cursor) {
             replies.push(serde_json::from_slice(&frame).unwrap());
         }
+        replies.retain(|reply| reply.get("event").is_none());
         replies.sort_by_key(|reply| reply["id"].as_u64().unwrap_or(0));
         replies
     }
@@ -401,6 +519,77 @@ mod tests {
     }
 
     #[test]
+    fn pages_are_written_only_over_the_version_read() {
+        let dir = TestDir::new("host-write");
+        let mut workspace = Workspace::load(None);
+        workspace.set_root(&dir.path().to_string_lossy()).unwrap();
+        let replies = exchange_with(
+            workspace,
+            &[
+                hello_request(1),
+                json!({ "id": 2, "method": "writePage", "params": { "path": "", "content": "# Home\n" } }),
+                json!({ "id": 3, "method": "writePage", "params": { "path": "", "content": "# Again\n" } }),
+                json!({ "id": 4, "method": "readPage", "params": { "path": "" } }),
+                json!({ "id": 5, "method": "watch" }),
+                json!({ "id": 6, "method": "writePage", "params": { "path": "" } }),
+            ],
+        );
+        assert_eq!(replies[1]["result"]["hash"], replies[3]["result"]["hash"]);
+        assert_eq!(replies[2]["error"]["code"], json!("STALE"));
+        assert_eq!(replies[3]["result"]["content"], json!("# Home\n"));
+        assert_eq!(replies[4]["result"]["watching"], json!(true));
+        assert_eq!(replies[5]["error"]["code"], json!("BAD_REQUEST"));
+    }
+
+    #[test]
+    fn create_page_adds_a_sub_page_folder() {
+        let dir = TestDir::new("host-create");
+        let mut workspace = Workspace::load(None);
+        workspace.set_root(&dir.path().to_string_lossy()).unwrap();
+        let replies = exchange_with(
+            workspace,
+            &[
+                hello_request(1),
+                json!({ "id": 2, "method": "createPage", "params": { "parent": "", "title": "Plans" } }),
+                json!({ "id": 3, "method": "createPage", "params": { "parent": "Plans", "title": "" } }),
+                json!({ "id": 4, "method": "createPage", "params": { "parent": "" } }),
+            ],
+        );
+        assert_eq!(replies[1]["result"]["path"], json!("Plans"));
+        assert_eq!(replies[2]["result"]["path"], json!("Plans/Untitled"));
+        assert_eq!(replies[3]["error"]["code"], json!("BAD_REQUEST"));
+        let readme = dir.path().join("Plans/Untitled/README.md");
+        assert!(readme.is_file());
+    }
+
+    #[test]
+    fn page_operations_rename_move_and_delete_pages() {
+        let dir = TestDir::new("host-pageops");
+        let mut workspace = Workspace::load(None);
+        workspace.set_root(&dir.path().to_string_lossy()).unwrap();
+        let replies = exchange_with(
+            workspace,
+            &[
+                hello_request(1),
+                json!({ "id": 2, "method": "createPage", "params": { "parent": "", "title": "A", "link": true } }),
+                json!({ "id": 3, "method": "createPage", "params": { "parent": "", "title": "B" } }),
+                json!({ "id": 4, "method": "renamePage", "params": { "path": "A", "title": "Alpha" } }),
+                json!({ "id": 5, "method": "movePage", "params": { "path": "B", "parent": "Alpha" } }),
+                json!({ "id": 6, "method": "deletePage", "params": { "path": "Alpha/B" } }),
+                json!({ "id": 7, "method": "movePage", "params": { "path": "Alpha" } }),
+            ],
+        );
+        assert_eq!(replies[3]["result"]["path"], json!("Alpha"));
+        assert_eq!(replies[4]["result"]["path"], json!("Alpha/B"));
+        assert_eq!(replies[5]["result"]["path"], json!("Alpha/B"));
+        assert_eq!(replies[6]["error"]["code"], json!("BAD_REQUEST"));
+        let home = std::fs::read_to_string(dir.path().join("README.md")).unwrap();
+        assert_eq!(home, "[Alpha](Alpha/README.md)\n");
+        let alpha = std::fs::read_to_string(dir.path().join("Alpha/README.md")).unwrap();
+        assert_eq!(alpha, "# Alpha\n");
+    }
+
+    #[test]
     fn publish_replies_from_a_background_thread() {
         let dir = TestDir::new("host-publish");
         let notes = dir.path().join("notes");
@@ -413,10 +602,33 @@ mod tests {
                 hello_request(1),
                 json!({ "id": 2, "method": "gitInit" }),
                 json!({ "id": 3, "method": "gitPublish" }),
+                json!({ "id": 4, "method": "sync" }),
             ],
         );
-        assert_eq!(replies.len(), 3);
+        assert_eq!(replies.len(), 4);
         assert_eq!(replies[2]["id"], json!(3));
         assert_eq!(replies[2]["error"]["code"], json!("GIT"));
+        assert_eq!(replies[3]["id"], json!(4));
+        assert_eq!(replies[3]["error"]["code"], json!("GIT"));
+    }
+
+    #[test]
+    fn search_replies_from_a_background_thread() {
+        let dir = TestDir::new("host-search");
+        std::fs::write(dir.path().join("README.md"), "# Home\nKyoto plans\n").unwrap();
+        let mut workspace = Workspace::load(None);
+        workspace.set_root(&dir.path().to_string_lossy()).unwrap();
+        let replies = exchange_with(
+            workspace,
+            &[
+                hello_request(1),
+                json!({ "id": 2, "method": "search" }),
+                json!({ "id": 3, "method": "search", "params": { "query": "kyoto" } }),
+            ],
+        );
+        assert_eq!(replies[1]["error"]["code"], json!("BAD_REQUEST"));
+        let first = &replies[2]["result"]["results"][0];
+        assert_eq!(first["path"], json!(""));
+        assert_eq!(first["snippet"], json!("Kyoto plans"));
     }
 }

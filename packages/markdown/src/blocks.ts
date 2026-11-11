@@ -1,11 +1,14 @@
 /**
  * Block model and line-based block parser (architecture.md#block-model-and-line-mapping).
- * One source line is one block, except front matter, fenced code, and tables,
- * which are one block each. Every block keeps its exact source in `raw`, so
- * joining the blocks' `raw` reproduces the document unchanged.
+ * One source line is one block, except front matter, fenced code, tables,
+ * equations, callouts, and toggles, which are one block each. Every block
+ * keeps its exact source in `raw`, so joining the blocks' `raw` reproduces the
+ * document unchanged.
  */
+import { parseImageLine, type ImageParts } from "./image";
 import { parsePageLinkLine } from "./links";
 import { dominantEol, indentWidth, splitLines, type SourceLine } from "./lines";
+import { dollarsEnd, isDollarsLine, parseMathLine, type MathParts } from "./math";
 
 /** Heading levels `#` to `######`. */
 export type HeadingLevel = 1 | 2 | 3 | 4 | 5 | 6;
@@ -35,7 +38,14 @@ export type Block = BlockBase &
     | { type: "page"; title: string; folder: string }
     | { type: "frontMatter"; yaml: string }
     | { type: "table"; source: string }
+    | ({ type: "image" } & ImageParts)
+    | ({ type: "math" } & MathParts)
+    | { type: "callout"; kind: CalloutKind; text: string }
+    | { type: "toggle"; open: boolean; summary: string; body: string }
   );
+
+/** The GitHub alert types a callout can have. */
+export type CalloutKind = "note" | "tip" | "important" | "warning" | "caution";
 
 /** A whole document: its blocks, its byte-order mark, and its dominant line ending. */
 export interface MarkdownDocument {
@@ -49,7 +59,7 @@ type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K>
 
 /** A single-line block before its source position is attached. */
 type LineBlock = DistributiveOmit<
-  Exclude<Block, { type: "code" | "frontMatter" | "table" }>,
+  Exclude<Block, { type: "code" | "frontMatter" | "table" | "math" | "callout" | "toggle" }>,
   "raw" | "line"
 >;
 
@@ -61,6 +71,26 @@ const NUMBERED = /^([ \t]*)(\d{1,9})[.)](?:[ \t]+(.*))?$/;
 const DIVIDER = /^ {0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$/;
 const FENCE = /^ {0,3}(`{3,}|~{3,})(.*)$/;
 const TABLE_DELIMITER = /^[ \t]*\|?[ \t]*:?-+:?[ \t]*(\|[ \t]*:?-+:?[ \t]*)*\|?[ \t]*$/;
+const CALLOUT = /^ {0,3}> ?\[!(note|tip|important|warning|caution)\][ \t]*$/i;
+const QUOTE_LINE = /^ {0,3}>/;
+const DETAILS_OPEN = /^ {0,3}<details(\s+open(?:=(?:""|"open"))?)?\s*>\s*$/i;
+const DETAILS_CLOSE = /^ {0,3}<\/details>\s*$/i;
+const SUMMARY = /^\s*<summary>(.*?)<\/summary>\s*$/i;
+
+/**
+ * The last line of the toggle that opens at line `start`: the matching
+ * `</details>`, counting nested toggles, or -1 when it never closes.
+ */
+function toggleEnd(lines: readonly SourceLine[], start: number): number {
+  let depth = 0;
+  for (let index = start; index < lines.length; index += 1) {
+    const text = lines[index]?.text ?? "";
+    if (DETAILS_OPEN.test(text)) depth += 1;
+    else if (DETAILS_CLOSE.test(text)) depth -= 1;
+    if (depth === 0) return index;
+  }
+  return -1;
+}
 
 /**
  * Join lines back into source text, endings included.
@@ -155,6 +185,8 @@ function parseLine(text: string, lists: ListDepth): LineBlock {
   }
   const quote = QUOTE.exec(text);
   if (quote) return { type: "quote", text: quote[1] ?? "" };
+  const image = parseImageLine(text);
+  if (image) return { type: "image", ...image };
   const page = parsePageLinkLine(text);
   if (page) return { type: "page", ...page };
   return { type: "text", text };
@@ -199,19 +231,86 @@ export function parseDocument(source: string): MarkdownDocument {
       let end = index + 1;
       while (end < lines.length && !closesFence(lines[end]?.text ?? "", marker)) end += 1;
       const closed = end < lines.length;
+      const language = (fence[2] ?? "").trim().split(/\s+/)[0] ?? "";
+      const code = lines
+        .slice(start + 1, end)
+        .map((codeLine) => codeLine.text)
+        .join("\n");
+      const raw = rawOf(lines.slice(start, closed ? end + 1 : end));
+      blocks.push(
+        language.toLowerCase() === "math"
+          ? { type: "math", tex: code, form: "fence", raw, line: start }
+          : { type: "code", language, code, closed, raw, line: start },
+      );
+      lists.reset();
+      index = closed ? end + 1 : end;
+      continue;
+    }
+
+    const dollarsClose = isDollarsLine(line.text) ? dollarsEnd(lines, index) : -1;
+    if (dollarsClose > index) {
       blocks.push({
-        type: "code",
-        language: (fence[2] ?? "").trim().split(/\s+/)[0] ?? "",
-        code: lines
-          .slice(start + 1, end)
-          .map((codeLine) => codeLine.text)
+        type: "math",
+        tex: lines
+          .slice(start + 1, dollarsClose)
+          .map((mathLine) => mathLine.text)
           .join("\n"),
-        closed,
-        raw: rawOf(lines.slice(start, closed ? end + 1 : end)),
+        form: "dollars",
+        raw: rawOf(lines.slice(start, dollarsClose + 1)),
         line: start,
       });
       lists.reset();
-      index = closed ? end + 1 : end;
+      index = dollarsClose + 1;
+      continue;
+    }
+
+    const lineTex = parseMathLine(line.text);
+    if (lineTex !== null) {
+      blocks.push({ type: "math", tex: lineTex, form: "line", raw: rawOf([line]), line: start });
+      lists.reset();
+      index += 1;
+      continue;
+    }
+
+    const callout = CALLOUT.exec(line.text);
+    if (callout) {
+      let end = index + 1;
+      while (end < lines.length && QUOTE_LINE.test(lines[end]?.text ?? "")) end += 1;
+      const calloutLines = lines.slice(start, end);
+      blocks.push({
+        type: "callout",
+        kind: (callout[1] ?? "note").toLowerCase() as CalloutKind,
+        text: calloutLines
+          .slice(1)
+          .map((calloutLine) => calloutLine.text.replace(/^ {0,3}> ?/, ""))
+          .join("\n"),
+        raw: rawOf(calloutLines),
+        line: start,
+      });
+      lists.reset();
+      index = end;
+      continue;
+    }
+
+    const details = DETAILS_OPEN.exec(line.text);
+    const close = details ? toggleEnd(lines, index) : -1;
+    if (details && close > index) {
+      const inner = lines.slice(start + 1, close).map((innerLine) => innerLine.text);
+      const summaryAt = inner.findIndex((text) => text.trim() !== "");
+      const summary = SUMMARY.exec(inner[summaryAt] ?? "");
+      const body = summary ? inner.slice(summaryAt + 1) : inner;
+      while (body[0]?.trim() === "") body.shift();
+      while (body.at(-1)?.trim() === "") body.pop();
+      blocks.push({
+        type: "toggle",
+        open: details[1] !== undefined,
+        summary: summary?.[1] ?? "",
+        body: body.join("\n"),
+        raw: rawOf(lines.slice(start, close + 1)),
+        line: start,
+      });
+      lists.reset();
+      index = close + 1;
       continue;
     }
 

@@ -41,6 +41,6 @@ export function buildManifest(version: string): Record<string, unknown> {
       default_icon: iconSet([16, 32]),
     },
     icons: iconSet(ICON_SIZES),
-    permissions: ["nativeMessaging"],
+    permissions: ["nativeMessaging", "storage"],
   };
 }

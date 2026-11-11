@@ -3,6 +3,13 @@
  */
 import { expect, test } from "./fixtures";
 
+/** The helper download the install screen offers on the OS running the tests. */
+const DOWNLOADS: Partial<Record<NodeJS.Platform, string>> = {
+  win32: "quire-helper-windows",
+  darwin: "quire-helper-macos",
+};
+const HELPER_DOWNLOAD = DOWNLOADS[process.platform] ?? "quire-helper-linux";
+
 test.describe("with the helper registered", () => {
   test("Open Quire opens the app once and then focuses it", async ({
     context,
@@ -37,7 +44,7 @@ test.describe("without the helper registered", () => {
   test("the app page shows the install screen", async ({ openApp }) => {
     const app = await openApp();
     await expect(app.getByRole("heading", { name: "Install Quire Helper" })).toBeVisible();
-    await expect(app.getByText("quire-helper-linux")).toBeVisible();
+    await expect(app.getByText(HELPER_DOWNLOAD)).toBeVisible();
     await expect(app.getByRole("button", { name: "Retry" })).toBeVisible();
   });
 });

@@ -11,6 +11,7 @@ import {
   EXTENSION_PUBLIC_KEY,
   ICON_SIZES,
 } from "../src/build/manifest";
+import { startupLeaks, type ChunkInfo } from "../src/build/plugin";
 import { crc32, encodePng, renderIconPng, renderMark } from "../src/build/png";
 import { EXTENSION_ID } from "../src/shared/identity";
 
@@ -36,7 +37,7 @@ describe("manifest", () => {
       name: "Quire",
       version: "0.1.0",
       key: EXTENSION_PUBLIC_KEY,
-      permissions: ["nativeMessaging"],
+      permissions: ["nativeMessaging", "storage"],
       action: { default_popup: "popup.html" },
     });
     expect(Object.keys(manifest.icons as object)).toEqual(ICON_SIZES.map(String));
@@ -44,6 +45,42 @@ describe("manifest", () => {
 
   it("rejects versions Chrome cannot parse", () => {
     expect(() => buildManifest("1.0.0-beta")).toThrow();
+  });
+});
+
+describe("startupLeaks", () => {
+  const sdk = "/repo/node_modules/.pnpm/@google+genai@3.0.0/node_modules/@google/genai/dist/web/index.mjs";
+  /** A chunk with the given static imports and modules. */
+  const chunk = (fileName: string, isEntry: boolean, imports: string[], moduleIds: string[]) =>
+    ({ fileName, isEntry, imports, moduleIds }) satisfies ChunkInfo;
+
+  it("allows a provider SDK in a chunk loaded only by dynamic import", () => {
+    expect(
+      startupLeaks([
+        chunk("app.js", true, ["shared.js"], ["/repo/src/app/main.tsx"]),
+        chunk("shared.js", false, [], ["/repo/node_modules/react/index.js"]),
+        chunk("gemini.js", false, ["shared.js"], [sdk]),
+      ]),
+    ).toEqual([]);
+  });
+
+  it("reports a provider SDK reachable from an entry by static imports", () => {
+    expect(
+      startupLeaks([
+        chunk("popup.js", true, [], []),
+        chunk("app.js", true, ["vendor.js"], []),
+        chunk("vendor.js", false, ["deep.js"], []),
+        chunk("deep.js", false, ["vendor.js"], [sdk.replaceAll("/", "\\")]),
+      ]),
+    ).toEqual([`deep.js: ${sdk.replaceAll("/", "\\")}`]);
+  });
+
+  it("treats KaTeX like a provider SDK", () => {
+    const katex = "/repo/node_modules/.pnpm/katex@0.19.1/node_modules/katex/dist/katex.mjs";
+    expect(startupLeaks([chunk("app.js", true, [], [katex])])).toEqual([`app.js: ${katex}`]);
+    expect(
+      startupLeaks([chunk("app.js", true, [], []), chunk("katex.js", false, [], [katex])]),
+    ).toEqual([]);
   });
 });
 

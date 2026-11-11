@@ -1,13 +1,17 @@
 /*
  * Quire design tokens and base element styles shared by the popup and the app page.
- * Light theme by default, dark theme through prefers-color-scheme.
+ * Colors are light-dark() pairs: the system's scheme picks one unless the
+ * appearance settings force a theme with data-theme on the root element.
  */
 :root {
   color-scheme: light dark;
 
   --q-font-sans: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text",
     "Segoe UI", system-ui, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+  --q-font-serif: "Iowan Old Style", "Charter", "Sitka Text", Cambria, Georgia, ui-serif,
+    "Times New Roman", serif, "Apple Color Emoji", "Segoe UI Emoji";
   --q-font-mono: ui-monospace, "SFMono-Regular", "Cascadia Code", Menlo, Consolas, monospace;
+  --q-font-page: var(--q-font-sans);
 
   --q-text-xs: 12px;
   --q-text-sm: 14px;
@@ -27,50 +31,44 @@
   --q-radius: 6px;
   --q-radius-lg: 10px;
 
-  --q-bg: #ffffff;
-  --q-bg-sidebar: #f8f8f7;
-  --q-bg-subtle: #f1f1ef;
-  --q-bg-hover: rgba(55, 53, 47, 0.06);
-  --q-bg-active: rgba(55, 53, 47, 0.1);
-  --q-border: rgba(55, 53, 47, 0.12);
-  --q-text: #37352f;
-  --q-text-muted: rgba(55, 53, 47, 0.68);
-  --q-text-faint: rgba(55, 53, 47, 0.48);
+  --q-bg: light-dark(#ffffff, #191919);
+  --q-bg-sidebar: light-dark(#f8f8f7, #202020);
+  --q-bg-subtle: light-dark(#f1f1ef, #252525);
+  --q-bg-hover: light-dark(rgba(55, 53, 47, 0.06), rgba(255, 255, 255, 0.055));
+  --q-bg-active: light-dark(rgba(55, 53, 47, 0.1), rgba(255, 255, 255, 0.09));
+  --q-border: light-dark(rgba(55, 53, 47, 0.12), rgba(255, 255, 255, 0.094));
+  --q-text: light-dark(#37352f, rgba(255, 255, 255, 0.86));
+  --q-text-muted: light-dark(rgba(55, 53, 47, 0.68), rgba(255, 255, 255, 0.58));
+  --q-text-faint: light-dark(rgba(55, 53, 47, 0.48), rgba(255, 255, 255, 0.4));
   --q-accent: #2383e2;
-  --q-accent-hover: #0b6ec5;
+  --q-accent-hover: light-dark(#0b6ec5, #3b94ea);
   --q-accent-text: #ffffff;
-  --q-success: #448361;
-  --q-warning: #cb912f;
-  --q-danger: #d44c47;
-  --q-danger-bg: #fdebec;
-  --q-code-bg: rgba(135, 131, 120, 0.15);
-  --q-code-text: #eb5757;
-  --q-shadow: 0 0 0 1px rgba(15, 15, 15, 0.05), 0 3px 6px rgba(15, 15, 15, 0.1),
-    0 9px 24px rgba(15, 15, 15, 0.2);
+  --q-success: light-dark(#448361, #4dab9a);
+  --q-warning: light-dark(#cb912f, #ffa344);
+  --q-danger: light-dark(#d44c47, #ff7369);
+  --q-danger-bg: light-dark(#fdebec, rgba(255, 115, 105, 0.12));
+  --q-code-bg: light-dark(rgba(135, 131, 120, 0.15), rgba(255, 255, 255, 0.08));
+  --q-code-text: light-dark(#eb5757, #ff7369);
+  --q-shadow: 0 0 0 1px light-dark(rgba(15, 15, 15, 0.05), rgba(255, 255, 255, 0.08)),
+    0 3px 6px light-dark(rgba(15, 15, 15, 0.1), rgba(0, 0, 0, 0.3)),
+    0 9px 24px light-dark(rgba(15, 15, 15, 0.2), rgba(0, 0, 0, 0.45));
   --q-focus: 0 0 0 2px rgba(35, 131, 226, 0.55);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --q-bg: #191919;
-    --q-bg-sidebar: #202020;
-    --q-bg-subtle: #252525;
-    --q-bg-hover: rgba(255, 255, 255, 0.055);
-    --q-bg-active: rgba(255, 255, 255, 0.09);
-    --q-border: rgba(255, 255, 255, 0.094);
-    --q-text: rgba(255, 255, 255, 0.86);
-    --q-text-muted: rgba(255, 255, 255, 0.58);
-    --q-text-faint: rgba(255, 255, 255, 0.4);
-    --q-accent-hover: #3b94ea;
-    --q-success: #4dab9a;
-    --q-warning: #ffa344;
-    --q-danger: #ff7369;
-    --q-danger-bg: rgba(255, 115, 105, 0.12);
-    --q-code-bg: rgba(255, 255, 255, 0.08);
-    --q-code-text: #ff7369;
-    --q-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 3px 6px rgba(0, 0, 0, 0.3),
-      0 9px 24px rgba(0, 0, 0, 0.45);
-  }
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+:root[data-font="serif"] {
+  --q-font-page: var(--q-font-serif);
+}
+
+:root[data-font="mono"] {
+  --q-font-page: var(--q-font-mono);
 }
 
 *,

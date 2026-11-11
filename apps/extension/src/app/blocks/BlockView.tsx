@@ -1,15 +1,20 @@
 /**
- * Renders a page's blocks read-only, one element per block, in source order.
+ * Renders one block formatted, as shown when the caret is not in it. Page
+ * blocks show the sub-page's current title from `childTitles` (keyed by folder
+ * name) when it exists, so a renamed heading shows up without rewriting the
+ * link line.
  */
-import { listNumbers, parseInline, type Block } from "@quire/markdown";
+import { listNumbers, parseDocument, parseInline, type Block } from "@quire/markdown";
 import type { CSSProperties, ReactNode } from "react";
 
 import { PageIcon } from "../../shared/icons";
 import { pageHash } from "../../shared/pages";
 import { InlineView } from "./InlineView";
+import { MathView } from "./MathFormula";
+import { CalloutView, ImageView, TableView } from "./RichBlocks";
 
 /** Bullet glyphs by nesting depth, repeating. */
-const BULLETS = ["•", "◦", "▪"];
+export const BULLETS = ["•", "◦", "▪"];
 
 /**
  * Inline content of a text-bearing block.
@@ -41,18 +46,61 @@ function ListItem({
 }
 
 /**
- * Render one block.
+ * A toggle: its summary opens and closes its body, whose blocks render
+ * formatted and read-only. It starts open when the source says `open`.
  */
-function BlockView({
+function ToggleView({
+  block,
+  pagePath,
+  childTitles,
+}: {
+  block: Extract<Block, { type: "toggle" }>;
+  pagePath: string;
+  childTitles: ReadonlyMap<string, string>;
+}) {
+  const inner = parseDocument(block.body).blocks;
+  const numbers = listNumbers(inner);
+  return (
+    <details className="block block--toggle" open={block.open}>
+      <summary className="block--toggle__summary">
+        {block.summary.trim() === "" ? (
+          "Toggle"
+        ) : (
+          <InlineView nodes={parseInline(block.summary)} pagePath={pagePath} />
+        )}
+      </summary>
+      <div className="block--toggle__body">
+        {inner.map((child, index) => (
+          <BlockView
+            key={child.line}
+            block={child}
+            number={numbers.get(index)}
+            pagePath={pagePath}
+            childTitles={childTitles}
+            onToggle={null}
+          />
+        ))}
+      </div>
+    </details>
+  );
+}
+
+/**
+ * Render one block formatted. `onToggle` checks or unchecks a to-do item;
+ * without it, to-do boxes are read-only.
+ */
+export function BlockView({
   block,
   number,
   pagePath,
   childTitles,
+  onToggle,
 }: {
   block: Block;
   number: number | undefined;
   pagePath: string;
   childTitles: ReadonlyMap<string, string>;
+  onToggle: (() => void) | null;
 }) {
   switch (block.type) {
     case "text":
@@ -106,7 +154,8 @@ function BlockView({
               type="checkbox"
               className="block__checkbox"
               checked={block.checked}
-              readOnly
+              disabled={onToggle === null}
+              onChange={onToggle ?? undefined}
               aria-label={block.checked ? "Done" : "Not done"}
             />
           }
@@ -146,40 +195,14 @@ function BlockView({
         </details>
       );
     case "table":
-      return (
-        <pre className="block block--source" aria-label="Table source">
-          <code>{block.source}</code>
-        </pre>
-      );
+      return <TableView block={block} pagePath={pagePath} />;
+    case "image":
+      return <ImageView block={block} pagePath={pagePath} />;
+    case "math":
+      return <MathView block={block} />;
+    case "callout":
+      return <CalloutView block={block} pagePath={pagePath} />;
+    case "toggle":
+      return <ToggleView block={block} pagePath={pagePath} childTitles={childTitles} />;
   }
-}
-
-/**
- * Render blocks for the page at `pagePath`. Page blocks show the sub-page's
- * current title from `childTitles` (keyed by folder name) when it exists, so a
- * renamed heading shows up without rewriting the link line.
- */
-export function BlockList({
-  blocks,
-  pagePath,
-  childTitles,
-}: {
-  blocks: readonly Block[];
-  pagePath: string;
-  childTitles: ReadonlyMap<string, string>;
-}) {
-  const numbers = listNumbers(blocks);
-  return (
-    <div className="blocks">
-      {blocks.map((block, index) => (
-        <BlockView
-          key={`${block.line}:${index}`}
-          block={block}
-          number={numbers.get(index)}
-          pagePath={pagePath}
-          childTitles={childTitles}
-        />
-      ))}
-    </div>
-  );
 }

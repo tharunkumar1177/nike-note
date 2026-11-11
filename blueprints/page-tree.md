@@ -24,6 +24,7 @@ Delivered by slice 4. Helper unit tests cover titles, link lines, ordering, excl
 - Sidebar tree (`src/app/PageTreeNav.tsx`): ARIA `tree` with flat `treeitem` rows and `aria-level`. The root page is the first row; its children are top-level rows. Ancestors of the open page are expanded unless the user collapsed them. Keys: Up and Down move, Right expands then enters, Left collapses then goes to the parent, Home and End jump, Enter and Space open. One row is in the tab order.
 - Freshness: the tree reloads when the tab becomes visible. Overlapping reloads collapse into one follow-up request.
 - Changing the notes folder opens the new folder's root page.
+- Rows also carry the page actions, context menu, F2, Delete, and drag to move; those belong to [page-operations](page-operations.md).
 
 ## Related blueprints
 

@@ -53,6 +53,7 @@ System overview diagram: [assets/diagrams/system-overview.mmd](assets/diagrams/s
 
 ### Extension identity
 
+- Permissions are `nativeMessaging` and `storage` only; there are no host permissions.
 - The manifest carries a fixed public `key`, so the extension ID is always `hbddhigdogedopjjlihlkpehidopddac` when loaded unpacked.
 - The helper's allowed origin is `chrome-extension://hbddhigdogedopjjlihlkpehidopddac/`. The extension ID and the host name are defined once in each language (`apps/extension/src/shared/identity.ts` and `helper/src/identity.rs`), and both must change together.
 - A store-published build gets a store-assigned ID; adding it to the allowed origins is a release-time change to both files.
@@ -121,6 +122,9 @@ Workspace methods answer with the workspace state `{ root, rootName, rootError, 
 - A sub-page is linked from its parent by a whole line `[Title](child/README.md)`. The target may be percent-encoded (`Japan%202027/README.md`), wrapped in angle brackets (`<Japan 2027/README.md>`), or prefixed with `./`. Only direct child folders count. Link order sets sidebar order. Child folders with no link follow in case-insensitive name order.
 - `assets/` and folders whose names start with `.` (including `.git/`) are never pages, nor are Windows hidden or system folders. Symbolic links to folders are not followed.
 - A folder without `README.md` is a page with an empty body. Quire creates the file on the first edit.
+- `createPage { parent, title }` makes a sub-page of page `parent`: a new folder named after the title and a `README.md` whose only line is `# <title>`, and answers `{ path, folder, title }`. Folder names are portable across Windows, macOS, and Linux: characters invalid on any of them and control characters become spaces, runs of spaces collapse, leading dots and trailing dots or spaces are dropped, names are cut to 60 characters, and Windows device names (`CON`, `COM1`, and so on, with or without an extension) and `assets` get ` page` added. An empty result is `Untitled`. A name already used in the parent, compared without case, gets ` 2`, ` 3`, and so on. A link line percent-encodes the folder (parentheses included) and drops `[` and `]` from the title. With `link: true` the helper appends the link line to the parent's body itself; otherwise the app adds it.
+- `renamePage { path, title, from? }` writes the new title line and rewrites the parent's link lines. The folder is renamed only while its name follows the old title (the title's folder name, optionally with ` N`) and the new title gives a different name. The optional `from` is the title the user started editing from; since autosave may already have written the new title, the folder also counts as following when it follows `from`. `movePage { path, parent }` moves the folder under another page, removing the old parent's link lines and appending one to the new parent; the root page and moves into the page itself or its sub-pages get `BAD_REQUEST`. `deletePage { path }` removes the folder and everything in it and the parent's link lines; the root page gets `BAD_REQUEST`. Rename and move answer `{ path, folder, title }`, delete answers `{ path }`.
+- After a rename or move of a folder, the helper rewrites relative links in every page body (same limits and exclusions as `pageTree`) so they keep pointing at the same files: inline links and reference definitions outside code, keeping `#` and `?` suffixes, the byte order mark, and line endings. External links, fragment-only links, and absolute paths are left alone.
 - `pageTree` returns `{ root, truncated }`, where every node is `{ path, name, title, hasReadme, children }`. The helper stops after 5,000 pages or 64 levels and sets `truncated`. `README.md` files larger than 8 MiB contribute no title or links.
 - The app keeps the open page in the URL fragment (`app.html#/Trips/Japan%202027`) and reloads the tree whenever the tab becomes visible, until file watching arrives with [File write-back and change watching](#file-write-back-and-change-watching).
 
@@ -128,16 +132,37 @@ Workspace methods answer with the workspace state `{ root, rootName, rootError, 
 
 - `readPage { path }` returns `{ path, exists, content }`: the exact text of the page's `README.md`, including any byte order mark and its line endings. A folder without `README.md` gives `exists: false` and empty content. Bodies larger than 512 KiB get `TOO_LARGE`, so the JSON reply stays under the 1 MiB limit; bodies that are not UTF-8 get `IO`.
 - A page body is an ordered list of blocks. Each block owns a contiguous range of source lines and keeps their original text (`raw`, with line endings).
-- One line is one block, except fenced code blocks, tables, and front matter, which are each one multi-line block. An unclosed fence runs to the end of the file. Front matter is recognized only on the first line.
-- Serializing joins every block's `raw` after the byte order mark, so an unedited document round-trips byte for byte. Edited blocks (slice 6) are re-rendered from their model with the file's dominant line ending (`\n` or `\r\n`).
+- One line is one block, except fenced code blocks, tables, front matter, callouts, toggles, and equations, which are each one multi-line block. An unclosed fence runs to the end of the file. Front matter is recognized only on the first line.
+- Rich blocks: a line that is only `![alt](path "title")` is an image block, and so is a line that is only an `<img>` tag with a `src` and optionally `alt`, `title`, and a whole-pixel `width`, alone or inside `<p align="left|center|right">…</p>`; any other attribute leaves the line as text. An image at its own size on the left is written as Markdown; a sized or aligned one as `<p align="…"><img src="…" alt="…" width="…"></p>`, which GitHub renders the same way, with an empty line added after it when the next line has text so GitHub ends the HTML there. The helper's link rewriting after a page move treats an `<img>` tag's quoted `src` as a link. A callout is a `> [!NOTE]` line (also `TIP`, `IMPORTANT`, `WARNING`, `CAUTION`, any case, alone on the line) and the `>` lines right after it. A toggle runs from a `<details>` or `<details open>` line to its matching `</details>` line, counting nested ones; a `<summary>…</summary>` line as its first non-blank line is its summary, and the rest is its body. An unclosed `<details>` line is text. Table cells are split on unescaped `|`, padded or cut to the header's column count, and aligned by the delimiter row. Table edits work on the cells and rewrite only the rows whose cells changed (every row when the columns change), escaping `|` in cell text. An equation is a fence whose language is `math` (any case), a `$$` line through the next `$$` line (if an empty line or the end of the file comes first, the line is text), or a line that is only `$$…$$` with no other `$`; it is never a code block. Editing an equation keeps its form unless the TeX no longer fits it, moving to `$$` lines and then to a fence.
+- Serializing joins every block's `raw` after the byte order mark, so an unedited document round-trips byte for byte. An edit replaces only the source lines of the blocks it touches, keeping their line ending; new lines use the file's dominant line ending (`\n` or `\r\n`). After every edit the whole text is parsed again, so typing Markdown syntax into a line changes its block type. While a one-line block is edited, its marker (indentation, `#`s, list marker, to-do box, or `>`, always followed by a space) is split off and drawn by the app; the text box holds only the text after it, and the marker is put back unchanged on every edit.
 - List nesting is relative: an item indented more than the item above nests one level deeper, up to 8 levels. A line of `---`, `***`, or `___` is always a divider; setext headings are not supported.
+- Blocks are moved, duplicated, and deleted as groups: a block plus, for a list item, every deeper list item right after it. Groups move as whole source lines, never above the title or front matter, and a moved last line gets the file's line ending.
 - The page's title block is the first `# ` heading (the [Page structure](#page-structure) title rule). The app shows it as the page title and not again in the body.
 - The block-type set and its Markdown syntax are defined in [plan.md](plan.md#block-mapping) and implemented only in `packages/markdown`. The helper keeps its own line scanner for titles and link lines; both must accept the same link-line forms.
+- Inline styles (bold, italic, strikethrough, code, math, links) are read by one scanner in `packages/markdown` that also reports each span's source range. Inline math is `$…$` not starting or ending with a space, whose closing `$` is not escaped, doubled, or followed by a digit, or `` $`…`$ ``; like code, its text is never styled. Formatting commands add or remove delimiters using those ranges, and the renderer uses the same scan, so what the toolbar reports as styled is what is shown.
 - Links: `http:`, `https:`, and `mailto:` links open in a new tab without a referrer. Relative links to a `README.md` inside the notes folder open that page in Quire. Every other link is shown as inert text with its target in a tooltip.
 
 ### File write-back and change watching
 
-**Intended (slice 6).** The app writes a whole `README.md` with `writeFile { path, content, baseHash }`. The helper refuses the write with `STALE` when the file's current SHA-256 differs from `baseHash`. Writes go to a temporary file in the same folder, followed by an atomic rename. The helper watches the whole tree and emits `filesChanged` events. It rescans after its own Git operations and when the watcher reports lost events.
+- `readPage` also returns `hash`, the lowercase hex SHA-256 of the file's bytes (`null` without a `README.md`).
+- The app writes a whole `README.md` with `writePage { path, content, baseHash }` and gets `{ path, hash }`. `baseHash` is the hash the app last read or wrote, or `null` to create the file. The helper refuses the write with `STALE` when the file's current hash differs, and with `TOO_LARGE` over 512 KiB.
+- Writes go to a dot-named temporary file in the same folder, are flushed to disk, and are renamed over the old file, keeping its permissions. A symbolic link to a file inside the notes folder is written through; one pointing outside is refused with `OUTSIDE_ROOT`.
+- `watch` starts a recursive watch of the notes folder for this connection (replacing any earlier one; `setRoot` stops it). The helper then sends `{ "event": "filesChanged", "data": { "pages": [<page path>...], "rescan": <bool> } }` after changes settle (150 ms of quiet, at most 1 s of delay). `pages` lists pages whose `README.md` changed. Changes under dot folders (`.git`), `assets` folders, and dot files are ignored. `rescan` is true when the watcher lost events or more than 500 pages changed, and then `pages` is empty. Any event may also mean the page tree changed.
+- The app saves 700 ms after the last edit, and at once when the user switches pages or hides the tab. It never replaces unsaved text with a newer file; that is a conflict, and the user chooses which version to keep. Its own writes come back as events whose hash matches what it wrote, and are ignored.
+- If the watch cannot start, the app falls back to reloading when the tab becomes visible.
+
+### Page assets
+
+- A page's images live in its `assets/` folder; image paths in a page resolve relative to the page folder and must stay inside the notes folder. Only PNG, JPEG, GIF, WebP, AVIF, BMP, and SVG files (by extension) are served.
+- `readAsset { path, offset }` reads an image by its path in the notes folder (`/`-separated, no segment starting with `.`, checked like a page path) and answers `{ path, size, offset, mime, data }`: up to 512 KiB from `offset`, in base64, so a reply stays under the 1 MiB limit. The app asks again from the next offset until it has `size` bytes, and gives up if the size or type changes meanwhile. Files over 32 MiB get `TOO_LARGE`.
+- `writeAsset { page, name, data }` saves base64 `data` (at most 16 MiB decoded, sent in one request under the 64 MiB inbound limit) as a new file in page `page`'s `assets/` folder, creating the folder. The file name is `name` cleaned like a page folder name, with a lowercase extension; a name already used, compared without case, gets ` 2`, ` 3`, and so on before the extension. It is written to a dot-named temporary file and renamed into place, never replacing a file, and answers `{ path, name }`. The app then writes the line `![<name without extension>](assets/<percent-encoded name>)`.
+
+### Search
+
+- `search { query }` runs on a worker thread and answers `{ results, truncated }`, where each result is `{ path, title, snippet }`, best first. A connection has one search at a time: starting one makes any earlier one stop and answer `{ results: [], truncated: false, superseded: true }`.
+- The query is split on whitespace into at most 8 words, compared without regard to case. A page matches when every word appears in its title or its body (the `README.md` text except the title line). Pages are walked with the same limits and exclusions as `pageTree`.
+- Ranking: a word in the title scores 15 when the title starts with it and 10 otherwise; each word adds its body occurrences, at most 5. Ties go by title, then path. At most 50 results are sent, and `truncated` says more matched.
+- The snippet is the first non-blank body line containing a query word (trying the words in order), or the first body line when only the title matched, with leading Markdown markers (`#`s, `>`, list and to-do markers, numbers) removed. Lines longer than 160 characters are cut to 160 starting 60 characters before the match, with `…` where cut.
 
 ### Git sync
 
@@ -145,11 +170,31 @@ The helper runs the user's `git` command with terminal prompts and optional lock
 
 Setup is a fixed sequence, and the app shows the first incomplete step: Git available, repository initialized (`main` unless the user set `init.defaultBranch`), author identity (written to the repository's local config only when not already set), `origin` remote, and a first push that sets the upstream. The first push commits a `README.md` titled with the folder name when the repository has no commits. A folder is ready when its branch has an upstream.
 
-**Intended (slice 7).** After setup, sync runs on its own. After 5 seconds with no saves, it stages changed files and commits with the message `Quire: update <n> page(s)`. It fetches `origin`, rebases only when the rebase completes without conflict, and pushes. On conflict it aborts the rebase, stops auto-sync, and emits a conflict state. Local work is never discarded.
+After setup, sync runs on its own through `sync` (no params), which runs on a worker thread, one at a time per connection, and answers `{ state, ahead, behind, committed, pulled, files, message }`:
+
+1. If Git is in the middle of a rebase, merge, cherry-pick, or revert, nothing is touched and the state is `conflict` with a `message`.
+2. Stage everything and commit it as `Quire: update 1 page`, `Quire: update <n> pages` (counting the distinct page folders touched; files under `assets` count for their page), or `Quire: update notes` when only non-page files changed. `committed` is the page count.
+3. Fetch the branch's upstream remote. If that fails, the state is `offline` with Git's `message`, and the commits wait for the next sync.
+4. When the remote has new commits: fast-forward if there is no local work, otherwise rebase local commits onto the remote. A rebase that stops on a conflict is aborted at once; the state is `conflict` and `files` lists the files changed on both sides. Local work is never discarded and no merge commits are made. `pulled` is true when remote changes came in.
+5. Push `HEAD` to the upstream branch. A push refused because the remote moved goes back to step 3, at most 3 times.
+
+`ahead` and `behind` count commits not yet on the remote and not yet taken in. Page writes and the Git steps that change files (commit, fast-forward, rebase) share a lock, so a write never lands in the middle of a rebase. Errors that are not about the remote (no upstream, a failed commit) are `GIT` errors.
+
+The app syncs once when the workspace opens, 5 seconds after file changes settle (every `filesChanged` event, including its own saves), 1 second after the tab is hidden, and every minute while the tab is visible. After `offline` or an error it retries after 30 seconds, then 1, 2, and 5 minutes. After `conflict` it stops until the user selects **Sync now**. The app allows a sync 3 minutes.
 
 ### AI providers
 
-**Intended (slice 15).** A provider registry maps provider IDs to a label, an API host, and a lazy `load()` import. Each adapter implements `AiProvider` (`listModels`, `stream`). App code never imports a provider SDK directly. Provider hosts are `optional_host_permissions` requested on selection. The key is stored in `chrome.storage.local`. A CI check fails the build if a provider SDK appears in a startup chunk.
+- A provider registry (`apps/extension/src/app/ai/providers.ts`) maps each provider ID to a label, the page where keys are created, and a lazy `load()` that dynamically imports its adapter. Each adapter implements `AiProvider`: `listModels(key, signal)` and `stream({ key, model, system, prompt, signal })`, which yields text as it arrives. App code reaches a provider only through the registry and never imports a provider SDK directly. Gemini (`@google/genai`) is the only provider.
+- The app page calls the provider's API directly with the user's key. The Gemini API answers cross-origin requests from the extension's origin, so no host permission is requested. The helper is not involved, and nothing else leaves the computer.
+- Settings `{ provider, model, key }` are stored under `ai` in `chrome.storage.local` (the `storage` permission), never in the notes folder or the helper's config. Every open Quire tab follows changes.
+- The build fails when a provider SDK module is in an entry chunk or in a chunk an entry imports statically (`startupLeaks` in the build plugin), so SDKs load only when an AI action first runs. KaTeX, which draws equations, is held to the same rule and loads when a page first shows math.
+- Generated text enters a page only when the user selects Insert, as whole Markdown lines through the page editor's normal edit and save path, so it obeys the same line mapping, hash check, and sync as typing. Prompts carry the page's title and Markdown, never other pages.
+
+### Appearance
+
+- Settings `{ theme, font, fullWidth }` (`apps/extension/src/shared/appearance.ts`) are stored under `quire.appearance` in the extension origin's `localStorage`, which is read synchronously before the first render; every field is validated on read and falls back to its default on its own. They never reach the notes folder or the helper.
+- The app page and the popup apply them as root element attributes (`data-theme`, `data-font`, `data-full-width`) that the stylesheets select on, and follow changes from other extension pages through `storage` events.
+- Every color token in `src/shared/tokens.css` is a `light-dark()` pair, so the system's scheme chooses unless `data-theme` forces `color-scheme`. Page text uses `--q-font-page`; menus, toolbars, and dialogs keep the UI font.
 
 ## Cross-cutting flows
 
@@ -162,14 +207,14 @@ Popup **Open Quire** focuses an existing app tab (found with `chrome.runtime.get
 - Node.js (pinned in `.nvmrc`), pnpm (pinned with `packageManager`), TypeScript strict mode, Vite.
 - Rust stable with `rustfmt` and `clippy`. Helper targets: `x86_64-pc-windows-msvc`, a universal macOS binary (`aarch64-apple-darwin` and `x86_64-apple-darwin`, merged with `lipo`), and `x86_64-unknown-linux-musl`.
 - Lockfiles (`pnpm-lock.yaml`, `helper/Cargo.lock`) are produced by CI and committed from CI artifacts, never hand-written. When a `package.json` change makes `pnpm-lock.yaml` stale, CI regenerates it for the rest of the run and the `lockfile` job fails until the regenerated file is committed.
-- GitHub Actions runs extension lint, type-check, unit tests, and build; helper format, lint, tests, and release builds on three operating systems; and Playwright end-to-end tests on the unpacked extension with the Linux helper. Nothing runs locally.
+- GitHub Actions runs extension lint, type-check, unit tests, and build; helper format, lint, tests, and the release build on Windows; and Playwright end-to-end tests on Windows on the unpacked extension with the Windows helper. It runs on pushes to work branches, not on `main` after a merge. The macOS and Linux helpers are built and tested only by a manual run with `all_os` (`gh workflow run CI --ref main -f all_os=true`), for releases. Nothing runs locally.
 
 ## Verification boundaries
 
 | Level | Establishes |
 | --- | --- |
-| Unit (Vitest) | Protocol validators, helper client request matching, Markdown block and inline parsing, byte-exact round trips, link rules |
-| Unit (`cargo test`) | Framing, envelope handling, origin check, registration paths and manifests, page path safety, page reads |
+| Unit (Vitest) | Protocol validators, helper client request matching, Markdown block and inline parsing, byte-exact round trips, source edits, link rules, sync and search results, search highlighting, AI settings, model choice, prompts, and error messages, the startup-chunk check, appearance settings, and the shortcut reference |
+| Unit (`cargo test`) | Framing, envelope handling, origin check, registration paths and manifests, page path safety, page reads and guarded writes, change classification and a live watch, sync against a local bare remote and a second clone, search matching, ranking, snippets, and supersession |
 | Install smoke (CI, each OS) | `install` writes the manifests or registry keys; `uninstall` removes them |
 | End-to-end (Playwright, Linux) | User-visible slice acceptance on the unpacked extension talking to the real helper |
 

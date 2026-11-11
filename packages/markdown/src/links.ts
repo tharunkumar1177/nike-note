@@ -51,6 +51,36 @@ export function parsePageLinkLine(line: string): PageLinkLine | null {
 }
 
 /**
+ * The link line for direct child page `folder` titled `title`, in the form
+ * {@link parsePageLinkLine} reads back. Brackets leave the title and the
+ * folder is percent-encoded, parentheses included, so the line stays one link.
+ */
+export function pageLinkLine(title: string, folder: string): string {
+  const label =
+    title
+      .replace(/[[\]\r\n]+/g, " ")
+      .replace(/ {2,}/g, " ")
+      .trim() || folder;
+  const target = encodeURIComponent(folder).replace(/\(/g, "%28").replace(/\)/g, "%29");
+  return `[${label}](${target}/${README})`;
+}
+
+/**
+ * The image line for file `name` in the page's `assets` folder. The alt text
+ * is the name without its extension, brackets removed, and the file name is
+ * percent-encoded, parentheses included, so the line stays one image.
+ */
+export function assetImageLine(name: string): string {
+  const alt = name
+    .replace(/\.[^.]*$/, "")
+    .replace(/[[\]\r\n]+/g, " ")
+    .replace(/ {2,}/g, " ")
+    .trim();
+  const target = encodeURIComponent(name).replace(/\(/g, "%28").replace(/\)/g, "%29");
+  return `![${alt}](assets/${target})`;
+}
+
+/**
  * True for links that leave Quire: web and mail addresses.
  */
 export function isExternalHref(href: string): boolean {
@@ -58,22 +88,20 @@ export function isExternalHref(href: string): boolean {
 }
 
 /**
- * The page path a relative link from `pagePath` points at, or null when it is
- * not a link to a page's README.md inside the notes folder.
+ * The file a relative link from page `pagePath` points at, as a `/`-separated
+ * path in the notes folder, or null for web, absolute, fragment-only, and
+ * malformed links and links that leave the notes folder. `#` and `?` suffixes
+ * are dropped and `%XX` escapes decoded.
  */
-export function resolvePageHref(pagePath: string, href: string): string | null {
-  if (/^[a-z][a-z0-9+.-]*:/i.test(href) || href.startsWith("/") || href.startsWith("#")) {
-    return null;
-  }
-  const withoutFragment = href.split("#")[0] ?? "";
-  const target = withoutFragment.startsWith("<") ? withoutFragment.slice(1, -1) : withoutFragment;
+export function resolveFileHref(pagePath: string, href: string): string | null {
+  if (/^[a-z][a-z0-9+.-]*:/i.test(href) || /^[/\\#?]/.test(href)) return null;
+  const withoutSuffix = href.split(/[#?]/)[0] ?? "";
+  const target = withoutSuffix.startsWith("<") ? withoutSuffix.slice(1, -1) : withoutSuffix;
   const decoded = decode(target);
-  if (decoded === null) return null;
-  const segments = decoded.split("/");
-  if (segments.pop() !== README) return null;
+  if (decoded === null || decoded.includes("\\")) return null;
 
   const resolved = pagePath === "" ? [] : pagePath.split("/");
-  for (const segment of segments) {
+  for (const segment of decoded.split("/")) {
     if (segment === "" || segment === ".") continue;
     if (segment === "..") {
       if (resolved.length === 0) return null;
@@ -82,5 +110,15 @@ export function resolvePageHref(pagePath: string, href: string): string | null {
       resolved.push(segment);
     }
   }
-  return resolved.join("/");
+  return resolved.length === 0 ? null : resolved.join("/");
+}
+
+/**
+ * The page path a relative link from `pagePath` points at, or null when it is
+ * not a link to a page's README.md inside the notes folder.
+ */
+export function resolvePageHref(pagePath: string, href: string): string | null {
+  const file = resolveFileHref(pagePath, href);
+  if (file === null || (file !== README && !file.endsWith(`/${README}`))) return null;
+  return file.slice(0, Math.max(file.length - README.length - 1, 0));
 }

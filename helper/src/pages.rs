@@ -1,6 +1,6 @@
 //! Page tree: every page is a folder whose body is its `README.md`. Titles come
 //! from the first `# ` heading, and link lines `[Title](child/README.md)` set
-//! the order of sub-pages.
+//! the order of sub-pages. Bodies are read and written by `body.rs`.
 
 use std::fs;
 use std::path::Path;
@@ -8,69 +8,19 @@ use std::path::Path;
 use serde_json::{Value, json};
 
 use crate::dirs::{compare_names, has_hidden_attribute};
-use crate::paths::{outside, page_dir};
-use crate::protocol::{ErrorCode, ProtocolError};
+use crate::protocol::ProtocolError;
 
 /// The file that holds a page's body.
 pub const README: &str = "README.md";
 
 /// Most pages returned in one tree, keeping the reply well under the 1 MiB message limit.
-const MAX_PAGES: usize = 5000;
+pub const MAX_PAGES: usize = 5000;
 
 /// Deepest folder nesting scanned, guarding against pathological trees.
-const MAX_DEPTH: usize = 64;
+pub const MAX_DEPTH: usize = 64;
 
 /// Largest `README.md` read for its title and links.
 const MAX_README_BYTES: u64 = 8 * 1024 * 1024;
-
-/// Largest page body sent to the app; JSON escaping must still fit the 1 MiB message limit.
-pub const MAX_PAGE_BYTES: u64 = 512 * 1024;
-
-/// The error for a `README.md` that cannot be read.
-fn read_error(error: std::io::Error) -> ProtocolError {
-    ProtocolError::new(ErrorCode::Io, format!("Cannot read {README}: {error}"))
-}
-
-/// Read a page body. A page folder without `README.md` has an empty body.
-pub fn read_page(root: &Path, page: &str) -> Result<Value, ProtocolError> {
-    let resolved = page_dir(root, page)?;
-    let file = resolved.dir.join(README);
-    let metadata = match fs::metadata(&file) {
-        Ok(metadata) => metadata,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-            return Ok(json!({ "path": page, "exists": false, "content": "" }));
-        }
-        Err(error) => return Err(read_error(error)),
-    };
-    let real_file = fs::canonicalize(&file).map_err(read_error)?;
-    if !resolved.contains(&real_file) {
-        return Err(outside(page));
-    }
-    if !metadata.is_file() {
-        return Err(ProtocolError::new(
-            ErrorCode::Io,
-            format!("{README} in \"{page}\" is not a file."),
-        ));
-    }
-    if metadata.len() > MAX_PAGE_BYTES {
-        return Err(ProtocolError::new(
-            ErrorCode::TooLarge,
-            format!(
-                "This page is {} KB. Quire can open pages up to {} KB.",
-                metadata.len() / 1024,
-                MAX_PAGE_BYTES / 1024
-            ),
-        ));
-    }
-    let bytes = fs::read(&real_file).map_err(read_error)?;
-    let content = String::from_utf8(bytes).map_err(|_| {
-        ProtocolError::new(
-            ErrorCode::Io,
-            format!("{README} in \"{page}\" is not UTF-8 text, so Quire cannot open it."),
-        )
-    })?;
-    Ok(json!({ "path": page, "exists": true, "content": content }))
-}
 
 /// Page budget shared by one scan.
 struct Scan {
@@ -143,12 +93,12 @@ fn ordered_children(mut names: Vec<String>, links: &[String]) -> Vec<String> {
 }
 
 /// True for folder names that can never be pages.
-fn is_excluded(name: &str) -> bool {
+pub fn is_excluded(name: &str) -> bool {
     name.starts_with('.') || name == "assets"
 }
 
 /// Names of the subfolders of `dir` that are pages. Symbolic links are not followed.
-fn child_page_names(dir: &Path) -> Vec<String> {
+pub fn child_page_names(dir: &Path) -> Vec<String> {
     let Ok(reader) = fs::read_dir(dir) else {
         return Vec::new();
     };
@@ -162,7 +112,7 @@ fn child_page_names(dir: &Path) -> Vec<String> {
 }
 
 /// Read a folder's `README.md`, or None when it is missing, not a file, or too large.
-fn read_readme(dir: &Path) -> Option<String> {
+pub fn read_readme(dir: &Path) -> Option<String> {
     let file = dir.join(README);
     let metadata = fs::metadata(&file).ok()?;
     if !metadata.is_file() || metadata.len() > MAX_README_BYTES {
@@ -178,23 +128,30 @@ fn read_readme(dir: &Path) -> Option<String> {
 
 /// Lines of a Markdown body that are ordinary text: not front matter and not inside a code fence.
 fn prose_lines(text: &str) -> impl Iterator<Item = &str> {
-    let mut lines = text.lines().peekable();
-    if lines.peek().is_some_and(|line| line.trim_end() == "---") {
-        let mut front_matter = text.lines();
-        front_matter.next();
-        let closed = front_matter.any(|line| matches!(line.trim_end(), "---" | "..."));
-        if closed {
-            lines.next();
-            for line in lines.by_ref() {
-                if matches!(line.trim_end(), "---" | "...") {
-                    break;
-                }
-            }
+    text.lines()
+        .zip(prose_mask(text))
+        .filter_map(|(line, prose)| prose.then_some(line))
+}
+
+/// For each line of `text`, as `str::lines` splits it, whether it is ordinary
+/// text: not in leading front matter and not in a fenced code block.
+pub fn prose_mask(text: &str) -> Vec<bool> {
+    let lines: Vec<&str> = text.lines().collect();
+    let mut mask = vec![true; lines.len()];
+    let mut start = 0;
+    if lines.first().is_some_and(|line| line.trim_end() == "---") {
+        let close = lines
+            .iter()
+            .skip(1)
+            .position(|line| matches!(line.trim_end(), "---" | "..."));
+        if let Some(close) = close {
+            start = close + 2;
+            mask[..start].fill(false);
         }
     }
 
     let mut fence: Option<(char, usize)> = None;
-    lines.filter(move |line| {
+    for (index, line) in lines.iter().enumerate().skip(start) {
         let trimmed = line.trim_start();
         match fence {
             Some((marker, length)) => {
@@ -202,34 +159,36 @@ fn prose_lines(text: &str) -> impl Iterator<Item = &str> {
                 if run >= length && trimmed[run * marker.len_utf8()..].trim().is_empty() {
                     fence = None;
                 }
-                false
+                mask[index] = false;
             }
             None => {
                 let marker = trimmed.chars().next().unwrap_or(' ');
                 let run = trimmed.chars().take_while(|&c| c == marker).count();
                 if (marker == '`' || marker == '~') && run >= 3 {
                     fence = Some((marker, run));
-                    false
-                } else {
-                    true
+                    mask[index] = false;
                 }
             }
         }
-    })
+    }
+    mask
+}
+
+/// The title a `# ` heading line gives, without a closing `#` sequence.
+pub fn line_title(line: &str) -> Option<String> {
+    let heading = line.strip_prefix("# ")?.trim();
+    let open = heading.trim_end_matches('#');
+    let title = if open.is_empty() || open.ends_with(' ') {
+        open.trim_end()
+    } else {
+        heading
+    };
+    (!title.is_empty()).then(|| title.to_string())
 }
 
 /// The text of the first `# ` heading, without a closing `#` sequence.
 pub fn heading_title(text: &str) -> Option<String> {
-    prose_lines(text).find_map(|line| {
-        let heading = line.strip_prefix("# ")?.trim();
-        let open = heading.trim_end_matches('#');
-        let title = if open.is_empty() || open.ends_with(' ') {
-            open.trim_end()
-        } else {
-            heading
-        };
-        (!title.is_empty()).then(|| title.to_string())
-    })
+    prose_lines(text).find_map(line_title)
 }
 
 /// Folder names linked as sub-pages by whole lines of the form `[Title](folder/README.md)`.
@@ -238,7 +197,7 @@ pub fn linked_folders(text: &str) -> Vec<String> {
 }
 
 /// The folder a sub-page link line points at, if the line is one.
-fn link_target_folder(line: &str) -> Option<String> {
+pub fn link_target_folder(line: &str) -> Option<String> {
     let line = line.trim();
     if !line.starts_with('[') || !line.ends_with(')') {
         return None;
@@ -258,7 +217,7 @@ fn link_target_folder(line: &str) -> Option<String> {
 }
 
 /// Decode `%XX` escapes; None when the result is not UTF-8 or an escape is malformed.
-fn percent_decode(value: &str) -> Option<String> {
+pub fn percent_decode(value: &str) -> Option<String> {
     let bytes = value.as_bytes();
     let mut decoded = Vec::with_capacity(bytes.len());
     let mut index = 0;
@@ -388,51 +347,6 @@ mod tests {
         );
         assert_eq!(tree["root"]["hasReadme"], json!(false));
         assert_eq!(tree["root"]["children"], json!([]));
-    }
-
-    #[test]
-    fn reads_page_bodies_exactly() {
-        let dir = TestDir::new("pages-read");
-        let body = "\u{feff}# Trip\r\n\r\nTokyo é\n";
-        write(dir.path(), "Trips/README.md", body);
-        fs::create_dir_all(dir.path().join("Empty")).unwrap();
-
-        let page = read_page(dir.path(), "Trips").unwrap();
-        assert_eq!(page["exists"], json!(true));
-        assert_eq!(page["content"], json!(body));
-        let empty = read_page(dir.path(), "Empty").unwrap();
-        assert_eq!(empty["exists"], json!(false));
-        assert_eq!(empty["content"], json!(""));
-        assert_eq!(
-            read_page(dir.path(), "../x").unwrap_err().code,
-            ErrorCode::OutsideRoot
-        );
-    }
-
-    #[test]
-    fn refuses_large_and_non_text_bodies() {
-        let dir = TestDir::new("pages-refuse");
-        write(
-            dir.path(),
-            "Big/README.md",
-            &"a".repeat(MAX_PAGE_BYTES as usize + 1),
-        );
-        fs::create_dir_all(dir.path().join("Binary")).unwrap();
-        fs::write(dir.path().join("Binary").join(README), [0xff, 0xfe, 0x00]).unwrap();
-        fs::create_dir_all(dir.path().join("Odd").join(README)).unwrap();
-
-        assert_eq!(
-            read_page(dir.path(), "Big").unwrap_err().code,
-            ErrorCode::TooLarge
-        );
-        assert_eq!(
-            read_page(dir.path(), "Binary").unwrap_err().code,
-            ErrorCode::Io
-        );
-        assert_eq!(
-            read_page(dir.path(), "Odd").unwrap_err().code,
-            ErrorCode::Io
-        );
     }
 
     #[test]

@@ -8,7 +8,7 @@ The Manifest V3 extension frame: the manifest, the popup's **Open Quire** button
 
 **Status:** Implemented
 
-Delivered by slices 1 and 2. Unit tests cover the manifest, the extension ID, the icons, protocol validation, and request matching. `e2e/shell.spec.ts` covers Open Quire, the handshake, and the install screen against the real Linux helper. The `forbidden`, `outdated`, and `stopped` screens are covered only by unit-tested classification, not by e2e.
+Delivered by slices 1 and 2. Unit tests cover the manifest, the extension ID, the icons, protocol validation, and request matching. `e2e/shell.spec.ts` covers Open Quire, the handshake, and the install screen against the real helper, which CI now runs on Windows. The `forbidden`, `outdated`, and `stopped` screens are covered only by unit-tested classification, not by e2e.
 
 ## Architecture dependencies
 
@@ -19,7 +19,7 @@ Delivered by slices 1 and 2. Unit tests cover the manifest, the extension ID, th
 
 ## Local rules and implications
 
-- Permissions: `nativeMessaging` only. Opening or focusing the app tab uses `chrome.runtime.getContexts`, `chrome.tabs.update`, `chrome.windows.update`, and `chrome.tabs.create`, which need no extra permission for the extension's own pages.
+- Permissions: `nativeMessaging`, and `storage` for the AI settings (see [ai-assist](ai-assist.md)); no host permissions. Opening or focusing the app tab uses `chrome.runtime.getContexts`, `chrome.tabs.update`, `chrome.windows.update`, and `chrome.tabs.create`, which need no extra permission for the extension's own pages.
 - The manifest and the PNG icons are generated at build time by a Vite plugin (`src/build/`), so the version comes from `package.json` and no binary assets are committed.
 - Connection states and their screens:
 
@@ -34,7 +34,7 @@ Delivered by slices 1 and 2. Unit tests cover the manifest, the extension ID, th
 | `connected` | `hello` succeeded | Folder picker, Git setup, or the workspace (see [workspace-setup](workspace-setup.md)); the status bar shows the helper version and branch |
 
 - The app retries automatically when the tab becomes visible again while in `missing`, `forbidden`, `outdated`, or `stopped`.
-- Design: system UI font, neutral warm grays, light and dark themes through `prefers-color-scheme`, visible focus rings, and reduced motion respected. Tokens live in `src/shared/tokens.css`.
+- Design: system UI font, neutral warm grays, light and dark themes that follow the system unless the user picks one in settings (see [settings](settings.md)), visible focus rings, and reduced motion respected. Tokens live in `src/shared/tokens.css`.
 
 ## Related blueprints
 

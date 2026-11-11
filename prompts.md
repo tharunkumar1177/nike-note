@@ -3,6 +3,18 @@ I want the Quire (which is a Notion clone that runs on the local machine, an bro
 It reads the md files from the local machine (Folder that has been mapped by the user) and display it as a relevant notion elements. For example
 
 
+
+
+It reads the md files from the local machine (Folder that has been mapped by the user) and display it as a relevant notion elements. For example
+
+
+
+- Every newline in md file is a separate block in notion
+
+
+- For the code blocks use this format (``` your code ```) 
+- inline code block `your code`
+
 - Gather data of how markdown file can be structured from this site - Https://www.freecodecamp.org/news/github-flavored-markdown-syntax-examples/
 
 - If you don't clarity on Notion blocks, use Reverse Engineering anything (REA) skill
@@ -40,10 +52,10 @@ Root Folder
 - If user has to go through the any other files in the folder, the file has to be listed in the README.md
 
 
-## Structure 3
-(suggest if any other possible ways)
 
+## AI  feature
 
+- AI -> context file / system prompt
 
 - All the AI features runs locally
 - users can put it there API for gemini and then start using all the AI features
@@ -157,26 +169,35 @@ Stick with the existing Privileged broker and cleanup [as described in blueprint
 For [clean up for browser, system, temp files and so on] clearing system-level files - on a scheduled date and time. I think there is no UI for user to set these things up. so Create one
 
 
+## README.md
 
 
 --------------
 
+### Engineering practices
 
-# Guardrails
+## Guardrails
 
-- Never use the word (`N-I-K-E`, any case) in codebase, file creation, names, or commits.
-- GitHub Actions CI is the only build authority. Nothing runs locally.
-- Read CI logs with `gh-cli`. If `gh` is unavailable, stop and ask the user for the logs.
+Bind every agent, including subagents. Hard rules come first; none may be traded off.
+
+### Hard rules
+- Never use the word (`N-I-K-E`, any case) in code, file or folder names, branches, or commits.
+- Take project context only from `architecture.md` and `blueprints/`; ignore the root and git folder names.
 - Never read `prompts.md` or add it to `.gitignore`.
 
+### Build and CI
+- GitHub Actions CI is the only build authority. Nothing runs locally.
+- Read CI logs with `gh`. If `gh` is unavailable, stop and ask the user for the logs.
 
-### Engineering practices
+### Code standards
 - Start every file with a header comment and give every function a doc comment.
-- Build production-grade code only. No mocks or placeholder data.
-- Manage context with the Blueprints skill.
-- Take project context only from `README.md` and `architecture.md`; ignore the root and git folder names.
+- Production-grade code only. No mocks or placeholder data.
+
+### Documentation
+- Manage context with the `blueprints` skill.
 - Never use GitHub Actions run IDs as verification status in blueprints.
-- Store diagrams in `assets/.diagrams/` and wireframes in `assets/wireframes/`.
+- Store diagrams in `assets/diagrams/` and wireframes in `assets/wireframes/`.
+
 
 
 ## Git commands
@@ -209,6 +230,9 @@ ssh -T git@github.com
 - [ ] prompts.md
 - [ ] Design files / Wireframes (Excalidraw)
 
+- [ ] Brand word check
+- [ ] README.md
+
 
 
 ## PROMPTS
@@ -231,6 +255,12 @@ ssh -T git@github.com
 
 
 ## CURSOR
+
+- Codebase Indexing (RAG? Agentic RAG?)
+
+- Tools pruning 
+
+- AGENTS.md (Rewriting - Repeated mistake (Trial and error approaches) - let's say terminal command execution, getting it right after multiple attempts / approaches). Things get it right after multiple attempts
 
 - /summarize, /visualize
 
@@ -256,7 +286,13 @@ Agents Window → Open Agents Window
 - Plan ——> code (context) ——> Build & Test ——> Review
 - Faster != Better          ——>     Incremental developement
 
+### Context Hygiene
 
+- Tools pruning
+- Sub-agents definition / description
+- 
+
+- JS / node js / java (JDK21) based builds; run it locally
 
 ### Prompt structure
 
@@ -305,12 +341,6 @@ subAgent - Research, review through CI logs
 - Also come up with the list of best model that are best fit that specific role. [Do web research, get data from only legit sites. Do not spawn subAgents for this task]
 
 
-### SubAgent models:
-
-- **Claude:** Opus 4.5 (high thinking), Sonnet 4.5 (thinking), Sonnet 4, Haiku 4.5 (thinking)
-- **GPT:** 5.1, 5.2, 5.3 Codex, 5.4 Mini, 5.4 Nano, 5 Mini
-- **Gemini:** 3.1 Pro, 3.5 Flash, 3 Flash, 2.5 Flash
-- **Others:** Kimi K3, Kimi K2.7 Code, GLM 5.2, Composer 2.5
 
 ROADMAP.md
 

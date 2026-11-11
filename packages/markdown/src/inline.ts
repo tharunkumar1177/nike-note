@@ -1,14 +1,42 @@
 /**
- * Inline Markdown inside a block: bold, italic, strikethrough, code, links,
- * and autolinks. Anything else, including images and HTML, stays plain text.
+ * Inline Markdown inside a block: bold, italic, strikethrough, code, math,
+ * links, and autolinks. Anything else, including images and HTML, stays
+ * plain text.
  */
 
-/** One inline node. */
+/** One inline node. `math` holds TeX. */
 export type Inline =
   | { type: "text"; text: string }
-  | { type: "code"; text: string }
+  | { type: "code" | "math"; text: string }
   | { type: "bold" | "italic" | "strike"; children: Inline[] }
   | { type: "link"; href: string; children: Inline[] };
+
+/** Where an inline node sits in its source: the whole node and its content. */
+export interface SourceRange {
+  /** Start of the node, including its opening delimiter. */
+  from: number;
+  /** End of the node, including its closing delimiter. */
+  to: number;
+  /** Start of the content inside the delimiters. */
+  innerFrom: number;
+  /** End of the content inside the delimiters. */
+  innerTo: number;
+}
+
+/** An inline node with the source range it was read from. */
+export type InlineSpan = SourceRange &
+  (
+    | { type: "text"; text: string }
+    | { type: "code" | "math"; text: string }
+    | { type: "bold" | "italic" | "strike"; children: InlineSpan[] }
+    | {
+        type: "link";
+        href: string;
+        children: InlineSpan[];
+        /** True for `[label](href)`, false for `<url>` and bare URLs. */
+        bracketed: boolean;
+      }
+  );
 
 /** Characters that a backslash escapes. */
 const ESCAPABLE = /[!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~]/;
@@ -102,6 +130,47 @@ function findDelimiterClose(source: string, from: number, delimiter: string): nu
   return -1;
 }
 
+/** Where inline math starting at a `$` sits: its TeX and the end of its closing `$`. */
+interface MathSpan {
+  innerFrom: number;
+  innerTo: number;
+  end: number;
+}
+
+/**
+ * Inline math opened by the single `$` at `start`, as GitHub reads it:
+ * `` $`…`$ `` around a code span, or `$…$` whose TeX neither starts nor ends
+ * with a space, where the closing `$` is not escaped, doubled, or followed by
+ * a digit (so "$5 and $10" stays text). Null when it does not close.
+ */
+function readMath(source: string, start: number): MathSpan | null {
+  const first = source[start + 1];
+  if (first === "`") {
+    let run = 0;
+    while (source[start + 1 + run] === "`") run += 1;
+    const close = findCodeClose(source, start + 1 + run, run);
+    if (close === -1 || source[close + run] !== "$") return null;
+    const innerFrom = start + 1 + run;
+    return close > innerFrom ? { innerFrom, innerTo: close, end: close + run + 1 } : null;
+  }
+  if (first === undefined || /\s/.test(first)) return null;
+  for (let index = start + 1; index < source.length; index += 1) {
+    const char = source[index];
+    if (char === "\\") {
+      index += 1;
+      continue;
+    }
+    if (char !== "$") continue;
+    if (source[index + 1] === "$") {
+      while (source[index + 1] === "$") index += 1;
+      continue;
+    }
+    if (/\s/.test(source[index - 1] ?? "") || /\d/.test(source[index + 1] ?? "")) continue;
+    return { innerFrom: start + 1, innerTo: index, end: index + 1 };
+  }
+  return null;
+}
+
 /**
  * Length of a bare `http(s)://` URL at `start`, without trailing punctuation.
  */
@@ -116,16 +185,32 @@ function bareUrlLength(source: string, start: number): number {
 }
 
 /**
- * Parse inline Markdown into nodes.
+ * Parse inline Markdown into nodes that keep their source ranges, offset by
+ * `base` (the position of `source` in the text it was cut from).
  */
-export function parseInline(source: string, nesting = 0): Inline[] {
-  if (nesting > MAX_NESTING) return source === "" ? [] : [{ type: "text", text: source }];
-  const nodes: Inline[] = [];
+export function scanInline(source: string, base = 0, nesting = 0): InlineSpan[] {
+  const end = base + source.length;
+  if (nesting > MAX_NESTING) {
+    return source === ""
+      ? []
+      : [{ type: "text", text: source, from: base, to: end, innerFrom: base, innerTo: end }];
+  }
+  const nodes: InlineSpan[] = [];
   let text = "";
+  let textFrom = 0;
 
-  /** Move pending plain text into the node list. */
-  const flush = (): void => {
-    if (text !== "") nodes.push({ type: "text", text });
+  /** Add plain text read from `from` up to `to` to the pending text node. */
+  const addText = (value: string, from: number): void => {
+    if (text === "") textFrom = from;
+    text += value;
+  };
+
+  /** Move pending plain text, which ends at `to`, into the node list. */
+  const flush = (to: number): void => {
+    if (text !== "") {
+      const from = base + textFrom;
+      nodes.push({ type: "text", text, from, to: base + to, innerFrom: from, innerTo: base + to });
+    }
     text = "";
   };
 
@@ -135,7 +220,7 @@ export function parseInline(source: string, nesting = 0): Inline[] {
     const next = source[index + 1];
 
     if (char === "\\" && next !== undefined && ESCAPABLE.test(next)) {
-      text += next;
+      addText(next, index);
       index += 2;
       continue;
     }
@@ -145,7 +230,7 @@ export function parseInline(source: string, nesting = 0): Inline[] {
       while (source[index + run] === "`") run += 1;
       const close = findCodeClose(source, index + run, run);
       if (close === -1) {
-        text += "`".repeat(run);
+        addText("`".repeat(run), index);
         index += run;
         continue;
       }
@@ -153,9 +238,38 @@ export function parseInline(source: string, nesting = 0): Inline[] {
       if (code.length > 1 && code.startsWith(" ") && code.endsWith(" ") && code.trim() !== "") {
         code = code.slice(1, -1);
       }
-      flush();
-      nodes.push({ type: "code", text: code });
+      flush(index);
+      nodes.push({
+        type: "code",
+        text: code,
+        from: base + index,
+        to: base + close + run,
+        innerFrom: base + index + run,
+        innerTo: base + close,
+      });
       index = close + run;
+      continue;
+    }
+
+    if (char === "$") {
+      let run = 0;
+      while (source[index + run] === "$") run += 1;
+      const math = run === 1 ? readMath(source, index) : null;
+      if (!math) {
+        addText("$".repeat(run), index);
+        index += run;
+        continue;
+      }
+      flush(index);
+      nodes.push({
+        type: "math",
+        text: source.slice(math.innerFrom, math.innerTo),
+        from: base + index,
+        to: base + math.end,
+        innerFrom: base + math.innerFrom,
+        innerTo: base + math.innerTo,
+      });
+      index = math.end;
       continue;
     }
 
@@ -164,7 +278,7 @@ export function parseInline(source: string, nesting = 0): Inline[] {
       const destination =
         close !== -1 && source[close + 1] === "(" ? readDestination(source, close + 2) : null;
       if (destination) {
-        text += source.slice(index, destination.end);
+        addText(source.slice(index, destination.end), index);
         index = destination.end;
         continue;
       }
@@ -175,11 +289,16 @@ export function parseInline(source: string, nesting = 0): Inline[] {
       const destination =
         close !== -1 && source[close + 1] === "(" ? readDestination(source, close + 2) : null;
       if (destination) {
-        flush();
+        flush(index);
         nodes.push({
           type: "link",
           href: destination.href,
-          children: parseInline(source.slice(index + 1, close), nesting + 1),
+          children: scanInline(source.slice(index + 1, close), base + index + 1, nesting + 1),
+          bracketed: true,
+          from: base + index,
+          to: base + destination.end,
+          innerFrom: base + index + 1,
+          innerTo: base + close,
         });
         index = destination.end;
         continue;
@@ -189,8 +308,20 @@ export function parseInline(source: string, nesting = 0): Inline[] {
     if (char === "<") {
       const auto = /^<((?:https?:\/\/|mailto:)[^\s<>]+)>/i.exec(source.slice(index));
       if (auto?.[1]) {
-        flush();
-        nodes.push({ type: "link", href: auto[1], children: [{ type: "text", text: auto[1] }] });
+        const url = auto[1];
+        const from = base + index + 1;
+        const to = from + url.length;
+        flush(index);
+        nodes.push({
+          type: "link",
+          href: url,
+          children: [{ type: "text", text: url, from, to, innerFrom: from, innerTo: to }],
+          bracketed: false,
+          from: base + index,
+          to: base + index + auto[0].length,
+          innerFrom: from,
+          innerTo: to,
+        });
         index += auto[0].length;
         continue;
       }
@@ -200,8 +331,19 @@ export function parseInline(source: string, nesting = 0): Inline[] {
       const length = bareUrlLength(source, index);
       if (length > 0) {
         const url = source.slice(index, index + length);
-        flush();
-        nodes.push({ type: "link", href: url, children: [{ type: "text", text: url }] });
+        const from = base + index;
+        const to = from + length;
+        flush(index);
+        nodes.push({
+          type: "link",
+          href: url,
+          children: [{ type: "text", text: url, from, to, innerFrom: from, innerTo: to }],
+          bracketed: false,
+          from,
+          to,
+          innerFrom: from,
+          innerTo: to,
+        });
         index += length;
         continue;
       }
@@ -213,27 +355,53 @@ export function parseInline(source: string, nesting = 0): Inline[] {
       const opensWord = char !== "_" || !isWordChar(source[index - 1]);
       const followedBySpace = /\s/.test(source[index + delimiter.length] ?? " ");
       if ((char !== "~" || double) && opensWord && !followedBySpace) {
-        const close = findDelimiterClose(source, index + delimiter.length, delimiter);
+        const inner = index + delimiter.length;
+        const close = findDelimiterClose(source, inner, delimiter);
         if (close !== -1) {
-          flush();
+          flush(index);
           nodes.push({
             type: char === "~" ? "strike" : double ? "bold" : "italic",
-            children: parseInline(source.slice(index + delimiter.length, close), nesting + 1),
+            children: scanInline(source.slice(inner, close), base + inner, nesting + 1),
+            from: base + index,
+            to: base + close + delimiter.length,
+            innerFrom: base + inner,
+            innerTo: base + close,
           });
           index = close + delimiter.length;
           continue;
         }
       }
-      text += delimiter;
+      addText(delimiter, index);
       index += delimiter.length;
       continue;
     }
 
-    text += char;
+    addText(char, index);
     index += 1;
   }
-  flush();
+  flush(index);
   return nodes;
+}
+
+/** Drop the source ranges from a scanned node. */
+function withoutRange(span: InlineSpan): Inline {
+  switch (span.type) {
+    case "text":
+    case "code":
+    case "math":
+      return { type: span.type, text: span.text };
+    case "link":
+      return { type: "link", href: span.href, children: span.children.map(withoutRange) };
+    default:
+      return { type: span.type, children: span.children.map(withoutRange) };
+  }
+}
+
+/**
+ * Parse inline Markdown into nodes.
+ */
+export function parseInline(source: string): Inline[] {
+  return scanInline(source).map(withoutRange);
 }
 
 /**
@@ -241,6 +409,6 @@ export function parseInline(source: string, nesting = 0): Inline[] {
  */
 export function inlineText(nodes: readonly Inline[]): string {
   return nodes
-    .map((node) => (node.type === "text" || node.type === "code" ? node.text : inlineText(node.children)))
+    .map((node) => ("text" in node ? node.text : inlineText(node.children)))
     .join("");
 }

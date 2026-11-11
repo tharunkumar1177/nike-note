@@ -1,6 +1,6 @@
 /**
- * End-to-end tests for read-only page rendering: README.md bodies read by the
- * helper are shown as blocks with inline formatting and safe links.
+ * End-to-end tests for page rendering: README.md bodies read by the helper are
+ * shown as blocks with inline formatting and safe links.
  */
 import { expect, test } from "./fixtures";
 import { createNotes } from "./notes";
@@ -61,7 +61,7 @@ test("a page body renders as blocks with its heading as the title", async ({ ope
   await expect(blocks.locator("hr")).toHaveCount(1);
   await expect(blocks.locator(".block--code figcaption")).toHaveText("js");
   await expect(blocks.locator(".block--code code")).toHaveText("const days = 5;");
-  await expect(blocks.getByLabel("Table source")).toContainText("| 1   | Lisbon |");
+  await expect(blocks.getByRole("table").getByRole("cell")).toHaveText(["1", "Lisbon"]);
   await expect(blocks.getByText("Properties")).toBeVisible();
 });
 
