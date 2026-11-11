@@ -1,70 +1,7 @@
 I want the Quire (which is a Notion clone that runs on the local machine, an browser extension based web application, opens the web page after click browser extension icon's popup window). I don't want it as a cloud deployable project at all. so restructure the blueprints and what so ever.
 
-### Popup window
-
-```
------------------------------------
-|                                  |
-|                                  |
-|                                  |
-|                                  |
-|                                  |
-|                                  |
-|                                  |
-|     -----------------------      |
-|     |      Open Quire      |     |
-|     -----------------------      |
-|                                  |
------------------------------------
-```
-
-
 It reads the md files from the local machine (Folder that has been mapped by the user) and display it as a relevant notion elements. For example
 
-
-
-## Example 1
-
-Quote section
-
-### In notion
-```
-/quote
-```
-
-### In Markdown file
-```
->  
-```
-
-
-## Example 
-
-Headers
-
-### Notion
-
-/h1, ..../h6
-
-
-### Markdown
-
-```
-# h1
-## h2
-### h3
-#### h4
-##### h5
-###### h6
-```
-
----
-
-- Every newline in md file is a separate block in notion
-
-
-- For the code blocks use this format (``` your code ```) 
-- inline code block `your code`
 
 - Gather data of how markdown file can be structured from this site - Https://www.freecodecamp.org/news/github-flavored-markdown-syntax-examples/
 
@@ -123,6 +60,26 @@ Root Folder
 ### Hyperlinks and subpage
 
 - so if represent hyperlinks as `[link](./product.md)` then how do we describe the
+
+
+-------------------
+
+Create an interactive UI block for better understanding of concepts  For example: Git merge vs rebase - explain it with a visual graphics 
+
+- should we have create a separate slash command for this or 
+- shall just put that HTML code into the block?
+
+I  think the best is creating a separate slash command, isn't it?
+
+
+---
+
+
+Storage Location: HTML code - sometimes goes beyond 100 of lines, so we have store it in a separate file path and load into the notes block.
+
+First give me an example of how it looks .... color monochrome or simplistic contrast color (like in the text books)
+
+
 
 
 
@@ -287,6 +244,11 @@ ssh -T git@github.com
 
 - Plan Mode ——> AI research your codebase and generate a structured implementation plan
 
+- **`.cursorignore`:** keeps the file out of Cursor's AI features and indexing. 
+
+Sidepanel chat → **Ctrl+I** or **Ctrl+L**
+Agent Layout → **Ctrl+E** (toggle)
+Agents Window → Open Agents Window
 
 
 ## AGENTIC Engineering practices
@@ -312,10 +274,11 @@ ssh -T git@github.com
 
 ## Agents 
 
+- To gain an additional perspective, review agent
 
 ## AGENT HQ
 
-we already have agents [Research, Designer, Architect, Coder, Planner, Reviewer]. find the opitimal model for these from the available list.
+
 Design specialized subagent for Cursor [ Reviewer]. Describe its role and how it should respond. Give description for each agent (cursor) and if additional property required - add them as well.
 
 
@@ -334,8 +297,6 @@ Planner - comes up with a plan, proceeds further if it is approved. writes plan 
 
 
 ---
-
-write all the Agent config in an .md file
 
 
 subAgent - Research, review through CI logs
@@ -594,4 +555,57 @@ Never consider project root folder; archictecture.md is the only source of truth
 
 
 The main agent follows `.cursor/orchestrator.md`; if you are the main agent and haven't received it this session, read it before acting. Subagents ignore it and follow their own file in `.cursor/agents/`.
+
+skip the linux and MacOS helper build and shipping while you run it build and compilation check. And when it's goes for public, I shall run all the OS build from the main worflow dispatch. can you able to skip using gh cli?
+
+
+- skip the test on the CI
+
+
+since the workflow (GH Actions) is running on the current work branch, why does it have to run on the merge too (merge on the main), just add the workflow dispatch and remove the unnecessary run on the main. 
+
+---
+
+since we need only the windows version of the helper, why can't you skip the other OS's build save time and compute power / cost. Give me a rule to add it to the AGENTS.md
+
+
+skip the linux and MacOS helper build and shipping while you run it build and compilation check. And when it's goes for public, I shall run all the OS build from the main worflow dispatch. can you able to skip using gh cli?
+
+
+
+
+Ctrl + Z is not undo-ing the deleted block
+
+
+write the e2e as a separate workflow.
+
+
+(Can't you run a ) Target specific tests 
+
+- Resource limitation and optimization for better yeild with in low time and cost
+
+
+
+
+------
+
+
+fix Orchestration instruction, even ask gh workflow for sub agents
+Thought tool? - thinking tokens?
+always Squash Merge on PR
+CI runtime rules (Target test execution in CI, instead of run the whole test files, which have passed earlier)
+Don't add --trailer "Co-authored-by Cursor"
+
+gh pr create --repo tharunkumar1177/tron --base main --head slice-1-walking-skeleton --title "Slice 1: walking skeleton with Tauri shell, CI, and releases" --body $body 2>&1 -- $body
+
+
+
+PR (pr also merge the code changes, right) vs Merge
+thoughts tools control?
+CRLF vs LF
+If some changes staged by me, commit it with the changes you've made. 
+
+How did you get back the action tokens and how ide parses it?
+Reviewer counldnot run shell commands? why?
+
 
