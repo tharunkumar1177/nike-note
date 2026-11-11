@@ -6,9 +6,9 @@ A page can hold interactive visuals that explain a concept, such as Git merge ve
 
 ## Current verified status
 
-**Status:** Planned
+**Status:** Partial
 
-Code and tests are written on the slice 22 branch and are not yet verified in CI or by hand: Markdown unit tests for the line rule and round trips; extension unit tests for the sandbox policy, the sandbox page, messages, heights, the manifest, the visual prompt, and cleaning generated HTML; helper unit tests for reading and saving HTML assets; and end-to-end tests for every criterion below.
+Verified in CI (Markdown unit tests for the line rule and round trips; extension unit tests for the sandbox policy, the sandbox page, messages, heights, the manifest, the visual prompt, and cleaning generated HTML; helper unit tests for reading and saving HTML assets on Windows; end-to-end tests for every criterion below, including the real Gemini SDK against the real API with an invalid key). Not yet checked by hand in Chrome with the CI build.
 
 ## Architecture dependencies
 
@@ -54,10 +54,10 @@ Code and tests are written on the slice 22 branch and are not yet verified in CI
 
 ## Acceptance or verification criteria
 
-- [ ] A link line to an HTML file in the page's `assets/` folder shows the visual running: its buttons work, it cannot reach the extension's APIs, its parent page, or the network, and the frame takes its content's height.
-- [ ] **Reload** shows the file's new content after it changes on disk, and clicking the bar edits the link line; the file keeps its bytes and CRLF endings.
-- [ ] `/visual` opens **Add a visual** with **Generate with AI** chosen and **Set up AI** offered when no key is saved; pasted HTML previews running, and Insert saves `assets/<title>.html` and writes its link line where `/visual` was typed.
-- [ ] With a saved key, Generate sends the request and shows the provider's refusal as plain text, with Insert disabled; an uploaded `.html` file fills the title, previews, and inserts byte for byte.
+- [x] A link line to an HTML file in the page's `assets/` folder shows the visual running: its buttons work, it cannot reach the extension's APIs, its parent page, or the network, and the frame takes its content's height.
+- [x] **Reload** shows the file's new content after it changes on disk, and clicking the bar edits the link line; the file keeps its bytes and CRLF endings.
+- [x] `/visual` opens **Add a visual** with **Generate with AI** chosen and **Set up AI** offered when no key is saved; pasted HTML previews running, and Insert saves `assets/<title>.html` and writes its link line where `/visual` was typed.
+- [x] With a saved key, Generate sends the request and shows the provider's refusal as plain text, with Insert disabled; an uploaded `.html` file fills the title, previews, and inserts byte for byte.
 
 ## Remaining gaps and unknowns
 
