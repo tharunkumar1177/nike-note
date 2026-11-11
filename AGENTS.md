@@ -1,12 +1,8 @@
 # Agent Instructions
 
 
-
-
-
 ## Guardrails
 
-Bind every agent, including subagents. Hard rules come first; none may be traded off.
 
 ### Hard rules
 - Never use the word (`N-I-K-E`, any case) in code, file or folder names, branches, or commits.

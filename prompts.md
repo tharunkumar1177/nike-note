@@ -639,3 +639,41 @@ How did you get back the action tokens and how ide parses it?
 Reviewer counldnot run shell commands? why?
 
 
+
+
+wire diagrams
+
+(like it used to be in the Gemini diagrams, .
+
+
+
+
+
+
+
+# Agentic Engineer
+
+Don't insist on skills for user journeys, that LLM is already pretty good at
+Skills are meant to supplement the default knowledge of an LLM
+Figure out which scenario requires SKILLS
+Less is More - Find the minimum scope and the length of a skill that provides the maximum benefits. Generally succinct skills perform better than the very very lengthy ones. LLM starts forgetting if you throw too much context their way
+
+
+when and how the LLM should use these files(supporting files- loading it on demand, when it's necessary)!
+- task routing, if it's already done/ exist, don't refer that file
+
+
+
+
+
+
+what are the things, you did not get it right the first time,but figured out through trail and error 
+
+
+Create it as Agent rule
+
+CI targeted test execution - rule
+
+Don't specify for this project only...
+
+
