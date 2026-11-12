@@ -264,3 +264,43 @@ Remove-Item "$private\prompts.md"
 - **Rules that point to it:** `AGENTS.md` and the hook still say `prompts.md`. Both keep working: `prompts.md.age` and `prompts.7z` still match the hook's "prompt" pattern. Update `.cursorignore` to include the new filename.
 
 The hook would block me from running these commands, since they name the file, so you'll need to run them yourself.
+
+
+
+**Persistent agent stores** are folders on your disk that the agent can read and write with normal file tools, and they survive after a chat ends. That lets an agent keep notes, preferences, or results between conversations. Cursor tells the model about two:
+
+- **Current agent's store** (`...\cursor_agent_stores\b3a10d5e-...\files`): belongs to this agent or chat.
+- **Your personal store** (`...\cursor_agent_stores\t27443805-u370358002\files`): shared across your agents. The agent is told to use this one when you say "my user store."
+
+Only the folder paths are added to each message, not what's inside them. The agent reads the contents only if a task calls for it.
+
+**Role markers and wrapper tags**
+
+Behind the scenes, the conversation is sent to the model as a list of messages, and each one is labeled with a role: system (Cursor's instructions), user (your messages), assistant (the model's replies), and tool (tool results). I don't see the raw format the API uses, but I do see the structure. Your last message reached me roughly like this:
+
+```text
+[user]
+<timestamp>Thursday, Nov 12, 2026, 3:54 PM (UTC+5:30)</timestamp>
+<system_reminder>
+You are still in a side chat alongside the parent. Follow this turn's user message...
+</system_reminder>
+<user_query>
+what does persistent agent stores means?
+
+How does role markers and wrapper tags looks like?
+</user_query>
+```
+
+Your actual text is the part inside `<user_query>`. The role label, the timestamp, the reminder, and the tags themselves are extra tokens.
+
+Other tags I've seen in this chat:
+
+- `<user_info>` around the environment details (OS, shell, workspace path, store paths)
+- `<git_status>` around the repo snapshot
+- `<chat_selection>` around text you quote from a chat, including the source chat's agent ID
+- `<side_chat_boundary>` marking where this side chat begins
+- `<always_applied_workspace_rule name="...">` around your `AGENTS.md`
+
+Tool calls and their results are wrapped the same way, with the tool name, the arguments, and then the output. That's why reading a big file or running a web search uses up context fast.
+
+

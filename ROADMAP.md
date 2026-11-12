@@ -20,7 +20,7 @@ Shared contracts are in [architecture.md](architecture.md). Responsibility detai
 
 ## How to resume
 
-Pick the first unchecked slice. Route it through [the blueprint manifest](blueprints/README.md) and follow the build loop in `.cursor/orchestrator.md`. Slice branches are named `slice/<number>-<short-name>`. A slice is done only when its CI run is green and its blueprint records the evidence.
+Pick the first unchecked slice. Route it through [the blueprint manifest](blueprints/README.md). Slice branches are named `slice/<number>-<short-name>`. A slice is done only when its CI run is green and its blueprint records the evidence.
 
 ## Slices
 

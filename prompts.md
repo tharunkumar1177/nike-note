@@ -649,31 +649,159 @@ wire diagrams
 
 
 
+git branch --show-current; git stash push -u -m "auto-stash before switching to main"; git checkout main; git stash pop; git status --short | Select-Object -First 15; git branch --show-current
 
 
-# Agentic Engineer
+run git stash drop (list) once you've checked everything.
 
-Don't insist on skills for user journeys, that LLM is already pretty good at
-Skills are meant to supplement the default knowledge of an LLM
-Figure out which scenario requires SKILLS
-Less is More - Find the minimum scope and the length of a skill that provides the maximum benefits. Generally succinct skills perform better than the very very lengthy ones. LLM starts forgetting if you throw too much context their way
+----------
 
 
-when and how the LLM should use these files(supporting files- loading it on demand, when it's necessary)!
-- task routing, if it's already done/ exist, don't refer that file
+what is the difference between origin/main and main? origin main is remote and main is local - isn't it? is that right?
+
+Yes, mostly. `main` is your local branch, and you commit to it directly. `origin/main` is your local copy of where `main` was on the remote (`origin`) the last time you ran `git fetch` or `git pull`.
+
+The detail that trips people up is that `origin/main` doesn't update live. It only moves when you fetch, so it can fall behind the real remote.
+
+So when git said your branches "have diverged, and have 1 and 44 different commits each", it meant:
+- Local `main` has 1 commit that isn't on `origin/main`.
+- `origin/main` has 44 commits that your local `main` doesn't have yet.
+
+The merge you're in the middle of is git combining those two histories. That's how `prompts.md` ended up conflicted.
+
+
+
+- explain all the skill use cases briefly ($HOME/.cursor/skills)
+
+Does each word is a token?
+
+
+---
 
 
 
 
 
 
-what are the things, you did not get it right the first time,but figured out through trail and error 
 
 
-Create it as Agent rule
+
+Cursor already loads most extras lazily ([dynamic context discovery](https://cursor.com/blog/dynamic-context-discovery), [token-efficiency update](https://cursor.com/blog/improved-token-efficiency)):
+- **MCP tools:** only server and tool names go into the prompt. Full tool schemas are kept in a folder and read only when needed; Cursor measured a 46.9% token cut in sessions that used MCP tools.
+- **Skills:** only each skill's `name` and `description` are loaded up front. The body and `references/` files are read only when the skill is used.
+
+So unused items cost you their one-line listing, not their full content. Here's how to trim each item in your breakdown:
+
+| Item | Tokens | Can you reduce it? |
+|---|---|---|
+| MCP & dynamic tools | 4.6K | Yes |
+| Skills | 3.5K | Yes |
+| Subagent definitions | 3.4K | Yes |
+
+
+**1. MCP servers (4.6K).** The listing includes the usage instructions for each MCP server, and the browser server's are by far the longest. Turn off servers you aren't using under Customize → MCP in the sidebar; disabled servers aren't loaded at all. The same goes for the browser, subscriptions and app-control servers if you can toggle them in your build. Put project-only servers in `.cursor/mcp.json` inside that project instead of the global `~/.cursor/mcp.json`, so they load only where they're needed.
+
+**2. Skills (3.5K).** These are loaded from many places, including `~/.claude/skills` and `~/.codex/skills`, so check for strays there.
+- Delete skills you never use.
+- For skills you only start yourself with `/name`, add `disable-model-invocation: true` to the frontmatter. The docs say such a skill is then only included when you invoke it.
+- For skills that only matter for certain files, add `paths:` globs so they only show up when the agent works on matching files.
+- Shorten long descriptions. Your `reverse-engineer-anything` skill fits the `disable-model-invocation` case well: its description is long and it's rarely relevant to this project.
+- The ~14 built-in Cursor skills (canvas, loop, sdk and so on) can't be removed according to the docs.
+
+**3. Subagents (3.4K).** Every file in `.cursor/agents/` adds its description to every chat, and you have six. Trim the descriptions to one sentence each. Remove subagents the main agent shouldn't call directly: `productmind`'s own description says only the designer and researcher should invoke it, but it's still listed for every chat.
+
+**4. Rules (675).** These are fine. Keep `AGENTS.md` short, and use glob-scoped or "Apply Intelligently" rules instead of `alwaysApply: true` for anything that isn't universal.
+
+**5. Conversation (14K and growing).** This matters most:
+- Start a new chat for each separate task instead of continuing a long thread.
+- Use `/summarize` when a chat gets long.
+- Reference specific files or line ranges with `@` instead of pasting large logs or whole folders.
+- Large tool and shell outputs are already written to files rather than inlined, so you don't need to pre-trim them.
+
+One thing to fix while you're here: your global `~/.cursor/mcp.json` has the Context7 API key in plain text. Move it to an environment variable using `"CONTEXT7_API_KEY": "${env:CONTEXT7_API_KEY}"`. Since the key has now been printed in this chat, it's worth rotating it too. Context7 also isn't among this session's tools, so it may be disabled or failing to connect. If you don't use it, removing it costs nothing.
+
+If you'd like, I can trim the six subagent descriptions and add the frontmatter changes to `reverse-engineer-anything`.
+
+
+---
+
+
+You can still call one yourself with `/name`, for example `/architect design the sync layer`. 
+
+1. **Shorten the description.** It's the only part that's always loaded, so one short line keeps it cheap. You can also say "Only on explicit request." This is the right choice for `productmind`: your `designer` and `researcher` subagents call it by name, so it has to stay registered.
+2. **Turn it into a skill.** For a subagent you only ever start yourself, move its prompt into `.cursor/skills/<name>/SKILL.md` with `disable-model-invocation: true`. In the body, tell the agent to run the instructions in a subagent. The catch is that you lose the subagent-only fields like `readonly` and `model`.
+3. **Move the file out of the agents folders.** Put it somewhere Cursor doesn't scan, and move it back when you need it.
+
+
+## Codebase indexing: it's agentic search, not RAG
+
+**How it used to work.** Cursor split files into chunks and computed embeddings for them with its own embedding model. It kept them in sync using a Merkle tree of file hashes, so only changed files were re-processed. The agent then had a semantic-search tool it could call alongside grep ([how it worked](https://cursor.com/blog/semsearch), [indexing details](https://cursor.com/blog/secure-codebase-indexing)). Because the agent chose when to search instead of having chunks stuffed into the prompt automatically, that was agentic RAG rather than classic RAG.
+
+**How it works now.** From v3.12, Cursor dropped the embedding path ([Cursor staff on the forum](https://forum.cursor.com/t/codebase-indexing-not-working-in-v-3-12-onwards/167527/7)). The agent uses **Instant Grep**, a local index of short text fragments that narrows down which files can match a regex, then runs the full regex on just those files ([how it works](https://cursor.com/blog/fast-regex-search)). It also uses file globbing and file reads. The index stays on your machine, and no embeddings are stored on Cursor's servers ([Search docs](https://cursor.com/docs/agent/tools/search)).
+
+So today it's agentic search. The model decides what to look for, runs exact-match and regex searches, reads the hits, and repeats until it has what it needs. No similarity-based retrieval step runs before the model. On older builds the indexing progress bar may still show, but that doesn't mean a semantic search tool is available.
+
+
+---
+
+
+**What hooks can do**
+
+- **`preCompact`** is the only hook related to summarization. The [hooks docs](https://cursor.com/docs/agent/hooks) say it "cannot block or modify the compaction behavior." It receives `trigger` (whether compaction was "auto" or "manual"), `context_usage_percent`, `context_tokens`, and `messages_to_compact`. Its only output is a `user_message` shown when compaction happens, so it's good for logging or a notification and nothing more.
+- **`stop`** can return a `followup_message`, which Cursor sends as your next message. In theory a `stop` hook could send `/summarize`. However, the `stop` hook isn't told how full the context is, so it would have to guess, for example from the size of the transcript file at `transcript_path`. The docs also don't say whether a slash command sent this way runs as a command or arrives as plain text. I haven't tested it, so treat this as an experiment.
+
+**What works in practice**
+- Reduce how fast the window fills: delegate searching through lots of files to subagents (they return only a summary), and keep skill and subagent descriptions short, as we covered earlier.
+
+I can set up a `preCompact` hook that logs each compaction and how full the window was. I can also try the `stop` hook experiment and report whether it actually triggers summarization.
+
+
+
+---
+
+ 
+
+
+
+ # ROADMAP.md
+
+
+ How to build:
+
+ - and follow the build loop in `.cursor/orchestrator.md`
+
+
+---
+
+
+
+- **`/write-instructions`**: plain and easy to find. This is my pick.
+- **`/instructions`**: shorter, and still covers both writing and revising.
+- **`/prompt-writer`**: if you think of the output as prompts (rules, skills, `AGENTS.md`, command files).
+- **`/agent-instructions`**: if you want to make clear it's for agents, not human docs.
+
+
+
+
 
 CI targeted test execution - rule
 
-Don't specify for this project only...
+
+
+ the handoff note only needs the task-specific state.
+
+
+
+## Handoff
+Write a handoff note so another agent can continue this work. Put it in a `## Handoff` section directly after `## Guardrails` in `AGENTS.md`, replacing any existing `## Handoff` section. Include only what is not already in the Guardrails, `architecture.md`, or `blueprints/`.
+
+- Lessons: ... Write each as a general agent rule that is not specific to this project.
+
+
+---
+
+
+- A skill supplements what the model already knows. Do not write skills for user journeys the model already handles well.
+
 
 
