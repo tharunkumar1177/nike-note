@@ -207,7 +207,7 @@ Popup **Open Quire** focuses an existing app tab (found with `chrome.runtime.get
 - Node.js (pinned in `.nvmrc`), pnpm (pinned with `packageManager`), TypeScript strict mode, Vite.
 - Rust stable with `rustfmt` and `clippy`. Helper targets: `x86_64-pc-windows-msvc`, a universal macOS binary (`aarch64-apple-darwin` and `x86_64-apple-darwin`, merged with `lipo`), and `x86_64-unknown-linux-musl`.
 - Lockfiles (`pnpm-lock.yaml`, `helper/Cargo.lock`) are produced by CI and committed from CI artifacts, never hand-written. When a `package.json` change makes `pnpm-lock.yaml` stale, CI regenerates it for the rest of the run and the `lockfile` job fails until the regenerated file is committed.
-- GitHub Actions runs extension lint, type-check, unit tests, and build; helper format, lint, tests, and the release build on Windows; and Playwright end-to-end tests on Windows on the unpacked extension with the Windows helper. It runs on pushes to work branches, not on `main` after a merge. The macOS and Linux helpers are built and tested only by a manual run with `all_os` (`gh workflow run CI --ref main -f all_os=true`), for releases. Nothing runs locally.
+- GitHub Actions runs extension lint, type-check, unit tests, and build; helper format, lint, tests, and the release build on Windows; and Playwright end-to-end tests on Windows on the unpacked extension with the Windows helper. It runs on pushes to work branches, not on `main` after a merge. A push runs only the end-to-end specs its branch's changes can break, picked by `apps/extension/e2e/scope.ts` from the files changed since the branch left `main`, and skips them when no code changed; a manual run always runs the whole suite, and one is started on the work branch before it merges. The macOS and Linux helpers are built and tested only by a manual run with `all_os` (`gh workflow run CI --ref main -f all_os=true`), for releases. Nothing runs locally.
 
 ## Verification boundaries
 
@@ -216,7 +216,7 @@ Popup **Open Quire** focuses an existing app tab (found with `chrome.runtime.get
 | Unit (Vitest) | Protocol validators, helper client request matching, Markdown block and inline parsing, byte-exact round trips, source edits, link rules, sync and search results, search highlighting, AI settings, model choice, prompts, and error messages, the startup-chunk check, appearance settings, and the shortcut reference |
 | Unit (`cargo test`) | Framing, envelope handling, origin check, registration paths and manifests, page path safety, page reads and guarded writes, change classification and a live watch, sync against a local bare remote and a second clone, search matching, ranking, snippets, and supersession |
 | Install smoke (CI, each OS) | `install` writes the manifests or registry keys; `uninstall` removes them |
-| End-to-end (Playwright, Linux) | User-visible slice acceptance on the unpacked extension talking to the real helper |
+| End-to-end (Playwright, Windows) | User-visible slice acceptance on the unpacked extension talking to the real helper |
 
 ## Blueprints
 
