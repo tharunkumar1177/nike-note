@@ -8,7 +8,7 @@ The repository scaffold and the GitHub Actions workflow that checks, tests, and 
 
 **Status:** Partial
 
-Delivered by ROADMAP slice 1. Every job in `.github/workflows/ci.yml` passes on branch `slice/01-extension-skeleton`, including the three-OS helper matrix, the install smoke test, and the Playwright e2e job. Both lockfiles are committed from CI artifacts. Branch runs now build only the Windows helper and run the whole e2e suite on Windows, verified on a branch push; a merge to `main` starting no run and the manual `all_os` run are not yet verified.
+Delivered by ROADMAP slice 1. Every job in `.github/workflows/ci.yml` passes on branch `slice/01-extension-skeleton`, including the three-OS helper matrix, the install smoke test, and the Playwright e2e job. Both lockfiles are committed from CI artifacts. Branch runs build only the Windows helper and run e2e on Windows, verified on a branch push. Since slice 23 a push runs only the specs its changes can break: verified with a push changing no code (e2e skipped), a push changing only the search dialog (only `search.spec.ts` ran), and a manual run on a work branch (the whole suite ran and passed). A merge to `main` starting no run and the manual `all_os` run are not yet verified.
 
 ## Architecture dependencies
 
@@ -21,7 +21,11 @@ Delivered by ROADMAP slice 1. Every job in `.github/workflows/ci.yml` passes on 
 ## Local rules and implications
 
 - Triggers: a push to any branch except `main`, and a manual run (`workflow_dispatch`). A merge to `main` does not run CI again, since the branch already passed; there is no separate pull request run.
-- Jobs: `install` (pnpm, uploads `pnpm-lock.yaml`), then `lint`, `typecheck`, `test` in parallel, then `build` (uploads `quire-extension`). `helper` runs in parallel (fmt, clippy with `-D warnings`, tests, release build, install smoke test, uploads `quire-helper-<os>` and `Cargo.lock` from Windows). `e2e` needs `build` and `helper` and runs Playwright on Windows with the Windows helper.
+- Jobs: `install` (pnpm, uploads `pnpm-lock.yaml`), then `lint`, `typecheck`, `test` in parallel, then `build` (uploads `quire-extension`). `helper` runs in parallel (fmt, clippy with `-D warnings`, tests, release build, install smoke test, uploads `quire-helper-<os>` and `Cargo.lock` from Windows). `e2e-scope` (Linux, no install) picks the e2e specs. `e2e` needs `build`, `helper`, and `e2e-scope` and runs the picked specs with Playwright on Windows with the Windows helper.
+- E2e scope on a push: `apps/extension/e2e/scope.ts` reads the files the branch changed since its merge base with `origin/main`, so every push on a branch reruns the specs for all of the branch's code changes, not only its last commit. A changed spec runs itself. A file listed for a spec in `SPEC_SOURCES` runs that spec; the shared editor and Markdown model run every editor spec. A file in `WHOLE_SUITE` (the e2e harness, the app shell, `src/build/`, the helper's request loop and protocol, package manifests, lockfiles, and toolchain pins) runs the whole suite, and so does any file under `apps/`, `packages/`, or `helper/` the table does not know. Docs, plans, workflows, unit tests, and lint and type configs run nothing, and then `e2e` is skipped.
+- A manual run always runs the whole suite. Before a work branch merges, start one on it (`gh workflow run CI --ref <branch>`) and wait for it to pass, since a push run can skip a spec that a change breaks through code the table does not tie to it.
+- `e2e` installs Playwright's Chromium without `--with-deps`: on Windows that flag only installs Media Foundation, which took about three minutes, longer than most spec subsets.
+- A new spec needs an entry in `SPEC_SOURCES`, and a renamed or deleted source file has to be renamed or removed there; `tests/scope.test.ts` fails until the table lists every spec in `e2e/` and only paths that exist.
 - Helper operating systems: only Windows on branch pushes. A manual run with `all_os` checked (`gh workflow run CI --ref main -f all_os=true`) adds macOS and Linux, for releases. macOS runners cost ten times and Windows runners twice as many minutes as Linux.
 - The e2e harness registers the helper per test: a manifest in the profile's `NativeMessagingHosts` folder on Linux and macOS, plus `HKCU` registry keys for Chromium, Chrome, and Chrome for Testing on Windows, removed after each test. The sandbox is passed as `HOME` and `XDG_CONFIG_HOME`, or `USERPROFILE` and `LOCALAPPDATA` on Windows.
 - Lockfiles: while a lockfile is missing from the repo, CI resolves it and uploads it as an artifact. The agent commits the artifact contents. After that, installs are frozen (`--frozen-lockfile`, `cargo --locked`). When a `package.json` change makes `pnpm-lock.yaml` stale, the `install` job regenerates it and every later job uses the regenerated artifact, so the run still tests the change; the `lockfile` job fails until the agent commits the artifact.
@@ -48,6 +52,7 @@ None
 - `helper/Cargo.toml`, `helper/rust-toolchain.toml`: Rust pins
 - `packages/config/tests/dependency-direction.test.ts`: import direction rules
 - `apps/extension/playwright.config.ts`, `apps/extension/e2e/`: end-to-end harness
+- `apps/extension/e2e/scope.ts`, `apps/extension/tests/scope.test.ts`: picking specs from a branch's changes
 
 ## Acceptance or verification criteria
 
@@ -56,7 +61,10 @@ None
 - [x] Extension lint, type-check, unit tests, and build pass.
 - [x] A branch push builds and tests only the Windows helper (fmt, clippy, tests, release build, smoke test).
 - [ ] A manual run with `all_os` passes fmt, clippy, tests, and release builds on Windows, macOS, and Linux and uploads `quire-helper-macos` and `quire-helper-linux`.
-- [x] The e2e job on Windows runs the whole suite on the unpacked extension with the Windows helper.
+- [x] The e2e job on Windows runs Playwright on the unpacked extension with the Windows helper.
+- [x] A push runs only the specs `e2e/scope.ts` picks from the branch's changes, and skips e2e when no code changed.
+- [x] A manual run runs the whole e2e suite.
+- [x] `tests/scope.test.ts` fails when a spec has no entry in the table or the table lists a path that does not exist.
 - [x] Artifacts `quire-extension` and `quire-helper-windows` are uploaded on every run.
 
 ## Remaining gaps and unknowns
