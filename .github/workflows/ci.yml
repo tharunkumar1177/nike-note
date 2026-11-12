@@ -276,7 +276,9 @@ jobs:
           path: helper-bin
       - name: Point the tests at the helper
         run: echo "QUIRE_HELPER_BINARY=$GITHUB_WORKSPACE/helper-bin/quire-helper.exe" >> "$GITHUB_ENV"
-      - run: pnpm --filter @quire/extension exec playwright install --with-deps chromium
+      # No --with-deps: on Windows it only adds Media Foundation (about three
+      # minutes), which the Chromium the suite runs does not need.
+      - run: pnpm --filter @quire/extension exec playwright install chromium
       - name: Run the picked specs
         env:
           SPECS: ${{ needs.e2e-scope.outputs.specs }}
