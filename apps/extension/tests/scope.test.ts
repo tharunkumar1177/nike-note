@@ -89,10 +89,12 @@ describe("scopeFor", () => {
 
 describe("outputLines", () => {
   it("writes filters that match the spec on either path separator and nothing else", () => {
-    const [scope, specs] = outputLines({ kind: "some", specs: ["blocks", "math"] });
-    expect(scope).toBe("scope=some");
-    expect(specs).toBe("specs=[\\\\/]blocks\\.spec\\.ts$ [\\\\/]math\\.spec\\.ts$");
-    const blocks = new RegExp(specs.slice("specs=".length).split(" ")[0]);
+    expect(outputLines({ kind: "some", specs: ["blocks", "math"] })).toEqual([
+      "scope=some",
+      "specs=[\\\\/]blocks\\.spec\\.ts$ [\\\\/]math\\.spec\\.ts$",
+    ]);
+    const [filter] = outputLines({ kind: "some", specs: ["blocks"] })[1]?.slice("specs=".length).split(" ") ?? [];
+    const blocks = new RegExp(filter ?? "");
     expect(blocks.test("C:\\a\\apps\\extension\\e2e\\blocks.spec.ts")).toBe(true);
     expect(blocks.test("/a/apps/extension/e2e/blocks.spec.ts")).toBe(true);
     expect(blocks.test("/a/apps/extension/e2e/rich-blocks.spec.ts")).toBe(false);
