@@ -805,3 +805,293 @@ Write a handoff note so another agent can continue this work. Put it in a `## Ha
 
 
 
+
+-------------
+
+
+
+## Runtime environment
+
+- simple py and java code can be run locally
+- 
+
+"nothing runs locally" only applies to builds; browser - a local HTTP server
+
+
+wireframe: goal - just for developers understanding of UI. SVG - are rescalable . 
+Don't include/ update wireframe paths in blueprints.
+Test: That command set up a throwaway web server so I could look at the SVGs in the browser.
+
+```
+I copied my preview page, which put all six SVGs side by side, into a temporary folder under %TEMP%.
+I rewrote the image paths in that page from file:///c:/nike-ap/assets/wireframes/... to /w/....
+I created a directory junction (a Windows folder link) at %TEMP%\padlink-prev\w that points to c:\nike-ap\assets\wireframes. That way the server could reach the real SVGs without me copying them, so every reload showed the latest edits.
+I ran python -m http.server 8765 on that temporary folder and opened http://localhost:8765/ in the browser.
+
+- clean up the temp files
+```
+
+python version: Python 3.14.0a7
+
+openjdk 21.0.6 2025-01-21 LTS
+OpenJDK Runtime Environment Microsoft-10800203 (build 21.0.6+7-LTS)
+OpenJDK 64-Bit Server VM Microsoft-10800203 (build 21.0.6+7-LTS, mixed mode, sharing)
+
+Canvas: Mobile apps (potrait), desktop (landscape)
+
+style.md structure
+
+## cursor ignore
+
+- add hooks.json
+
+
+## Commands
+
+- Creating a command for ROADMAP.md workflow
+
+
+
+
+
+A directory junction is a folder entry that holds no files of its own. It stores a pointer to another folder, and Windows follows that pointer every time a program opens a path through it. Nothing gets copied because only one set of files exists on disk. The junction is just a second path that leads to them.
+
+**How it works**
+
+NTFS (the Windows file system) can mark a folder as a *reparse point*. A junction is one kind of reparse point, and it stores a target path. I created mine like this:
+
+```powershell
+cmd /c mklink /J "%TEMP%\padlink-prev\w" "c:\nike-ap\assets\wireframes"
+```
+
+Say a program asks for `%TEMP%\padlink-prev\w\settings-pen.svg`. As Windows works through the path, it reaches `w`, sees the reparse point, and swaps in the target. The request then continues as `c:\nike-ap\assets\wireframes\settings-pen.svg`. This all happens inside the operating system. Python, the browser, and every other program just see an ordinary folder called `w` holding the SVGs.
+
+**Why I used it for the preview**
+
+- The Python server was serving `%TEMP%\padlink-prev`, which held my temporary `preview.html`. I put it there so the preview page wouldn't end up in the repo.
+- `preview.html` loaded the images as `w/main-connected.svg`, `w/settings-pen.svg`, and so on.
+- Because `w` points to the real wireframes folder, the server was reading the actual repo files. When I saved an SVG and reloaded the page, the change showed up right away, with no copying or syncing.
+
+A copy would have gone stale after every edit. The junction meant there was only one version of each file.
+
+**Junctions compared with similar features**
+
+- **Shortcut (`.lnk`):** This is a normal file that only File Explorer understands. Python would just see a file called `w.lnk`, not a folder.
+- **Symbolic link (`mklink /D`):** This works much like a junction. It can also point to files or network paths, but on Windows it usually needs admin rights or Developer Mode. A junction only works for local folders and needs no special rights, so I used one.
+- **Hard link:** This only works for single files, not folders.
+
+**The risk with deleting junctions**
+
+Because programs see the junction as a real folder, deleting it the wrong way can delete the target's contents too. Some tools follow the link and empty it, older PowerShell's `Remove-Item -Recurse` among them. In this case that would have meant the real `assets\wireframes` folder. The safe way is `cmd /c rmdir "%TEMP%\padlink-prev\w"`, which removes only the link and leaves the target alone. That's what I used during cleanup. All your wireframes are still in place, and the temporary folder and junction no longer exist.
+
+
+## REA
+
+- Do not document reverse Eng source code class, paths, in Blueprints/ or architecture or anywhere; if really necessary create a sep manifest routing file to the code path
+
+
+It works now. `git check-ignore` no longer matches `references/decompiled`, and the plain `rg` search for `BluetoothHidDevice` (without `--no-ignore`) finds 11 files. Those include the expected `io/appground/blehid/ClassicHidService.java`, the `BluetoothHidDevice$Callback` stub, and several obfuscated classes in `defpackage/`: `c90`, `e10`, `op`, `fg0`, `ng0`, `hd0`, `mc`, `lc`, among others. So the earlier empty result was caused by the ignore rule, not by missing code.
+
+There's a side effect: git now shows `references/` as untracked, which is 9,168 files. A `git add -A` or `git add .` would stage the whole decompiled app and the screenshots. To keep it searchable without risking a commit, you could move the rule into `.git/info/exclude`. But that would hide the folder from ripgrep again, because ripgrep reads that file too. The other option is to keep it out of `.gitignore` and only ever stage explicit paths, which is what I've been doing anyway.
+
+
+-----------------------
+
+
+The check confirmed the rule works. With `references/**` back in `.gitignore`, plain `rg` finds 0 files in `references/decompiled`, while `rg --no-ignore` finds all 11 files that use `BluetoothHidDevice`.
+
+`rg --no-ignore-vcs` also finds the same 11 files. It only skips git's ignore files, so it's a slightly narrower option if you'd prefer it. Either way, the rule text I gave you works as written.
+
+
+----
+
+
+**HID (Human Interface Device)** is the standard way keyboards, mice, game controllers, and similar input devices talk to a computer. A HID device first sends the computer a *report descriptor*, a small block of bytes that describes the data it will send, for example "3 buttons, an X movement, a Y movement, and a scroll wheel." After that it sends short *reports* in that format, one each time something changes, such as "left button down, moved 5 right, 2 up."
+
+This is why the phone works as a mouse without installing anything on Windows. Over Bluetooth, the app makes the phone present itself as a HID mouse and keyboard. Windows already has drivers for HID, so it accepts the phone the same way it accepts a real Bluetooth mouse. The app supports both flavors of Bluetooth HID:
+
+- **Classic HID** uses Android's `BluetoothHidDevice` API, which is why that name came up in the searches.
+- **BLE HID** is the same idea over Bluetooth Low Energy, using the standard GATT HID service.
+
+The wired mode doesn't use HID. Instead, the Windows helper receives the movements over USB and injects them into Windows itself.
+
+**Obfuscated classes** are code that was deliberately renamed to be hard to read. Before releasing an Android app, developers usually run a tool such as R8 or ProGuard. It shrinks the app and replaces meaningful names like `GestureDetector` or `calculateAcceleration()` with short meaningless ones like `c90` or `a()`. The program behaves exactly the same; only the names are lost.
+
+In the decompiled reference app, you can see both kinds of code:
+
+- `io/appground/blehid/ClassicHidService.java` kept its real name. Android has to find certain classes by name, such as services listed in the app manifest, so those can't be renamed.
+- Most of the app's own logic ended up in `sources/defpackage/` under names like `c90.java`, `e10.java`, and `el5.java`.
+
+Because those names say nothing about what the code does, you can't find a feature by guessing a class name. You search for what can't be renamed: Android API calls (like `BluetoothHidDevice` or `MotionEvent`), text strings, and numeric constants. That's how the tap, scroll, and acceleration values were pulled from files like `ba.java` and `el5.java` earlier in the project.
+
+
+---
+
+
+
+---
+description: How to search and read the gitignored decompiled reference app in references/
+alwaysApply: true
+---
+
+# Decompiled reference code
+
+`references/` (the decompiled app in `references/decompiled/` and the
+screenshots in `references/*.jpg`) is listed in `.gitignore`. Tools that
+respect ignore files return nothing for it, so an empty result there does not
+mean the code is missing.
+
+## Searching
+
+- Do not use the Grep or Glob tools on `references/`; they return 0 matches.
+- Search with `rg` in the Shell, always passing `--no-ignore` and always
+  scoping to `references/` so other ignored files are never touched:
+
+  rg --no-ignore -n "BluetoothHidDevice" references/decompiled
+  rg --no-ignore -l "setReport" references/decompiled/sources
+  rg --no-ignore --files references/decompiled | rg "ClassicHidService"
+
+- To list a directory, use `Get-ChildItem references/decompiled/... -Recurse`.
+- Never run `--no-ignore` searches from the repository root.
+
+## Reading
+
+- Open files directly with the Read tool by absolute path, for example
+  `c:\nike-ap\references\decompiled\sources\io\appground\blehid\ClassicHidService.java`.
+- Obfuscated classes live in `sources/defpackage/` (for example `c90.java`,
+  `e10.java`); find them by searching for the platform APIs or string
+  constants they use, not by class name.
+
+## Git
+
+- Never stage, commit, or un-ignore anything under `references/`.
+- Stage explicit paths only; never `git add -A` or `git add .`.
+
+
+---------------------
+
+
+The check confirmed the rule works. With `references/**` back in `.gitignore`, plain `rg` finds 0 files in `references/decompiled`, while `rg --no-ignore` finds all 11 files that use `BluetoothHidDevice`.
+
+`rg --no-ignore-vcs` also finds the same 11 files. It only skips git's ignore files, so it's a slightly narrower option if you'd prefer it. Either way, the rule text I gave you works as written.
+
+
+---
+
+
+(Get-Command rg).Source
+
+ripgrep isn't installed on your system. The `rg` I used is a copy bundled with Cursor, and only agent shells have it on their PATH, so the rule still works for agents. In your own terminal you have three options.
+
+**1. Run Cursor's bundled copy by its full path:**
+
+```powershell
+& "$env:LOCALAPPDATA\Programs\cursor\resources\app\node_modules\@cursor\ripgrep-win32-x64\bin\rg.exe" --no-ignore -l "BluetoothHidDevice" references/decompiled
+```
+
+**2. Install ripgrep for your whole system** (recommended), then open a new terminal:
+
+```powershell
+winget install BurntSushi.ripgrep.MSVC
+```
+
+**3. Use PowerShell's built-in search**, which needs no install and doesn't read `.gitignore`:
+
+```powershell
+Get-ChildItem references/decompiled -Recurse -Filter *.java | Select-String "BluetoothHidDevice" -List | Select-Object -ExpandProperty Path
+```
+
+The third option is slower on the 9,000+ decompiled files, but it gives the same result.
+
+
+
+
+------------
+
+
+Cursor decides when to load a rule from its frontmatter. Which fields you fill in sets one of four trigger modes.
+
+| Mode | Frontmatter | When it loads |
+|---|---|---|
+| Always | `alwaysApply: true` | Every chat |
+| Auto Attached | `globs:` set, `alwaysApply: false` | When a file matching the glob is in context, such as one that is open, @-mentioned, or read by the agent |
+| Agent Requested | `description:` set, no `globs`, `alwaysApply: false` | The agent reads the description and pulls in the rule if it looks relevant |
+| Manual | No `description`, no `globs`, `alwaysApply: false` | Only when you type `@rule-name` in chat |
+
+Examples:
+
+```markdown
+---
+description: Kotlin conventions for the Android app
+globs: android/**/*.kt
+alwaysApply: false
+---
+```
+
+```markdown
+---
+description: Use when searching or reading the decompiled reference app in references/, or when comparing behavior against the original app
+alwaysApply: false
+---
+```
+
+Two more ways to scope a rule:
+
+- **Nested rules folders:** putting a `.cursor/rules/` folder inside a subdirectory, such as `android/.cursor/rules/`, limits those rules to work in that subtree.
+- **Multiple globs:** separate patterns with commas, as in `globs: android/**/*.kt, android/**/*.kts`.
+
+For your decompiled-code rule, Agent Requested is the best conditional choice. Auto Attached is a poor fit, because a glob like `references/**` only fires after a file from that folder is already in context. That is too late, since the rule exists to tell the agent how to find those files in the first place. With Agent Requested, the description is what triggers the rule, so phrase it the way you would ask: "decompiled", "reference app", "original app behavior". If you want it guaranteed in every chat, keep `alwaysApply: true`; the rule is short, so the extra context is small.
+
+
+-----------
+
+
+
+Here is the full rule with Agent Requested frontmatter. Save it as `.cursor/rules/decompiled-references.mdc`:
+
+```markdown
+---
+description: Use when searching, reading, or citing the decompiled reference app or its screenshots in references/, including comparing behavior, constants, HID descriptors, gestures, or UI against the original app. Explains how to search this gitignored folder.
+alwaysApply: false
+---
+
+# Decompiled reference code
+
+`references/` (the decompiled app in `references/decompiled/` and the
+screenshots in `references/*.jpg`) is listed in `.gitignore`. Tools that
+respect ignore files return nothing for it, so an empty result there does not
+mean the code is missing.
+
+## Searching
+
+- Do not use the Grep or Glob tools on `references/`; they return 0 matches.
+- Search with `rg` in the Shell, always passing `--no-ignore` and always
+  scoping to `references/` so other ignored files are never touched:
+
+  rg --no-ignore -n "BluetoothHidDevice" references/decompiled
+  rg --no-ignore -l "setReport" references/decompiled/sources
+  rg --no-ignore --files references/decompiled | rg "ClassicHidService"
+
+- To list a directory, use `Get-ChildItem references/decompiled/... -Recurse`.
+- Never run `--no-ignore` searches from the repository root.
+
+## Reading
+
+- Open files directly with the Read tool by absolute path, for example
+  `c:\nike-ap\references\decompiled\sources\io\appground\blehid\ClassicHidService.java`.
+- Obfuscated classes live in `sources/defpackage/` (for example `c90.java`,
+  `e10.java`); find them by searching for the platform APIs or string
+  constants they use, not by class name.
+
+## Git
+
+- Never stage, commit, or un-ignore anything under `references/`.
+- Stage explicit paths only; never `git add -A` or `git add .`.
+```
+
+The rule omits `globs` and sets `alwaysApply: false`, which makes it Agent Requested. The agent decides whether to load it from the `description` alone. That's why the description names the folder, uses words like "decompiled", "reference app", and "original app", and lists common topics such as HID descriptors and gestures.
+
+If an agent still misses the rule in a chat, type `@decompiled-references` to load it by hand.
+
+
+
