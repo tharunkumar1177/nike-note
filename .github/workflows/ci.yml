@@ -3,6 +3,8 @@
 # Windows. Pushes to work branches build only the Windows helper; macOS and
 # Linux are built only by a manual run with "all_os" (for releases). Main is
 # not rebuilt after a merge, since its branch already passed.
+# A push runs only the e2e specs the branch's changes can break (picked by
+# apps/extension/e2e/scope.ts); a manual run always runs the whole suite.
 # A stale pnpm-lock.yaml is regenerated here and shared as an artifact; the
 # "lockfile" job stays red until that regenerated file is committed.
 name: CI
@@ -222,8 +224,33 @@ jobs:
           path: helper/Cargo.lock
           if-no-files-found: error
 
+  # Picks the e2e specs from the files the branch changed since it left main.
+  e2e-scope:
+    runs-on: ubuntu-latest
+    outputs:
+      scope: ${{ steps.pick.outputs.scope }}
+      specs: ${{ steps.pick.outputs.specs }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+      - name: Pick the specs
+        id: pick
+        working-directory: apps/extension
+        run: |
+          set -o pipefail
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            printf 'scope=all\nspecs=\n' | tee -a "$GITHUB_OUTPUT"
+          else
+            node e2e/scope.ts origin/main | tee -a "$GITHUB_OUTPUT"
+          fi
+
   e2e:
-    needs: [build, helper]
+    needs: [build, helper, e2e-scope]
+    if: needs.e2e-scope.outputs.scope != 'none'
     runs-on: windows-latest
     defaults:
       run:
@@ -249,8 +276,15 @@ jobs:
           path: helper-bin
       - name: Point the tests at the helper
         run: echo "QUIRE_HELPER_BINARY=$GITHUB_WORKSPACE/helper-bin/quire-helper.exe" >> "$GITHUB_ENV"
-      - run: pnpm --filter @quire/extension exec playwright install --with-deps chromium
-      - run: pnpm --filter @quire/extension e2e
+      # No --with-deps: on Windows it only adds Media Foundation (about three
+      # minutes), which the Chromium the suite runs does not need.
+      - run: pnpm --filter @quire/extension exec playwright install chromium
+      - name: Run the picked specs
+        env:
+          SPECS: ${{ needs.e2e-scope.outputs.specs }}
+        run: |
+          set -f
+          pnpm --filter @quire/extension e2e $SPECS
       - uses: actions/upload-artifact@v7
         if: failure()
         with:

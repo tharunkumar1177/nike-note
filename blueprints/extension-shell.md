@@ -54,7 +54,7 @@ None
 - `apps/extension/src/app/`: app page and connection screens
 - `apps/extension/src/shared/`: identity, protocol, helper client, and tokens
 - `apps/extension/tests/`: unit tests
-- `apps/extension/e2e/`: Playwright tests against the unpacked build and the real helper
+- `apps/extension/e2e/`: Playwright tests against the unpacked build and the real helper; `e2e/scope.ts` lists which source files each spec covers (see [build-pipeline](build-pipeline.md))
 
 ## Acceptance or verification criteria
 
