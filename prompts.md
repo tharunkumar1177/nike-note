@@ -1095,3 +1095,118 @@ If an agent still misses the rule in a chat, type `@decompiled-references` to lo
 
 
 
+------------------
+
+
+**HID (Human Interface Device)** is the standard way keyboards, mice, game controllers, and similar input devices talk to a computer. A HID device first sends the computer a *report descriptor*, a small block of bytes that describes the data it will send, for example "3 buttons, an X movement, a Y movement, and a scroll wheel." After that it sends short *reports* in that format, one each time something changes, such as "left button down, moved 5 right, 2 up."
+
+This is why the phone works as a mouse without installing anything on Windows. Over Bluetooth, the app makes the phone present itself as a HID mouse and keyboard. Windows already has drivers for HID, so it accepts the phone the same way it accepts a real Bluetooth mouse. The app supports both flavors of Bluetooth HID:
+
+- **Classic HID** uses Android's `BluetoothHidDevice` API, which is why that name came up in the searches.
+- **BLE HID** is the same idea over Bluetooth Low Energy, using the standard GATT HID service.
+
+The wired mode doesn't use HID. Instead, the Windows helper receives the movements over USB and injects them into Windows itself.
+
+**Obfuscated classes** are code that was deliberately renamed to be hard to read. Before releasing an Android app, developers usually run a tool such as R8 or ProGuard. It shrinks the app and replaces meaningful names like `GestureDetector` or `calculateAcceleration()` with short meaningless ones like `c90` or `a()`. The program behaves exactly the same; only the names are lost.
+
+In the decompiled reference app, you can see both kinds of code:
+
+- `io/appground/blehid/ClassicHidService.java` kept its real name. Android has to find certain classes by name, such as services listed in the app manifest, so those can't be renamed.
+- Most of the app's own logic ended up in `sources/defpackage/` under names like `c90.java`, `e10.java`, and `el5.java`.
+
+Because those names say nothing about what the code does, you can't find a feature by guessing a class name. You search for what can't be renamed: Android API calls (like `BluetoothHidDevice` or `MotionEvent`), text strings, and numeric constants. That's how the tap, scroll, and acceleration values were pulled from files like `ba.java` and `el5.java` earlier in the project.
+
+
+
+
+--------------
+
+
+
+
+Wireframes, named NN-<screen>-<state>.svg in flow order:
+
+
+
+cursorignore: - .cursor/commands
+
+
+style.md states the SVGs only show layout while behavior, copy, states, and accessibility live in the accompanying spec files,
+
+
+---------------------
+
+
+Yes, keep them, though they can be trimmed. They hold the parts an SVG can't show, and the blueprints link to them about 20 times, with 14 of those links in `editor-ui.md` alone.
+
+The SVGs show layout only; `style.md` says so. A note like `audio-slice8.md` also contains:
+
+- **Behavior:** where added music lands, the 8-lane cap, what Undo does after Extract, how fades shrink when a clip is trimmed, when a panel closes.
+- **Enable rules:** when Extract is disabled, and when Volume and Fade appear (not for photos).
+- **Exact copy and accessibility labels**, such as "Add audio at playhead" and "Mute audio" / "Unmute audio". The SVGs reuse this copy word for word, but they don't hold the labels or the rules behind them.
+
+If you deleted the notes, that information would only survive in the code, so the blueprints' acceptance criteria would have nothing to check against.
+
+What's now redundant is the ASCII layout sketch in each note. The SVGs replace those, and keeping both means two drawings of the same screen that can drift apart.
+
+Two ways to clean this up:
+
+1. **Trim the notes (my recommendation):** remove the ASCII sketches, link each note to its SVGs, and keep the behavior, copy and accessibility text. The blueprint links keep working.
+2. **Move the behavior into the blueprints and delete the notes:** this leaves one less place to look, but the blueprints get much longer and all those links have to be rewritten. That cuts against the blueprints skill's idea of keeping blueprints short and loading detail only when it's needed.
+
+Do you want me to go ahead with option 1?
+
+
+
+----------------------------
+
+
+
+Mostly yes for the application's rules, but only partly for screen-level detail. I compared `blueprints/audio.md` and `blueprints/editor-ui.md` with `audio-slice8.md`. The other feature blueprints (text, look, masks, captions and so on) follow the same structure.
+
+**Already in the blueprints:**
+- The rules behind the screens. `audio.md` covers where music lands, the 8-lane cap, what Extract does and how Undo reverses it, that deleting the extracted copy leaves the video muted, how fades shrink on trim, and how they divide on split. These match the note almost line for line, with class names and tests attached.
+- The editor's overall flow. `editor-ui.md` says which tool opens which picker, sheet or panel, when things commit (one command per drag end), when panels close, and which tools appear for which selection, in summary form.
+
+**Only in the per-screen notes:**
+- **Exact copy and accessibility labels**, such as "Add audio at playhead", "Mute audio" / "Unmute audio" and "Fade in" / "Fade out". The blueprints quote one snackbar message and nothing else.
+- **Detailed tool rules**: the full tool row for each selection and its order, which tools are hidden and which are disabled, and the disabled opacity.
+- **Visual specs**: waveform bars 2 dp wide with 2 dp gaps, fade shading in black at 40%, the flat line shown while loading, and half or full strength by selection.
+- **Small interaction details**, for example that the speaker returns to 100% when there was no earlier audible volume.
+
+The blueprints also lean on the notes as the spec. Acceptance criteria are written as "Audio follows `assets/wireframes/audio-slice8.md`: …", and the tests are checked against the notes.
+
+So the blueprints don't replace the notes. Only the domain rules are duplicated, and those already live in the blueprints, which is where they belong. Merging the notes into the blueprints would mostly mean moving UI copy and pixel specs into documents meant for architecture and routing. Trimming the notes fits better: remove the ASCII sketches the SVGs now replace, and optionally remove the domain rules the blueprints already state. That would leave each note as the screen's spec for layout, copy, labels and visual detail.
+
+
+
+--------------
+
+
+
+Don't write CI workflows, unless user approves it
+
+
+
+--------------------
+
+
+Hooks are a good way to enforce the rules in your `AGENTS.md`. Right now the agent follows those rules only because it's told to. A hook checks them on every action, the same way your read guard already protects `prompts.md`. Here are the ideas that fit this repo, roughly in order of value.
+
+
+**Workflow automation**
+
+- **Load the orchestrator at session start.** A `sessionStart` hook could add `.cursor/orchestrator.md` to the context automatically, instead of relying on the agent to read it.
+- **Run the CI check after every push.** A `postToolUse` hook on `git push` could add a reminder telling the agent to start `ci-reviewer` right away.
+- **Keep subagents in their lanes.** A `subagentStart` hook could block agents you've reserved for specific callers. For example, `productmind` is meant to be called only from `designer` or `researcher`.
+- **Check work before the agent finishes.** A `stop` or `subagentStop` hook could send back a follow-up such as "blueprints not updated for changed files" so the agent keeps working until that's done. A `loop_limit` would stop it from cycling forever.
+
+**Safety and auditing**
+
+- **Scan prompts for secrets.** A `beforeSubmitPrompt` hook could block a prompt containing API keys or tokens before it's sent.
+- **Confirm destructive commands.** A `beforeShellExecution` hook returning `"permission": "ask"` would make you approve commands like `git push --force`, `git reset --hard` or `rm -r`.
+- **Keep a command log.** An `afterShellExecution` hook could write every command the agent runs to a log file, alongside your prompt log.
+
+
+
+
